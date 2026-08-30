@@ -430,7 +430,7 @@ void ArenaTeam::Roster(WorldSession* session)
     packet.SeasonMatchesPlayed = stats.SeasonGames;
     packet.SeasonMatchesWon = stats.SeasonWins;
     packet.Rating = stats.Rating;
-    packet.Rating = stats.Rank;
+    packet.Ranking = stats.Rank;
 
     for (ArenaTeamMember const& member : Members)
     {
@@ -508,7 +508,7 @@ void ArenaTeamMember::ModifyMatchmakerRating(int32 mod, uint32 /*slot*/)
         MatchMakerRating += mod;
 }
 
-void ArenaTeam::BroadcastPacket(WorldPacket* packet)
+void ArenaTeam::BroadcastPacket(WorldPacket const* packet)
 {
     for (MemberList::const_iterator itr = Members.begin(); itr != Members.end(); ++itr)
         if (Player* player = ObjectAccessor::FindConnectedPlayer(itr->Guid))
@@ -823,6 +823,17 @@ void ArenaTeam::SaveToDB(bool forceMemberSave)
     }
 
     CharacterDatabase.CommitTransaction(trans);
+}
+
+void ArenaTeam::BroadcastEvent(ArenaTeamEvents event, std::string const& str1, std::string const& str2, std::string const& str3)
+{
+    WorldPackets::Arena::ArenaTeamEvent packet;
+    packet.Event = event;
+    packet.Params[0] = str1;
+    packet.Params[1] = str2;
+    packet.Params[2] = str3;
+
+    BroadcastPacket(packet.Write());
 }
 
 bool ArenaTeam::FinishWeek()

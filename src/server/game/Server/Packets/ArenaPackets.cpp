@@ -17,6 +17,7 @@
 
 #include "ArenaPackets.h"
 #include "PacketUtilities.h"
+#include "Player.h"
 #include "SharedDefines.h"
 
 WorldPacket const* WorldPackets::Arena::PvpSeason::Write()
@@ -82,6 +83,67 @@ WorldPacket const* WorldPackets::Arena::QueryArenaTeamResponse::Write()
 
         _worldPacket.WriteString(Name);
     }
+
+    return &_worldPacket;
+}
+
+WorldPacket const* WorldPackets::Arena::ArenaTeamCommandResult::Write()
+{
+    _worldPacket << uint8(Action);
+    _worldPacket << uint8(ErrorID);
+
+    _worldPacket << BitsSize<7>(TeamName);
+    _worldPacket << BitsSize<6>(PlayerName);
+    _worldPacket.FlushBits();
+
+    _worldPacket.WriteString(TeamName);
+    _worldPacket.WriteString(PlayerName);
+
+    return &_worldPacket;
+}
+
+WorldPacket const* WorldPackets::Arena::ArenaTeamEvent::Write()
+{
+    _worldPacket << uint8(Event);
+
+    for (std::string const& param : Params)
+        _worldPacket << BitsSize<9>(param);
+
+    _worldPacket.FlushBits();
+
+    for (std::string const& param : Params)
+        _worldPacket.WriteString(param);
+
+    return &_worldPacket;
+}
+
+void WorldPackets::Arena::ArenaTeamDisband::Read()
+{
+    _worldPacket >> TeamID;
+}
+
+void WorldPackets::Arena::ArenaTeamLeave::Read()
+{
+    _worldPacket >> TeamID;
+}
+
+void WorldPackets::Arena::QueryArenaTeam::Read()
+{
+    _worldPacket >> TeamID;
+}
+
+WorldPacket const* WorldPackets::Arena::ArenaTeamInvite::Write()
+{
+    _worldPacket << PlayerGUID;
+    _worldPacket << uint32(PlayerVirtualAddress);
+    _worldPacket << TeamGUID;
+
+    _worldPacket << BitsSize<6>(PlayerName);
+    _worldPacket << BitsSize<7>(TeamName);
+    _worldPacket.FlushBits();
+
+    _worldPacket.WriteString(PlayerName);
+    _worldPacket.WriteString(TeamName);
 
     return &_worldPacket;
 }
