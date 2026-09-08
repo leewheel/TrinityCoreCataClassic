@@ -21,3 +21,6 @@ DatabaseWorkerPool<WorldDatabaseConnection> WorldDatabase;
 DatabaseWorkerPool<CharacterDatabaseConnection> CharacterDatabase;
 DatabaseWorkerPool<LoginDatabaseConnection> LoginDatabase;
 DatabaseWorkerPool<HotfixDatabaseConnection> HotfixDatabase;
+//By leewheel 2026-09-06: 移植mod-playerbots，新增Playerbots数据库全局实例
+DatabaseWorkerPool<PlayerbotsDatabaseConnection> PlayerbotsDatabase;
+//End By leewheel

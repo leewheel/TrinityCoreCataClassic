@@ -1,0 +1,105 @@
+/* 副本机器人策略 */
+#ifndef PLAYERBOTS_GRUULHELPERS_H
+#define PLAYERBOTS_GRUULHELPERS_H
+
+#include "Common.h"
+//By leewheel 2026-09-04: 上游52e295d2/3b0ee7f7/93369f55——补ObjectGuid/vector前置声明
+#include "ObjectGuid.h"
+#include "Position.h"
+#include <type_traits>
+#include <vector>
+
+class Player;
+class PlayerbotAI;
+class Unit;
+//End By leewheel
+
+namespace GruulHelpers
+{
+
+template <typename T, std::enable_if_t<std::is_enum_v<T>, int> = 0>
+constexpr uint32 Id(T value)
+{
+    return static_cast<uint32>(value);
+}
+
+enum class GruulSpells : uint32
+{
+    // High King Maulgar
+    SPELL_WHIRLWIND     = 33238,
+
+    // Krosh Firehand
+    SPELL_SPELL_SHIELD  = 33054,
+
+    // Hunter
+    SPELL_MISDIRECTION  = 35079,
+
+    // Mage
+    SPELL_SPELLSTEAL    = 30449,
+
+    // Gruul the Dragonkiller
+    SPELL_GROUND_SLAM_1 = 33525,
+    SPELL_GROUND_SLAM_2 = 39187,
+};
+
+enum class GruulNpcs : uint32
+{
+    NPC_WILD_FEL_STALKER = 18847,
+};
+
+inline constexpr uint32 GRUUL_MAP_ID = 565;
+//By leewheel 2026-09-04: 上游52e295d2/b0f10e6c/8baf63da——安全距离常量族(精确2维, 由法术半径+避让余量算得)
+// Ogre combat reaches:
+// (1) Maulgar = 3.5y, (2) Olm = 2.2y, (3) Blindeye = 3.525y, (4) Krosh = 2y, (5) Kiggler = 3.3y
+//
+// Safe distances below are exact 2D, calculated from the raw spell radius (technically exact 3D).
+// Radius is 15y with 2y of MoveAway padding.
+inline constexpr float KROSH_BLAST_WAVE_SAFE_DISTANCE = 17.0f;
+// Radius is 8y, padded to 8 * sqrt(2) rather than the 2y used elsewhere. The tl;dr is MoveAway()'s
+// fallback candidates (when running straight back is blocked) can end up moving the bot less than
+// the prescribed distance. Maulgar is tanked against a wall and fears and charges and can end up
+// turned away from the wall as a result, with melee dps between him and the wall and failing the
+// straight-away movement.
+inline constexpr float MAULGAR_WHIRLWIND_SAFE_DISTANCE = 12.0f;
+// Distance for the multiplier, which as usual, needs to be a little more than the escape distance.
+inline constexpr float MAULGAR_WHIRLWIND_HOLD_DISTANCE = 15.0f;
+// Radius is 30y with 2y of MoveAway padding. Stays inside the mod's "enemy out of spell" threshold
+// (spellDistance + CONTACT_DISTANCE + both reaches, ~34y exact against Kiggler), allowing the
+// boomie to attack Kiggler, even without reach-increasing talents, without being in range of
+// Kiggler's Arcane Explosion.
+inline constexpr float KIGGLER_ARCANE_EXPLOSION_SAFE_DISTANCE = 32.0f;
+// Radius is 20y with 2y of MoveAway padding. Sort of. The details are not really important; I note
+// only that damage has a linear relationship with distance.
+inline constexpr float GRUUL_SHATTER_SAFE_DISTANCE = 22.0f;
+inline constexpr float WILD_FEL_STALKER_SEARCH_RADIUS = 50.0f;
+// Feeds the "high king maulgar wild fel stalkers" value
+inline constexpr uint32 WILD_FEL_STALKER_CACHE_INTERVAL_MS = 1000;
+// Feeds the "high king maulgar krosh mage tank" and "high king maulgar kiggler moonkin tank" values
+inline constexpr uint32 CASTER_TANK_CACHE_INTERVAL_MS = 1000;
+//End By leewheel
+inline constexpr float BLINDEYE_ENGAGED_HEALTH_PCT = 75.0f;
+
+inline Position const MAULGAR_TANK_POSITION  = {  90.686f, 167.047f, -13.234f };
+inline Position const OLM_TANK_POSITION      = { 101.050f, 219.359f,  -9.503f };
+inline Position const BLINDEYE_TANK_POSITION = {  99.681f, 213.989f, -10.345f };
+inline Position const KROSH_TANK_POSITION    = { 116.880f, 166.208f, -14.231f };
+inline Position const GRUUL_TANK_POSITION    = { 241.238f, 365.025f,  -4.220f };
+
+bool IsMaulgarTank(Player* bot);
+bool IsOlmTank(Player* bot);
+bool IsBlindeyeTank(Player* bot);
+//By leewheel 2026-09-04: 上游3b0ee7f7/93369f55——tank选择GUID化+值缓存包装
+ObjectGuid FindKroshMageTankGuid(Player* bot);
+Player* GetKroshMageTank(Player* bot);
+bool IsKroshMageTank(Player* bot);
+ObjectGuid FindKigglerMoonkinTankGuid(Player* bot);
+Player* GetKigglerMoonkinTank(Player* bot);
+bool IsKigglerMoonkinTank(Player* bot);
+bool HasGroundSlam(Player* bot);
+GuidVector FindNearbyWildFelStalkerGuids(Player* bot);
+std::vector<Unit*> GetNearbyWildFelStalkers(PlayerbotAI* botAI);
+//End By leewheel
+
+}
+
+#endif

@@ -27,6 +27,9 @@
 #include "AuthDefines.h"
 #include "ClientBuildInfo.h"
 #include "DatabaseEnvFwd.h"
+//By leewheel 2026-09-06: 移植mod-playerbots，LoginQueryHolder继承自SQLQueryHolder，需要完整定义而非前向声明
+#include "QueryHolder.h"
+//End By leewheel
 #include "Duration.h"
 #include "IteratorPair.h"
 #include "LockedQueue.h"
@@ -47,7 +50,20 @@ class CollectionMgr;
 class Creature;
 class InstanceLock;
 class Item;
-class LoginQueryHolder;
+//By leewheel 2026-09-06: 移植mod-playerbots，将LoginQueryHolder从CharacterHandler.cpp移至头文件，供Playerbots模块继承
+class LoginQueryHolder : public CharacterDatabaseQueryHolder
+{
+private:
+    uint32 m_accountId;
+    ObjectGuid m_guid;
+public:
+    LoginQueryHolder(uint32 accountId, ObjectGuid guid)
+        : m_accountId(accountId), m_guid(guid) { }
+    ObjectGuid GetGuid() const { return m_guid; }
+    uint32 GetAccountId() const { return m_accountId; }
+    bool Initialize();
+};
+//End By leewheel
 class MessageBuffer;
 class Player;
 class Unit;
@@ -949,6 +965,10 @@ class TC_GAME_API WorldSession
         uint32 GetBattlenetAccountId() const { return _battlenetAccountId; }
         ObjectGuid GetBattlenetAccountGUID() const { return ObjectGuid::Create<HighGuid::BNetAccount>(GetBattlenetAccountId()); }
         Player* GetPlayer() const { return _player; }
+        //By leewheel 2026-09-06: 移植mod-playerbots，新增机器人会话标志
+        bool IsBot() const { return _isBot; }
+        void SetBot(bool isBot = true) { _isBot = isBot; }
+        //End By leewheel
         std::string const& GetPlayerName() const;
         std::string GetPlayerInfo() const;
 
@@ -991,6 +1011,9 @@ class TC_GAME_API WorldSession
         bool DisallowHyperlinksAndMaybeKick(std::string const& str);
 
         void QueuePacket(WorldPacket* new_packet);
+        //By leewheel 2026-09-06: 移植mod-playerbots，暴露接收队列供机器人模块处理机器人数据包
+        LockedQueue<WorldPacket*>& GetPacketQueue() { return _recvQueue; }
+        //End By leewheel
         bool Update(uint32 diff, PacketFilter& updater);
 
         /// Handle the authentication waiting queue (to be completed)
@@ -1835,6 +1858,9 @@ class TC_GAME_API WorldSession
 
         ObjectGuid::LowType m_GUIDLow;                      // set logined or recently logout player (while m_playerRecentlyLogout set)
         Player* _player;
+        //By leewheel 2026-09-06: 移植mod-playerbots，机器人会话标志成员
+        bool _isBot = false;
+        //End By leewheel
         std::shared_ptr<WorldSocket> m_Socket[MAX_CONNECTION_TYPES];
         std::string m_Address;                              // Current Remote Address
      // std::string m_LAddress;                             // Last Attempted Remote Adress - we can not set attempted ip for a non-existing session!

@@ -1,0 +1,22 @@
+/*
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
+ */
+
+#ifndef PLAYERBOTS_WIPEACTION_H
+#define PLAYERBOTS_WIPEACTION_H
+
+#include "Action.h"
+
+class PlayerbotAI;
+
+class WipeAction : public Action
+{
+public:
+    WipeAction(PlayerbotAI* botAI) : Action(botAI, "wipe") {}
+
+    bool Execute(Event event) override;
+    //By leewheel 2026-09-04: 上游——删除未使用的 bossName 成员
+};
+
+#endif

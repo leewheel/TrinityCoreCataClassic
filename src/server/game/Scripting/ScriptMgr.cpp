@@ -2153,6 +2153,175 @@ void ScriptMgr::OnPlayerChoiceResponse(Player* player, uint32 choiceId, uint32 r
     FOREACH_SCRIPT(PlayerScript)->OnPlayerChoiceResponse(player, choiceId, responseId);
 }
 
+//By leewheel 2026-09-06: 移植mod-playerbots，新增Playerbots派发实现(遍历所有PlayerScript)
+// ===== Playerbots 扩展方法实现开始 =====
+void ScriptMgr::OnPlayerAfterUpdate(Player* player, uint32 diff) { FOREACH_SCRIPT(PlayerScript)->OnPlayerAfterUpdate(player, diff); }
+bool ScriptMgr::OnPlayerCanUseChat(Player* player, uint32 type, uint32 lang, std::string& msg, Player* receiver)
+{
+    bool result = true;
+    FOR_SCRIPTS(PlayerScript, itr, end)
+        if (!itr->second->OnPlayerCanUseChat(player, type, lang, msg, receiver))
+            result = false;
+    return result;
+}
+bool ScriptMgr::OnPlayerCanUseChat(Player* player, uint32 type, uint32 lang, std::string& msg, Group* group)
+{
+    bool result = true;
+    FOR_SCRIPTS(PlayerScript, itr, end)
+        if (!itr->second->OnPlayerCanUseChat(player, type, lang, msg, group))
+            result = false;
+    return result;
+}
+bool ScriptMgr::OnPlayerCanUseChat(Player* player, uint32 type, uint32 lang, std::string& msg, Guild* guild)
+{
+    bool result = true;
+    FOR_SCRIPTS(PlayerScript, itr, end)
+        if (!itr->second->OnPlayerCanUseChat(player, type, lang, msg, guild))
+            result = false;
+    return result;
+}
+bool ScriptMgr::OnPlayerCanUseChat(Player* player, uint32 type, uint32 lang, std::string& msg, Channel* channel)
+{
+    bool result = true;
+    FOR_SCRIPTS(PlayerScript, itr, end)
+        if (!itr->second->OnPlayerCanUseChat(player, type, lang, msg, channel))
+            result = false;
+    return result;
+}
+bool ScriptMgr::OnPlayerBeforeTeleport(Player* player, uint32 mapid, float x, float y, float z, float orientation, uint32 options, Unit* target)
+{
+    bool result = true;
+    FOR_SCRIPTS(PlayerScript, itr, end)
+        if (!itr->second->OnPlayerBeforeTeleport(player, mapid, x, y, z, orientation, options, target))
+            result = false;
+    return result;
+}
+bool ScriptMgr::OnPlayerBeforeAchievementComplete(Player* player, AchievementEntry const* achievement)
+{
+    bool result = true;
+    FOR_SCRIPTS(PlayerScript, itr, end)
+        if (!itr->second->OnPlayerBeforeAchievementComplete(player, achievement))
+            result = false;
+    return result;
+}
+
+bool ScriptMgr::OnPlayerbotCheckLFGQueue(lfg::Lfg5Guids const& guidsList)
+{
+    bool result = true;
+    FOR_SCRIPTS(PlayerScript, itr, end)
+        if (!itr->second->OnPlayerbotCheckLFGQueue(guidsList))
+            result = false;
+    return result;
+}
+void ScriptMgr::OnPlayerbotCheckKillTask(Player* player, Unit* victim) { FOREACH_SCRIPT(PlayerScript)->OnPlayerbotCheckKillTask(player, victim); }
+void ScriptMgr::OnPlayerbotCheckPetitionAccount(Player* player, bool& found)
+{
+    FOR_SCRIPTS(PlayerScript, itr, end)
+        itr->second->OnPlayerbotCheckPetitionAccount(player, found);
+}
+bool ScriptMgr::OnPlayerbotCheckUpdatesToSend(Player* player)
+{
+    bool result = true;
+    FOR_SCRIPTS(PlayerScript, itr, end)
+        if (!itr->second->OnPlayerbotCheckUpdatesToSend(player))
+            result = false;
+    return result;
+}
+void ScriptMgr::OnPlayerbotPacketSent(Player* player, WorldPacket const* packet) { FOREACH_SCRIPT(PlayerScript)->OnPlayerbotPacketSent(player, packet); }
+void ScriptMgr::OnPlayerbotUpdate(uint32 diff) { FOREACH_SCRIPT(PlayerScript)->OnPlayerbotUpdate(diff); }
+void ScriptMgr::OnPlayerbotUpdateSessions(Player* player) { FOREACH_SCRIPT(PlayerScript)->OnPlayerbotUpdateSessions(player); }
+void ScriptMgr::OnPlayerbotLogout(Player* player) { FOREACH_SCRIPT(PlayerScript)->OnPlayerbotLogout(player); }
+void ScriptMgr::OnPlayerbotLogoutBots() { FOREACH_SCRIPT(PlayerScript)->OnPlayerbotLogoutBots(); }
+// ===== Playerbots 扩展方法实现结束 =====
+//End By leewheel
+
+//By leewheel 2026-09-06: 移植mod-playerbots，新增DatabaseScript/MiscScript/PlayerbotScript/AllBattlegroundScript构造与派发实现
+// DatabaseScript
+DatabaseScript::DatabaseScript(char const* name) : ScriptObject(name)
+{
+    ScriptRegistry<DatabaseScript>::Instance()->AddScript(this);
+}
+DatabaseScript::~DatabaseScript() = default;
+
+bool ScriptMgr::OnDatabasesLoading()
+{
+    bool result = true;
+    FOR_SCRIPTS(DatabaseScript, itr, end)
+        if (!itr->second->OnDatabasesLoading())
+            result = false;
+    return result;
+}
+void ScriptMgr::OnDatabasesKeepAlive() { FOREACH_SCRIPT(DatabaseScript)->OnDatabasesKeepAlive(); }
+void ScriptMgr::OnDatabasesClosing() { FOREACH_SCRIPT(DatabaseScript)->OnDatabasesClosing(); }
+void ScriptMgr::OnDatabaseWarnAboutSyncQueries(bool apply) { FOREACH_SCRIPT(DatabaseScript)->OnDatabaseWarnAboutSyncQueries(apply); }
+void ScriptMgr::OnDatabaseSelectIndexLogout(Player* player, uint32& statementIndex, uint32& statementParam)
+{
+    FOR_SCRIPTS(DatabaseScript, itr, end)
+        itr->second->OnDatabaseSelectIndexLogout(player, statementIndex, statementParam);
+}
+void ScriptMgr::OnDatabaseGetDBRevision(std::string& revision)
+{
+    FOR_SCRIPTS(DatabaseScript, itr, end)
+        itr->second->OnDatabaseGetDBRevision(revision);
+}
+
+// MiscScript
+MiscScript::MiscScript(char const* name) : ScriptObject(name)
+{
+    ScriptRegistry<MiscScript>::Instance()->AddScript(this);
+}
+MiscScript::~MiscScript() = default;
+
+void ScriptMgr::OnConstructObject(Object* origin) { FOREACH_SCRIPT(MiscScript)->OnConstructObject(origin); }
+void ScriptMgr::OnDestructObject(Object* origin) { FOREACH_SCRIPT(MiscScript)->OnDestructObject(origin); }
+void ScriptMgr::OnConstructPlayer(Player* origin) { FOREACH_SCRIPT(MiscScript)->OnConstructPlayer(origin); }
+void ScriptMgr::OnDestructPlayer(Player* origin) { FOREACH_SCRIPT(MiscScript)->OnDestructPlayer(origin); }
+void ScriptMgr::OnConstructGroup(Group* origin) { FOREACH_SCRIPT(MiscScript)->OnConstructGroup(origin); }
+void ScriptMgr::OnDestructGroup(Group* origin) { FOREACH_SCRIPT(MiscScript)->OnDestructGroup(origin); }
+
+// PlayerbotScript
+PlayerbotScript::PlayerbotScript(char const* name) : ScriptObject(name)
+{
+    ScriptRegistry<PlayerbotScript>::Instance()->AddScript(this);
+}
+PlayerbotScript::~PlayerbotScript() = default;
+
+// AllBattlegroundScript
+AllBattlegroundScript::AllBattlegroundScript(char const* name) : ScriptObject(name)
+{
+    ScriptRegistry<AllBattlegroundScript>::Instance()->AddScript(this);
+}
+AllBattlegroundScript::~AllBattlegroundScript() = default;
+
+void ScriptMgr::OnBattlegroundStart(Battleground* bg) { FOREACH_SCRIPT(AllBattlegroundScript)->OnBattlegroundStart(bg); }
+void ScriptMgr::OnBattlegroundEnd(Battleground* bg, TeamId winnerTeam) { FOREACH_SCRIPT(AllBattlegroundScript)->OnBattlegroundEnd(bg, winnerTeam); }
+void ScriptMgr::OnBattlegroundUpdate(Battleground* bg, uint32 diff) { FOREACH_SCRIPT(AllBattlegroundScript)->OnBattlegroundUpdate(bg, diff); }
+void ScriptMgr::OnBattlegroundAddPlayer(Battleground* bg, Player* player) { FOREACH_SCRIPT(AllBattlegroundScript)->OnBattlegroundAddPlayer(bg, player); }
+void ScriptMgr::OnBattlegroundBeforeAddPlayer(Battleground* bg, Player* player) { FOREACH_SCRIPT(AllBattlegroundScript)->OnBattlegroundBeforeAddPlayer(bg, player); }
+void ScriptMgr::OnBattlegroundRemovePlayerAtLeave(Battleground* bg, Player* player) { FOREACH_SCRIPT(AllBattlegroundScript)->OnBattlegroundRemovePlayerAtLeave(bg, player); }
+void ScriptMgr::OnBattlegroundEndReward(Battleground* bg, Player* player, TeamId winnerTeamId) { FOREACH_SCRIPT(AllBattlegroundScript)->OnBattlegroundEndReward(bg, player, winnerTeamId); }
+void ScriptMgr::OnBattlegroundDestroy(Battleground* bg) { FOREACH_SCRIPT(AllBattlegroundScript)->OnBattlegroundDestroy(bg); }
+void ScriptMgr::OnBattlegroundCreate(Battleground* bg) { FOREACH_SCRIPT(AllBattlegroundScript)->OnBattlegroundCreate(bg); }
+//End By leewheel
+
+//By leewheel 2026-09-06: 移植mod-playerbots，全局生物更新钩子(AC的AllCreatureScript等价)
+//独立小列表注册与分发，只遍历显式注册的监听(Playerbots团本状态管理类)，避免遍历全部CreatureScript的开销
+void ScriptMgr::RegisterCreatureUpdateScript(CreatureScript* script)
+{
+    if (script)
+        _creatureUpdateScripts.push_back(script);
+}
+
+void ScriptMgr::OnAllCreatureUpdate(Creature* creature, uint32 diff)
+{
+    if (_creatureUpdateScripts.empty())
+        return;
+
+    for (CreatureScript* script : _creatureUpdateScripts)
+        script->OnAllCreatureUpdate(creature, diff);
+}
+//End By leewheel
+
 // Account
 void ScriptMgr::OnAccountLogin(uint32 accountId)
 {
@@ -3264,3 +3433,9 @@ template class TC_GAME_API ScriptRegistry<SceneScript>;
 template class TC_GAME_API ScriptRegistry<QuestScript>;
 template class TC_GAME_API ScriptRegistry<WorldStateScript>;
 template class TC_GAME_API ScriptRegistry<EventScript>;
+//By leewheel 2026-09-06: 移植mod-playerbots，实例化新增脚本注册表模板
+template class TC_GAME_API ScriptRegistry<DatabaseScript>;
+template class TC_GAME_API ScriptRegistry<MiscScript>;
+template class TC_GAME_API ScriptRegistry<PlayerbotScript>;
+template class TC_GAME_API ScriptRegistry<AllBattlegroundScript>;
+//End By leewheel

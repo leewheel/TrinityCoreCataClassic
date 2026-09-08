@@ -87,6 +87,54 @@ class TC_DATABASE_API PreparedStatementBase
         void setBinary(uint8 index, std::vector<uint8>&& value);
         void setBinary(uint8 index, std::span<uint8 const> value);
 
+        //By leewheel 2026-09-06: 移植mod-playerbots，AzerothCore兼容性：SetData模板方法
+        //AC 使用 SetData(index, value) 模板方法，TC 使用 setUInt32/setString 等具体方法
+        //此兼容层允许 mod-playerbots 代码使用原始 SetData 调用
+        template<typename T>
+        void SetData(const uint8 index, T value)
+        {
+            if constexpr (std::is_same_v<T, bool>)
+                setBool(index, value);
+            else if constexpr (std::is_enum_v<T>)
+                SetData(index, static_cast<std::underlying_type_t<T>>(value));
+            else if constexpr (std::is_integral_v<T>)
+            {
+                if constexpr (std::is_signed_v<T>)
+                {
+                    if constexpr (sizeof(T) == 1)
+                        setInt8(index, value);
+                    else if constexpr (sizeof(T) == 2)
+                        setInt16(index, value);
+                    else if constexpr (sizeof(T) == 4)
+                        setInt32(index, value);
+                    else
+                        setInt64(index, value);
+                }
+                else
+                {
+                    if constexpr (sizeof(T) == 1)
+                        setUInt8(index, value);
+                    else if constexpr (sizeof(T) == 2)
+                        setUInt16(index, value);
+                    else if constexpr (sizeof(T) == 4)
+                        setUInt32(index, value);
+                    else
+                        setUInt64(index, value);
+                }
+            }
+            else if constexpr (std::is_same_v<T, float>)
+                setFloat(index, value);
+            else if constexpr (std::is_same_v<T, double>)
+                setDouble(index, value);
+            else
+                static_assert(!sizeof(T*), "SetData: 不支持的类型");
+        }
+
+        void SetData(const uint8 index, std::string_view value) { setString(index, value); }
+        void SetData(const uint8 index, std::string const& value) { setString(index, value); }
+        void SetData(const uint8 index, const char* value) { setString(index, std::string(value)); }
+        //End By leewheel
+
         uint32 GetIndex() const { return m_index; }
         std::vector<PreparedStatementData> const& GetParameters() const { return statement_data; }
 

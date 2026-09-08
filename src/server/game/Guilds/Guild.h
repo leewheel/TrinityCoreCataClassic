@@ -272,6 +272,11 @@ class TC_GAME_API EmblemInfo
     public:
         EmblemInfo() : m_style(0), m_color(0), m_borderStyle(0), m_borderColor(0), m_backgroundColor(0) { }
 
+        //By leewheel 2026-09-06: 移植mod-playerbots，新增5参数构造供机器人公会徽章创建使用
+        EmblemInfo(uint32 style, uint32 color, uint32 borderStyle, uint32 borderColor, uint32 backgroundColor)
+            : m_style(style), m_color(color), m_borderStyle(borderStyle), m_borderColor(borderColor), m_backgroundColor(backgroundColor) { }
+        //End By leewheel
+
         bool LoadFromDB(Field* fields);
         void SaveToDB(ObjectGuid::LowType guildId) const;
         void ReadPacket(WorldPackets::Guild::SaveGuildEmblem& packet);
@@ -939,6 +944,15 @@ class TC_GAME_API Guild
 
             return nullptr;
         }
+
+        //By leewheel 2026-09-06: 移植mod-playerbots，AC兼容：按玩家GUID查询其公会权限位
+        uint32 GetMemberRankRights(ObjectGuid const& guid) const
+        {
+            if (Member const* member = GetMember(guid))
+                return _GetRankRights(member->GetRankId());
+            return 0;
+        }
+        //End By leewheel
 
         static void _DeleteMemberFromDB(CharacterDatabaseTransaction trans, ObjectGuid::LowType lowguid);
 

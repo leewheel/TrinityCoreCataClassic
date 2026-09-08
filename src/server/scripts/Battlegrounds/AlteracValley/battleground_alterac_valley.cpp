@@ -20,6 +20,9 @@
 #include "Battleground.h"
 #include "BattlegroundMgr.h"
 #include "BattlegroundPackets.h"
+//By leewheel 2026-09-06: 移植mod-playerbots，队长存活查询需要ObjectAccessor
+#include "ObjectAccessor.h"
+//End By leewheel
 #include "Creature.h"
 #include "CreatureAI.h"
 #include "GameObject.h"
@@ -28,6 +31,9 @@
 #include "Map.h"
 #include "Player.h"
 #include "ScriptMgr.h"
+//By leewheel 2026-09-06: 移植mod-playerbots，AV节点状态查询兼容接口(供Playerbots战术模块查询)
+#include "alterac_valley_state_compat.h"
+//End By leewheel
 
 constexpr uint32 BG_AV_SCORE_INITIAL_POINTS = 700;
 constexpr uint32 BG_AV_EVENT_START_BATTLE = 9166; // Achievement: The Alterac Blitz
@@ -474,7 +480,7 @@ struct BG_AV_NodeInfo
 
 inline BG_AV_Nodes& operator++(BG_AV_Nodes& i) { return i = BG_AV_Nodes(i + 1); }
 
-struct battleground_alterac_valley : BattlegroundScript
+struct battleground_alterac_valley : BattlegroundScript, BattlegroundAlteracValleyAccess
 {
     enum QuestIds
     {
@@ -567,6 +573,10 @@ struct battleground_alterac_valley : BattlegroundScript
 
     explicit battleground_alterac_valley(BattlegroundMap* map) : BattlegroundScript(map)
     {
+        //By leewheel 2026-09-06: 移植mod-playerbots，把本AV实例注册到状态查询注册表
+        AVCompatInstanceRegistry()[battleground->GetInstanceID()] = this;
+        //End By leewheel
+
         _teamResources = { BG_AV_SCORE_INITIAL_POINTS, BG_AV_SCORE_INITIAL_POINTS };
         _isInformedNearVictory = { false, false };
 
@@ -593,6 +603,43 @@ struct battleground_alterac_valley : BattlegroundScript
 
         _mineResourceTimer.Reset(BG_AV_MINE_RESOURCE_TIMER);
     }
+
+    //By leewheel 2026-09-06: 移植mod-playerbots，析构时从状态查询注册表移除本实例
+    ~battleground_alterac_valley() override
+    {
+        AVCompatInstanceRegistry().erase(battleground->GetInstanceID());
+    }
+
+    //By leewheel 2026-09-06: 移植mod-playerbots，AV节点状态查询兼容实现(供Playerbots战术模块使用)
+    bool GetNodeInfoCompat(uint8 node, uint8& state, uint32& owner, bool& tower) override
+    {
+        if (node >= BG_AV_NODES_MAX)
+            return false;
+
+        BG_AV_NodeInfo const& info = _nodes[node];
+        state = uint8(info.State);
+        owner = uint32(info.Owner);
+        tower = info.Tower;
+        return true;
+    }
+
+    bool GetMineOwnerCompat(uint8 mine, uint32& owner) override
+    {
+        if (mine > uint8(AlteracValleyMine::South))
+            return false;
+
+        owner = uint32(_mineInfo[mine].Owner);
+        return true;
+    }
+
+    // 队长存活查询：联盟队长=巴林达(BALINDA)，部落队长=加尔范上尉(GALVANGAR)
+    bool IsCaptainAliveCompat(uint8 team) override
+    {
+        ObjectGuid guid = (team == uint8(TEAM_ALLIANCE)) ? _balindaGUID : _galvangarGUID;
+        Creature* captain = battlegroundMap->GetCreature(guid);
+        return captain && captain->IsAlive();
+    }
+    //End By leewheel
 
     void OnUpdate(uint32 diff) override
     {

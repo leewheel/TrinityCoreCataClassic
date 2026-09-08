@@ -1,0 +1,230 @@
+/*
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
+ */
+
+#include "PossibleRpgTargetsValue.h"
+
+#include "CellImpl.h"
+#include "GridNotifiers.h"
+#include "GridNotifiersImpl.h"
+#include "ObjectGuid.h"
+#include "Playerbots.h"
+#include "ServerFacade.h"
+#include "SharedDefines.h"
+#include "NearestGameObjects.h"
+#include <unordered_set>
+
+//By leewheel 2026-09-05: 上游6dc51480——NPC旗标列表改为静态常量初始化(加载期填充),
+//避免多地图线程下懒初始化(if empty)的竞态崩溃;条目与顺序和上游完全一致
+const std::vector<uint32> PossibleRpgTargetsValue::allowedNpcFlags = {
+    UNIT_NPC_FLAG_INNKEEPER,
+    UNIT_NPC_FLAG_GOSSIP,
+    UNIT_NPC_FLAG_QUESTGIVER,
+    UNIT_NPC_FLAG_FLIGHTMASTER,
+    UNIT_NPC_FLAG_BANKER,
+    UNIT_NPC_FLAG_GUILD_BANKER,
+    UNIT_NPC_FLAG_TRAINER_CLASS,
+    UNIT_NPC_FLAG_TRAINER_PROFESSION,
+    UNIT_NPC_FLAG_VENDOR_AMMO,
+    UNIT_NPC_FLAG_VENDOR_FOOD,
+    UNIT_NPC_FLAG_VENDOR_POISON,
+    UNIT_NPC_FLAG_VENDOR_REAGENT,
+    UNIT_NPC_FLAG_AUCTIONEER,
+    UNIT_NPC_FLAG_STABLEMASTER,
+    UNIT_NPC_FLAG_PETITIONER,
+    UNIT_NPC_FLAG_TABARDDESIGNER,
+    UNIT_NPC_FLAG_BATTLEMASTER,
+
+    UNIT_NPC_FLAG_TRAINER,
+    UNIT_NPC_FLAG_VENDOR,
+    UNIT_NPC_FLAG_REPAIR,
+};
+//End By leewheel
+
+PossibleRpgTargetsValue::PossibleRpgTargetsValue(PlayerbotAI* botAI, float range)
+    : NearestUnitsValue(botAI, "possible rpg targets", range, true)
+{
+}
+
+void PossibleRpgTargetsValue::FindUnits(std::list<Unit*>& targets)
+{
+    Trinity::AnyUnitInObjectRangeCheck u_check(bot, range);
+    Trinity::UnitListSearcher<Trinity::AnyUnitInObjectRangeCheck> searcher(bot, targets, u_check);
+    Cell::VisitGridObjects(bot, searcher, range);
+}
+
+bool PossibleRpgTargetsValue::AcceptUnit(Unit* unit)
+{
+    if (!unit || !unit->IsInWorld() || unit->IsDuringRemoveFromWorld())
+        return false;
+
+    if (unit->IsHostileTo(bot) || unit->IsPlayer())
+        return false;
+
+//By leewheel 2026-07-14: 任务NPC不受tooCloseDistance过滤，否则bot站在任务NPC旁边时找不到它
+    if (ServerFacade::instance().GetDistance2d(bot, unit) <= sPlayerbotAIConfig.tooCloseDistance &&
+        !unit->HasNpcFlag(UNIT_NPC_FLAG_QUESTGIVER))
+        return false;
+//End By leewheel
+
+    if (unit->HasNpcFlag(UNIT_NPC_FLAG_SPIRITHEALER))
+        return false;
+
+    for (uint32 npcFlag : allowedNpcFlags)
+    {
+        if (unit->HasNpcFlag(static_cast<NPCFlags>(npcFlag)))
+            return true;
+    }
+
+    TravelTarget* travelTarget = context->GetValue<TravelTarget*>("travel target")->Get();
+    if (travelTarget && travelTarget->getDestination() &&
+        static_cast<uint32>(travelTarget->getDestination()->getEntry()) == unit->GetEntry())
+        return true;
+
+    if (urand(1, 100) < 25 && unit->IsFriendlyTo(bot))
+        return true;
+
+    if (urand(1, 100) < 5)
+        return true;
+
+    return false;
+}
+
+// Sparse starting zones where the default scan range is insufficient for WANDER_NPC (requires >= 3 NPCs)
+static const std::unordered_set<uint32> rpgRangeOverrideAreaIds = { 3526 /* Ammen Vale */, 2117 /* Deathknell */ };
+
+//By leewheel 2026-09-05: 上游6dc51480——原call_once懒初始化改为静态常量初始化,
+//加载期填充、零运行时分支,与PossibleRpgTargetsValue保持一致
+const std::vector<uint32> PossibleNewRpgTargetsValue::allowedNpcFlags = {
+    UNIT_NPC_FLAG_INNKEEPER,
+    UNIT_NPC_FLAG_GOSSIP,
+    UNIT_NPC_FLAG_QUESTGIVER,
+    UNIT_NPC_FLAG_FLIGHTMASTER,
+    UNIT_NPC_FLAG_BANKER,
+    UNIT_NPC_FLAG_GUILD_BANKER,
+    UNIT_NPC_FLAG_TRAINER_CLASS,
+    UNIT_NPC_FLAG_TRAINER_PROFESSION,
+    UNIT_NPC_FLAG_VENDOR_AMMO,
+    UNIT_NPC_FLAG_VENDOR_FOOD,
+    UNIT_NPC_FLAG_VENDOR_POISON,
+    UNIT_NPC_FLAG_VENDOR_REAGENT,
+    UNIT_NPC_FLAG_AUCTIONEER,
+    UNIT_NPC_FLAG_STABLEMASTER,
+    UNIT_NPC_FLAG_PETITIONER,
+    UNIT_NPC_FLAG_TABARDDESIGNER,
+    UNIT_NPC_FLAG_BATTLEMASTER,
+
+    UNIT_NPC_FLAG_TRAINER,
+    UNIT_NPC_FLAG_VENDOR,
+    UNIT_NPC_FLAG_REPAIR,
+};
+//End By leewheel
+
+PossibleNewRpgTargetsValue::~PossibleNewRpgTargetsValue() = default;
+
+PossibleNewRpgTargetsValue::PossibleNewRpgTargetsValue(PlayerbotAI* botAI, float range)
+    : NearestUnitsValue(botAI, "possible new rpg targets", range, true), defaultRange(range)
+{
+}
+
+GuidVector PossibleNewRpgTargetsValue::Calculate()
+{
+    if (rpgRangeOverrideAreaIds.count(bot->GetAreaId()) && defaultRange < 200.0f)
+        range = 200.0f;
+    else
+        range = defaultRange;
+
+    std::list<Unit*> targets;
+    FindUnits(targets);
+
+    GuidVector results;
+    std::vector<std::pair<ObjectGuid, float>> guidDistancePairs;
+    for (Unit* unit : targets)
+    {
+        if (AcceptUnit(unit) && (ignoreLos || bot->IsWithinLOSInMap(unit)))
+            guidDistancePairs.push_back({unit->GetGUID(), bot->GetExactDist(unit)});
+    }
+    // Override to sort by distance
+    std::sort(guidDistancePairs.begin(), guidDistancePairs.end(), [](auto const& a, auto const& b) {
+        return a.second < b.second;
+    });
+
+    for (auto const& pair : guidDistancePairs) {
+        results.push_back(pair.first);
+    }
+    return results;
+}
+
+void PossibleNewRpgTargetsValue::FindUnits(std::list<Unit*>& targets)
+{
+    Trinity::AnyUnitInObjectRangeCheck u_check(bot, range);
+    Trinity::UnitListSearcher<Trinity::AnyUnitInObjectRangeCheck> searcher(bot, targets, u_check);
+    Cell::VisitGridObjects(bot, searcher, range);
+}
+
+bool PossibleNewRpgTargetsValue::AcceptUnit(Unit* unit)
+{
+    if (!unit || !unit->IsInWorld() || unit->IsDuringRemoveFromWorld())
+        return false;
+
+    if (unit->IsHostileTo(bot) || unit->IsPlayer())
+        return false;
+
+    if (unit->HasNpcFlag(UNIT_NPC_FLAG_SPIRITHEALER))
+        return false;
+
+    for (uint32 npcFlag : allowedNpcFlags)
+    {
+        if (unit->HasNpcFlag(static_cast<NPCFlags>(npcFlag)))
+            return true;
+    }
+
+    return false;
+}
+
+//By leewheel 2026-09-05: 上游6dc51480——GO旗标列表改为静态常量初始化,消除多线程竞态
+const std::vector<GameobjectTypes> PossibleNewRpgGameObjectsValue::allowedGOFlags = {
+    GAMEOBJECT_TYPE_QUESTGIVER,
+};
+//End By leewheel
+
+GuidVector PossibleNewRpgGameObjectsValue::Calculate()
+{
+    std::list<GameObject*> targets;
+    AnyGameObjectInObjectRangeCheck u_check(bot, range);
+    Trinity::GameObjectListSearcher<AnyGameObjectInObjectRangeCheck> searcher(bot, targets, u_check);
+    Cell::VisitGridObjects(bot, searcher, range);
+
+    std::vector<std::pair<ObjectGuid, float>> guidDistancePairs;
+    for (GameObject* go : targets)
+    {
+        bool flagCheck = false;
+        for (uint32 goFlag : allowedGOFlags)
+        {
+            if (go->GetGoType() == goFlag)
+            {
+                flagCheck = true;
+                break;
+            }
+        }
+        if (!flagCheck)
+            continue;
+
+        if (!ignoreLos && !bot->IsWithinLOSInMap(go))
+            continue;
+
+        guidDistancePairs.push_back({go->GetGUID(), bot->GetExactDist(go)});
+    }
+    GuidVector results;
+
+    // Sort by distance
+    std::sort(guidDistancePairs.begin(), guidDistancePairs.end(), [](auto const& a, auto const& b) {
+        return a.second < b.second;
+    });
+
+    for (auto const& pair : guidDistancePairs) {
+        results.push_back(pair.first);
+    }
+    return results;
+}

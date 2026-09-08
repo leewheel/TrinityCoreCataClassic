@@ -13324,6 +13324,19 @@ void Unit::SendClearTarget()
     SendMessageToSet(breakTarget.Write(), false);
 }
 
+//By leewheel 2026-09-06: 移植mod-playerbots，AC兼容：重新广播移动信息
+void Unit::SendMovementFlagUpdate()
+{
+    // 被定身时不重发(与AC语义一致)
+    if (HasUnitState(UNIT_STATE_ROOT))
+        return;
+
+    WorldPackets::Movement::MoveUpdate moveUpdate;
+    moveUpdate.Status = &m_movementInfo;
+    SendMessageToSet(moveUpdate.Write(), false);
+}
+//End By leewheel
+
 int32 Unit::GetResistance(SpellSchoolMask mask) const
 {
     Optional<int32> resist;

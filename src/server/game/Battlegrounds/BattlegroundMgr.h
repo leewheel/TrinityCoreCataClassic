@@ -160,6 +160,21 @@ class TC_GAME_API BattlegroundMgr
             return nullptr;
         }
 
+        //By leewheel 2026-09-06: 移植mod-playerbots，AC兼容方法
+        // AC: BGTemplateId(queueTypeId) → 队列类型对应的战场类型
+        static BattlegroundTypeId BGTemplateId(BattlegroundQueueTypeId queueTypeId)
+        {
+            return BattlegroundTypeId(queueTypeId.BattlemasterListId);
+        }
+        // AC: GetBattlegroundTemplate(id) → TC-Cata: GetBattlegroundTemplateByTypeId(id)
+        BattlegroundTemplate const* GetBattlegroundTemplate(BattlegroundTypeId id)
+        {
+            return GetBattlegroundTemplateByTypeId(id);
+        }
+        //By leewheel 2026-09-06: 移植mod-playerbots，暴露全部战场模板供机器人模块遍历可选战场
+        std::map<BattlegroundTypeId, BattlegroundTemplate> const& GetBattlegroundTemplates() const { return _battlegroundTemplates; }
+        //End By leewheel
+
         void LoadBattlegroundScriptTemplate();
         BattlegroundScriptTemplate const* FindBattlegroundScriptTemplate(uint32 mapId, BattlegroundTypeId bgTypeId) const;
 

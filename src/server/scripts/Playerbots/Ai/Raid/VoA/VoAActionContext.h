@@ -1,0 +1,38 @@
+/*
+ * 紫罗兰堡垒团本（Violet Hold）动作上下文注册
+ *
+ * 作者: leewheel
+ */
+
+#ifndef PLAYERBOTS_VOAACTIONCONTEXT_H
+#define PLAYERBOTS_VOAACTIONCONTEXT_H
+
+#include "Action.h"
+#include "BossAuraActions.h"
+#include "NamedObjectContext.h"
+#include "VoAActions.h"
+#include "PlayerbotAI.h"
+
+class RaidVoAActionContext : public NamedObjectContext<Action>
+{
+public:
+    RaidVoAActionContext()
+    {
+        creators["emalon mark boss action"] = &RaidVoAActionContext::emalon_mark_boss_action;
+        creators["emalon lighting nova action"] = &RaidVoAActionContext::emalon_lighting_nova_action;
+        creators["emalon overcharge action"] = &RaidVoAActionContext::emalon_overcharge_action;
+        creators["emalon fall from floor action"] = &RaidVoAActionContext::emalon_fall_from_floor_action;
+        creators["emalon nature resistance action"] = &RaidVoAActionContext::emalon_nature_resistance_action;
+        creators["koralon fire resistance action"] = &RaidVoAActionContext::koralon_fire_resistance_action;
+    }
+
+private:
+    static Action* emalon_mark_boss_action(PlayerbotAI* ai) { return new EmalonMarkBossAction(ai); }
+    static Action* emalon_lighting_nova_action(PlayerbotAI* ai) { return new EmalonLightingNovaAction(ai); }
+    static Action* emalon_overcharge_action(PlayerbotAI* ai) { return new EmalonOverchargeAction(ai); }
+    static Action* emalon_fall_from_floor_action(PlayerbotAI* ai) { return new EmalonFallFromFloorAction(ai); }
+    static Action* emalon_nature_resistance_action(PlayerbotAI* ai) { return new BossNatureResistanceAction(ai, "emalon the storm watcher"); }
+    static Action* koralon_fire_resistance_action(PlayerbotAI* ai) { return new BossFireResistanceAction(ai, "koralon the flame watcher"); }
+};
+
+#endif

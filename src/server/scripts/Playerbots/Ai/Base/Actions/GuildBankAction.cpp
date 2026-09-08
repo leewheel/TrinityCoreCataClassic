@@ -1,0 +1,88 @@
+/*
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
+ */
+
+#include "GuildBankAction.h"
+
+#include "GuildMgr.h"
+#include "Guild.h"
+#include "PlayerbotAI.h"
+#include "AiObjectContext.h"
+
+bool GuildBankAction::Execute(Event event)
+{
+    std::string const text = event.getParam();
+    if (text.empty())
+        return false;
+
+    if (!bot->GetGuildId() || (GetMaster() && GetMaster()->GetGuildId() != bot->GetGuildId()))
+    {
+        //By leewheel 2026-08-01: 玩家可见文本中文化
+        botAI->TellMaster("我不在你的公会里！");
+        //End By leewheel
+        return false;
+    }
+
+    GuidVector gos = *botAI->GetAiObjectContext()->GetValue<GuidVector>("nearest game objects");
+    for (GuidVector::iterator i = gos.begin(); i != gos.end(); ++i)
+    {
+        GameObject* go = botAI->GetGameObject(*i);
+        if (!go || !bot->GetGameObjectIfCanInteractWith(go->GetGUID(), GAMEOBJECT_TYPE_GUILD_BANK))
+            continue;
+
+        return Execute(text, go);
+    }
+
+    //By leewheel 2026-08-01: 玩家可见文本中文化
+    botAI->TellMaster("附近找不到公会银行");
+    //End By leewheel
+    return false;
+}
+
+bool GuildBankAction::Execute(std::string const text, GameObject* bank)
+{
+    bool result = true;
+
+    std::vector<Item*> found = parseItems(text);
+    if (found.empty())
+        return false;
+
+    for (std::vector<Item*>::iterator i = found.begin(); i != found.end(); i++)
+    {
+        Item* item = *i;
+        if (item)
+            result &= MoveFromCharToBank(item, bank);
+    }
+
+    return result;
+}
+
+bool GuildBankAction::MoveFromCharToBank(Item* item, GameObject* /*bank*/)
+{
+    uint32 playerSlot = item->GetSlot();
+    uint32 playerBag = item->GetBagSlot();
+
+    std::ostringstream out;
+
+    Guild* guild = sGuildMgr->GetGuildById(bot->GetGuildId());
+    // guild->SwapItems(bot, 0, playerSlot, 0, INVENTORY_SLOT_BAG_0, 0);
+
+    // check source pos rights (item moved to bank)
+    if (!guild->MemberHasTabRights(bot->GetGUID(), 0, GUILD_BANK_RIGHT_DEPOSIT_ITEM))
+        //By leewheel 2026-08-01: 玩家可见文本中文化
+        out << "我无法把 " << chat->FormatItem(item->GetTemplate())
+            << " 放入公会银行。我没有权限往第一个公会银行栏位放物品";
+        //End By leewheel
+    else
+    {
+        //By leewheel 2026-08-01: 玩家可见文本中文化
+        out << chat->FormatItem(item->GetTemplate()) << " 已放入公会银行";
+        //End By leewheel
+        guild->SwapItemsWithInventory(bot, false, 0, 255, playerBag, playerSlot, 0);
+    }
+
+    botAI->TellMaster(out);
+
+    return true;
+}

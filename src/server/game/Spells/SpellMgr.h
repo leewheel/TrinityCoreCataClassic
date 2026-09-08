@@ -731,6 +731,14 @@ class TC_GAME_API SpellMgr
         // SpellInfo object management
         SpellInfo const* GetSpellInfo(uint32 spellId, Difficulty difficulty) const;
 
+        //By leewheel 2026-09-06: 移植mod-playerbots，新增单参数重载(玩家语境默认DIFFICULTY_NONE)
+        //WotLK TC的GetSpellInfo(spellId)为单参数，Cata改为双参数；此重载保持模块调用点兼容
+        SpellInfo const* GetSpellInfo(uint32 spellId) const
+        {
+            return GetSpellInfo(spellId, DIFFICULTY_NONE);
+        }
+        //End By leewheel
+
         // Use this only with 100% valid spellIds
         SpellInfo const* AssertSpellInfo(uint32 spellId, Difficulty difficulty) const
         {

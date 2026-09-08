@@ -1,0 +1,709 @@
+/* 太阳之井高地 机器人策略 */
+#include "SWPActions.h"
+#include "EncounterHelpers.h"
+#include "Playerbots.h"
+#include "PlayerbotTextMgr.h"
+#include "RtiTargetValue.h"
+#include "SWPEncounter_KJ.h"
+#include "SWPSharedConstants.h"
+#include <algorithm>
+#include <cmath>
+#include <iterator>
+#include <map>
+
+using namespace SwpHelpers;
+using namespace EncounterHelpers;
+
+bool KiljaedenAnnounceDragonOrbUserAction::Execute(Event /*event*/)
+{
+    uint32 const instanceId = bot->GetInstanceId();
+    auto const stateItr = kiljaedenEncounterStates.find(instanceId);
+
+    if (stateItr != kiljaedenEncounterStates.end() && stateItr->second.dragonOrbAnnouncementMs)
+        return false;
+
+    kiljaedenEncounterStates[instanceId].dragonOrbAnnouncementMs = getMSTime();
+
+    Player* orbUser = GetKiljaedenDragonOrbUser(bot);
+    std::string text;
+
+    if (orbUser)
+    {
+        std::map<std::string, std::string> placeholders = {{"%bot", orbUser->GetName()}};
+        text = PlayerbotTextMgr::instance().GetBotTextOrDefault(
+            "kiljaeden_designated_dragon_orb_user",
+            "%bot 是第一个助理机器人并被指定为龙珠使用者。如果你只想让玩家控制龙, 请移除所有机器人的助理标记。",
+            placeholders);
+    }
+    else
+    {
+        text = PlayerbotTextMgr::instance().GetBotTextOrDefault(
+            "kiljaeden_no_designated_dragon_orb_user",
+            "没有任何机器人带有助理标记, 因此必须由玩家来控制龙。如果你希望机器人控制龙, 请为某个机器人设置助理标记。",
+            {});
+    }
+
+    return botAI->SayToRaid(text);
+}
+
+//By leewheel 2026-08-29: 引入 mod-playerbots 新提交——KJ 手部逻辑重写: 标记最低血量的欺骗者之手
+bool KiljaedenMarkHandOfTheDeceiverAction::Execute(Event /*event*/)
+{
+    if (!IsMechanicTrackerBot(bot, SWP_MAP_ID))
+        return false;
+
+    Group* group = bot->GetGroup();
+    if (!group)
+        return false;
+
+    // 标准 FindTargetValue 在这里不适用: 拉手时区域战斗状态未设置, 每个机器人需要先行动
+    // 让手进入自己的威胁列表才能被 FindTargetValue 找到, 尤其是机制跟踪者为治疗时问题更大
+    std::vector<Unit*> const hands = GetKiljaedenHands(botAI);
+    if (hands.empty())
+        return false;
+
+    ObjectGuid const markedGuid = group->GetTargetIcon(RtiTargetValue::skullIndex);
+    if (std::any_of(hands.begin(), hands.end(),
+            [&markedGuid](Unit* hand) { return hand->GetGUID() == markedGuid; }))
+    {
+        return false;
+    }
+
+    Unit* target = *std::min_element(hands.begin(), hands.end(),
+        [](Unit* left, Unit* right) { return left->GetHealth() < right->GetHealth(); });
+
+    return MarkTargetWithSkull(bot, target);
+}
+
+// 制裁之锤!
+bool KiljaedenMoveHolyPaladinIntoStunRangeAction::Execute(Event /*event*/)
+{
+    if (bot->getClass() != CLASS_PALADIN || !PlayerbotAI::IsHeal(bot))
+        return false;
+
+    Group* group = bot->GetGroup();
+    if (!group)
+        return false;
+
+    Unit* hand = botAI->GetUnit(group->GetTargetIcon(RtiTargetValue::skullIndex));
+    if (!hand || !hand->IsAlive() || hand->GetEntry() != Id(SwpNpcs::NPC_HAND_OF_THE_DECEIVER))
+        return false;
+
+    //By leewheel 2026-09-04: 上游1e110a5f——跟随改名 HAND_HOLY_PALADIN_STANDOFF
+    if (bot->GetExactDist2d(hand) <= HAND_HOLY_PALADIN_STANDOFF)
+        return false;
+
+    return MoveTo(hand, HAND_HOLY_PALADIN_STANDOFF, MovementPriority::MOVEMENT_COMBAT);
+    //End By leewheel
+}
+
+bool KiljaedenControlHandsOfTheDeceiverAction::Execute(Event /*event*/)
+{
+    if (bot->getClass() == CLASS_SHAMAN)
+        return false;
+
+    std::vector<Unit*> const hands = GetKiljaedenHands(botAI);
+
+    for (Unit* target : hands)
+    {
+        if (target->GetHealthPct() <= HAND_CC_IMMUNE_HP_PERCENT)
+            continue;
+
+        if (target->HasUnitState(UNIT_STATE_STUNNED) ||
+            target->HasAuraType(SPELL_AURA_MOD_SILENCE) || //By leewheel 2026-08-14: TC无HasSilenceAura
+            IsKiljaedenHandControlClaimed(target))
+        {
+            continue;
+        }
+
+        if ((CastStunOnHand(target)) || CastSilenceOnHand(target))
+        {
+            ClaimKiljaedenHandControl(target);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool KiljaedenControlHandsOfTheDeceiverAction::CastStunOnHand(Unit* hand)
+{
+    auto const castSpell = [&](char const* spell)
+    {
+        return botAI->CanCastSpell(spell, hand) && botAI->CastSpell(spell, hand);
+    };
+
+    auto const castSelfAoe = [&](char const* spell, float radius)
+    {
+        return bot->GetExactDist(hand) < radius && castSpell(spell);
+    };
+
+    switch (bot->getClass())
+    {
+        case CLASS_DRUID:
+            return (botAI->HasStrategy("bear", BOT_STATE_COMBAT) && castSpell("bash")) ||
+                (botAI->HasStrategy("cat", BOT_STATE_COMBAT) &&
+                 bot->GetComboPoints() >= 4 && castSpell("maim"));
+
+        case CLASS_MAGE:
+            return castSpell("deep freeze");
+
+        case CLASS_PALADIN:
+            return castSpell("hammer of justice");
+
+        case CLASS_ROGUE:
+            return bot->GetComboPoints() >= 4 && castSpell("kidney shot");
+
+        case CLASS_WARLOCK:
+            return castSpell("shadowfury");
+
+        case CLASS_WARRIOR:
+            //By leewheel 2026-09-04: 上游1e110a5f——HAND_SHOCKWAVE_RADIUS 改用全局 SHOCKWAVE_RADIUS
+            return castSpell("concussion blow") ||
+                castSelfAoe("shockwave", SHOCKWAVE_RADIUS);
+            //End By leewheel
+
+        default:
+            //By leewheel 2026-09-04: 上游1e110a5f——HAND_SELF_AOE_RACIAL_RADIUS 改用全局 SELF_AOE_RACIAL_RADIUS
+            return bot->getRace() == RACE_TAUREN &&
+                castSelfAoe("war stomp", SELF_AOE_RACIAL_RADIUS);
+            //End By leewheel
+    }
+}
+
+bool KiljaedenControlHandsOfTheDeceiverAction::CastSilenceOnHand(Unit* hand)
+{
+    auto const castSpell = [&](char const* spell)
+    {
+        return botAI->CanCastSpell(spell, hand) && botAI->CastSpell(spell, hand);
+    };
+
+    switch (bot->getClass())
+    {
+        case CLASS_HUNTER:
+            return castSpell("silencing shot");
+
+        case CLASS_PRIEST:
+            return castSpell("silence");
+
+        case CLASS_DEATH_KNIGHT:
+            return castSpell("strangulate");
+
+        default:
+            // 奥术洪流同样以施法者为中心, 需要同样的距离防护
+            //By leewheel 2026-09-04: 上游1e110a5f——HAND_SELF_AOE_RACIAL_RADIUS 改用全局 SELF_AOE_RACIAL_RADIUS
+            return bot->getRace() == RACE_BLOODELF &&
+                bot->GetExactDist(hand) < SELF_AOE_RACIAL_RADIUS &&
+                castSpell("arcane torrent");
+            //End By leewheel
+    }
+}
+
+bool KiljaedenPositionAndMoveTanksAction::Execute(Event /*event*/)
+{
+//By leewheel 2026-08-23: 采用 the-lab——网格搜索邪恶映像(NPC_SINISTER_REFLECTION=25708), 映像被动期不在威胁列表,
+    // "find target" 看不到它; 只有被动状态才接管, 激活后交给坦克自身协助逻辑
+    if (!PlayerbotAI::IsMainTank(bot))
+    {
+        // This grid search exists only to bridge the three seconds after spawn, during which a
+        // Reflection is passive and on nobody's threat list, meaning neither FindTargetValue nor
+        // standard bot target acquisition through "attackers" can locate it
+        if (Creature* reflection = bot->FindNearestCreature(
+                Id(SwpNpcs::NPC_SINISTER_REFLECTION), KILJAEDEN_REFLECTION_SEARCH_RADIUS))
+        {
+            // Once aggressive it is on a threat list and therefore in "attackers,"" so failing
+            // here is intended to allow TankAssistAction to take over.
+            return reflection->GetReactState() == REACT_PASSIVE &&
+                PickUpSinisterReflections(reflection);
+        }
+    }
+    //End By leewheel
+
+    Position const& position = KILJAEDEN_TANK_POSITION;
+    if (bot->GetExactDist2d(position) <= 2.0f)
+        return false;
+
+    return MoveTo(
+        SWP_MAP_ID, position.GetPositionX(), position.GetPositionY(), position.GetPositionZ(),
+        false, false, false, false, MovementPriority::MOVEMENT_COMBAT, true, false);
+}
+
+// When Reflections activate after 3s, they begin attack with SMART_ACTION_ATTACK_START, which sets
+// a random victim. Thus, the first landed hit after activation should immediately grab aggro, and
+// we want that to be a tank, so hopefully they can get in range to start attacking before 3s pass.
+bool KiljaedenPositionAndMoveTanksAction::PickUpSinisterReflections(Creature* reflection)
+{
+    if (AI_VALUE(Unit*, "current target") != reflection)
+        return Attack(reflection);
+
+    float const distance = bot->GetExactDist(reflection);
+    auto const castSpell = [&](char const* spell, float reach)
+    {
+        return distance < reach && botAI->CanCastSpell(spell, reflection) &&
+            botAI->CastSpell(spell, reflection);
+    };
+
+    switch (bot->getClass())
+    {
+        //By leewheel 2026-09-04: 上游1e110a5f——KILJAEDEN_REFLECTION_*触及常量改用SWPSharedConstants.h全局触及常量
+        case CLASS_DEATH_KNIGHT:
+            return castSpell("death and decay", RANGED_ABILITY_REACH) ||
+                castSpell("icy touch", ICY_TOUCH_REACH);
+
+        case CLASS_DRUID:
+            return castSpell("feral charge - bear", CHARGE_REACH) ||
+                castSpell("challenging roar", TAUNT_SHOUT_RADIUS);
+
+        case CLASS_PALADIN:
+            return castSpell("avenger's shield", RANGED_ABILITY_REACH) ||
+                castSpell("consecration", CONSECRATION_RADIUS);
+
+        case CLASS_WARRIOR:
+            return castSpell("charge", CHARGE_REACH) ||
+                castSpell("challenging shout", TAUNT_SHOUT_RADIUS);
+        //End By leewheel
+
+        default:
+            return false;
+    }
+}
+
+bool KiljaedenPositionMeleeAction::Execute(Event /*event*/)
+{
+    Position position;
+    if (!TryGetPosition(position))
+        return false;
+
+    if (!TryAdjustForArmageddon(position))
+        return false;
+
+    if (bot->GetExactDist2d(position) <= 2.0f)
+        return false;
+
+    return MoveTo(
+        SWP_MAP_ID, position.GetPositionX(), position.GetPositionY(), position.GetPositionZ(),
+        false, false, false, false, MovementPriority::MOVEMENT_COMBAT, true, false);
+}
+
+bool KiljaedenPositionMeleeAction::TryGetPosition(Position& position) const
+{
+    Group* group = bot->GetGroup();
+    if (!group)
+        return false;
+
+    size_t meleeIndex = 0;
+    bool foundAssignment = false;
+
+    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+    {
+        Player* member = ref->GetSource();
+        if (!member || member->GetMapId() != SWP_MAP_ID || !GET_PLAYERBOT_AI(member) ||
+            !PlayerbotAI::IsMelee(member) || PlayerbotAI::IsTank(member))
+        {
+            continue;
+        }
+
+        if (member == bot)
+        {
+            foundAssignment = true;
+            break;
+        }
+
+        ++meleeIndex;
+    }
+
+    if (!foundAssignment)
+        return false;
+
+    position = meleeIndex % 2 == 0 ? KILJAEDEN_S_MELEE_POSITION : KILJAEDEN_E_MELEE_POSITION;
+    return true;
+}
+
+bool KiljaedenPositionMeleeAction::TryAdjustForArmageddon(Position& position)
+{
+    PruneExpiredKiljaedenArmageddons(bot->GetInstanceId());
+    auto armageddonItr = kiljaedenEncounterStates.find(bot->GetInstanceId());
+    if (armageddonItr == kiljaedenEncounterStates.end() ||
+        armageddonItr->second.armageddons.empty())
+    {
+        return true;
+    }
+
+    Unit* kiljaeden = AI_VALUE2(Unit*, "find target", "25608");
+    if (!kiljaeden || IsKiljaedenCastingDarknessOfAThousandSouls(kiljaeden) ||
+        HasKiljaedenDragonAura(bot))
+    {
+        return true;
+    }
+
+    Position const assignedPosition = position;
+    bool const isSouthPosition =
+        assignedPosition.GetExactDist2d(KILJAEDEN_S_MELEE_POSITION) < 1.0f;
+    Position const swapPosition =
+        isSouthPosition ? KILJAEDEN_E_MELEE_POSITION : KILJAEDEN_S_MELEE_POSITION;
+
+    auto const isSafePosition = [&](Position const& pos)
+    {
+        for (KiljaedenArmageddon const& armageddon : armageddonItr->second.armageddons)
+        {
+            if (pos.GetExactDist2d(
+                    armageddon.destination.GetPositionX(),
+                    armageddon.destination.GetPositionY()) < armageddon.safeDistance)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    };
+
+    if (isSafePosition(assignedPosition))
+        return true;
+
+    if (isSafePosition(swapPosition))
+    {
+        position = swapPosition;
+        return true;
+    }
+
+    KiljaedenArmageddon armageddon;
+    if (!TryGetKiljaedenNearestArmageddon(bot, armageddon))
+        return false;
+
+    position = BestPositionForMeleeToFlee(armageddon.destination, armageddon.safeDistance);
+    return position != Position();
+}
+
+bool KiljaedenPositionRangedAndAvoidArmageddonsAction::Execute(Event /*event*/)
+{
+    Position position;
+    if (!TryGetPosition(position))
+        return false;
+
+    if (!TryAdjustForArmageddon(position))
+        return false;
+
+    if (bot->GetExactDist2d(position) <= 2.0f)
+        return false;
+
+    return MoveTo(
+        SWP_MAP_ID, position.GetPositionX(), position.GetPositionY(), position.GetPositionZ(),
+        false, false, false, false, MovementPriority::MOVEMENT_COMBAT, true, false);
+}
+
+bool KiljaedenPositionRangedAndAvoidArmageddonsAction::TryGetPosition(Position& position) const
+{
+    EnsureKiljaedenRangedAssignments(bot);
+
+    auto const instanceItr = kiljaedenEncounterStates.find(bot->GetInstanceId());
+    if (instanceItr == kiljaedenEncounterStates.end())
+        return false;
+
+    auto const assignmentItr = instanceItr->second.rangedAssignments.find(bot->GetGUID());
+    if (assignmentItr == instanceItr->second.rangedAssignments.end())
+        return false;
+
+    return TryGetKiljaedenRangedSlotPosition(assignmentItr->second, position);
+}
+
+bool KiljaedenPositionRangedAndAvoidArmageddonsAction::TryAdjustForArmageddon(Position& position)
+{
+    EnsureKiljaedenRangedArmageddonAssignments(bot);
+    auto const armageddonAssignmentItr =
+        kiljaedenEncounterStates.find(bot->GetInstanceId());
+
+    if (armageddonAssignmentItr == kiljaedenEncounterStates.end())
+        return true;
+
+    auto const tempAssignmentItr =
+        armageddonAssignmentItr->second.rangedArmageddonAssignments.find(bot->GetGUID());
+    if (tempAssignmentItr == armageddonAssignmentItr->second.rangedArmageddonAssignments.end())
+        return true;
+
+    return TryGetKiljaedenRangedSlotPosition(tempAssignmentItr->second, position);
+}
+
+bool KiljaedenRemoveFireBloomAction::Execute(Event /*event*/)
+{
+    switch (bot->getClass())
+    {
+        case CLASS_MAGE:
+            return botAI->CanCastSpell(Id(SwpSpells::SPELL_ICE_BLOCK), bot) &&
+                botAI->CastSpell(Id(SwpSpells::SPELL_ICE_BLOCK), bot);
+
+        case CLASS_PALADIN:
+            return botAI->CanCastSpell(Id(SwpSpells::SPELL_DIVINE_SHIELD), bot) &&
+                botAI->CastSpell(Id(SwpSpells::SPELL_DIVINE_SHIELD), bot);
+
+        case CLASS_ROGUE:
+            return botAI->CanCastSpell(Id(SwpSpells::SPELL_CLOAK_OF_SHADOWS), bot) &&
+                botAI->CastSpell(Id(SwpSpells::SPELL_CLOAK_OF_SHADOWS), bot);
+
+        default:
+            return false;
+    }
+}
+
+bool KiljaedenStackForShieldOfTheBlueAction::Execute(Event /*event*/)
+{
+    Position const& darknessPosition = KILJAEDEN_DARKNESS_POSITION;
+    float destX = darknessPosition.GetPositionX();
+    float destY = darknessPosition.GetPositionY();
+
+    if (bot->HasAura(Id(SwpSpells::SPELL_FIRE_BLOOM)))
+    {
+        Unit* kiljaeden = AI_VALUE2(Unit*, "find target", "25608");
+        if (!kiljaeden)
+            return false;
+
+        Spell* darknessSpell = kiljaeden->FindCurrentSpellBySpellId(
+            Id(SwpSpells::SPELL_DARKNESS_OF_A_THOUSAND_SOULS));
+        if (darknessSpell &&
+            //By leewheel 2026-08-27: TC适配——thelab Acore API GetCastTimeRemaining, TC3.4.3 Spell 对应 GetRemainingCastTime
+            darknessSpell->GetRemainingCastTime() >= SHIELD_OF_THE_BLUE_CAST_WINDOW_MS)
+        {
+            float const angle = darknessPosition.GetAngle(bot);
+            destX = darknessPosition.GetPositionX() + std::cos(angle) * FIRE_BLOOM_STANDOFF;
+            destY = darknessPosition.GetPositionY() + std::sin(angle) * FIRE_BLOOM_STANDOFF;
+        }
+        //End By leewheel
+    }
+
+    if (bot->GetExactDist2d(destX, destY) <= 1.0f)
+        return false;
+
+    bot->CastStop();
+    return MoveTo(
+        SWP_MAP_ID, destX, destY, bot->GetPositionZ(), false, false, false, false,
+        MovementPriority::MOVEMENT_FORCED, true, false);
+}
+
+bool KiljaedenUseDragonOrbAction::Execute(Event /*event*/)
+{
+    GameObject* closestOrb = nullptr;
+    GameObject* closestInUseOrb = nullptr;
+    float closestDistance = 0.0f;
+    float closestInUseOrbDistance = 0.0f;
+    bool orbInUse = false;
+
+    for (ObjectGuid const& orbGuid : AI_VALUE(GuidVector, "kiljaeden dragon orbs"))
+    {
+        GameObject* orb = botAI->GetGameObject(orbGuid);
+        if (!orb)
+            continue;
+
+        float const distance = bot->GetExactDist2d(orb);
+        //By leewheel 2026-08-14: TC用HasFlag单参数
+        if (orb->HasFlag(GO_FLAG_IN_USE))
+        //End By leewheel
+        {
+            orbInUse = true;
+            if (!closestInUseOrb || distance < closestInUseOrbDistance)
+            {
+                closestInUseOrb = orb;
+                closestInUseOrbDistance = distance;
+            }
+
+            continue;
+        }
+
+        //By leewheel 2026-08-14: TC用HasFlag单参数
+        if (orb->HasFlag(GO_FLAG_NOT_SELECTABLE))
+        //End By leewheel
+            continue;
+
+        if (!closestOrb || distance < closestDistance)
+        {
+            closestOrb = orb;
+            closestDistance = distance;
+        }
+    }
+
+    if (orbInUse)
+    {
+        // Failsafe to keep the orb user from leaving early
+        if (!closestInUseOrb)
+            return false;
+
+        if (closestInUseOrbDistance <= DRAGON_ORB_IN_USE_HOLD_DISTANCE)
+            return true;
+
+        return MoveTo(
+            SWP_MAP_ID, closestInUseOrb->GetPositionX(), closestInUseOrb->GetPositionY(),
+            closestInUseOrb->GetPositionZ(), false, false, false, false,
+            MovementPriority::MOVEMENT_FORCED, true, false);
+    }
+
+    if (!closestOrb)
+        return false;
+
+    if (closestOrb->IsAtInteractDistance(*bot, closestOrb->GetInteractionDistance()))
+    {
+        closestOrb->Use(bot);
+        kiljaedenDragonOrbUseTimes[bot->GetGUID().GetCounter()] = getMSTime();
+        return true;
+    }
+
+    float const targetDist = closestOrb->GetInteractionDistance() - 0.5f;
+    float const angle = closestOrb->GetAngle(bot);
+    float const destX = closestOrb->GetPositionX() + std::cos(angle) * targetDist;
+    float const destY = closestOrb->GetPositionY() + std::sin(angle) * targetDist;
+
+    return MoveTo(
+        SWP_MAP_ID, destX, destY, closestOrb->GetPositionZ(), false, false,
+        false, false, MovementPriority::MOVEMENT_FORCED, true, false);
+}
+
+// There is an issue (maybe with the root packets) that causes bots to get stuck with the root
+// movement flag after using a dragon orb; this action is a workaround to remove the stale flag.
+bool KiljaedenReleaseStaleRootAction::Execute(Event /*event*/)
+{
+    bot->m_movementInfo.RemoveMovementFlag(MOVEMENTFLAG_ROOT);
+    bot->SendMovementFlagUpdate();
+    return true;
+}
+
+bool KiljaedenDragonBuffAndProtectRaidAction::Execute(Event /*event*/)
+{
+    Unit* kiljaeden = AI_VALUE2(Unit*, "find target", "25608");
+    if (!kiljaeden)
+        return false;
+
+    // End remaining bot drake control after phase changes, which may not be ideal but
+    // is the safer approach without knowing the player's composition or raid knowledge.
+    if (kiljaeden->HasUnitState(UNIT_STATE_CASTING) &&
+        kiljaeden->FindCurrentSpellBySpellId(Id(SwpSpells::SPELL_SHADOW_SPIKE)))
+    {
+        if (!HasKiljaedenDragonAura(bot))
+            return false;
+
+        bot->RemoveAura(Id(SwpSpells::SPELL_VENGEANCE_OF_THE_BLUE_FLIGHT));
+        return true;
+    }
+
+    Unit* dragon = GetKiljaedenControlledDragon(bot);
+    if (!dragon)
+        return false;
+
+    if (IsKiljaedenCastingDarknessOfAThousandSouls(kiljaeden))
+        return ExecuteDuringDarknessOfAThousandSouls(kiljaeden, dragon);
+
+    return ExecuteOutsideDarknessOfAThousandSouls(dragon);
+}
+
+bool KiljaedenDragonBuffAndProtectRaidAction::ExecuteDuringDarknessOfAThousandSouls(
+    Unit* kiljaeden, Unit* dragon)
+{
+    Spell* darknessSpell = kiljaeden->FindCurrentSpellBySpellId(
+        Id(SwpSpells::SPELL_DARKNESS_OF_A_THOUSAND_SOULS));
+    if (!darknessSpell)
+        return false;
+
+    constexpr float castReadyDistanceFromStack = 3.0f;
+    Position const& stackPosition = KILJAEDEN_DARKNESS_POSITION;
+    float const distanceToStack = dragon->GetExactDist2d(
+        stackPosition.GetPositionX(), stackPosition.GetPositionY());
+
+    if (distanceToStack > castReadyDistanceFromStack)
+    {
+        if (dragon->GetMotionMaster()->GetCurrentMovementGeneratorType() == POINT_MOTION_TYPE &&
+            dragon->isMoving())
+        {
+            return true;
+        }
+
+        float const deltaX = stackPosition.GetPositionX() - dragon->GetPositionX();
+        float const deltaY = stackPosition.GetPositionY() - dragon->GetPositionY();
+        constexpr float desiredDistanceFromStack = 2.0f;
+        float const moveRatio = (distanceToStack - desiredDistanceFromStack) / distanceToStack;
+        float const moveX = dragon->GetPositionX() + deltaX * moveRatio;
+        float const moveY = dragon->GetPositionY() + deltaY * moveRatio;
+
+        dragon->GetMotionMaster()->MovePoint(0, moveX, moveY, stackPosition.GetPositionZ());
+        return true;
+    }
+
+    if (dragon->IsNonMeleeSpellCast(false))
+        return false;
+
+    if (darknessSpell->GetRemainingCastTime() < SHIELD_OF_THE_BLUE_CAST_WINDOW_MS)
+        return CastKiljaedenDragonSpell(dragon, Id(SwpSpells::SPELL_SHIELD_OF_THE_BLUE));
+    else if (CastKiljaedenDragonSpell(dragon, Id(SwpSpells::SPELL_DRAGON_BREATH_HASTE)))
+        return true;
+    else if (CastKiljaedenDragonSpell(dragon, Id(SwpSpells::SPELL_DRAGON_BREATH_REVITALIZE)))
+        return true;
+
+    return false;
+}
+
+bool KiljaedenDragonBuffAndProtectRaidAction::ExecuteOutsideDarknessOfAThousandSouls(Unit* dragon)
+{
+    if (dragon->IsNonMeleeSpellCast(false))
+        return false;
+
+    uint32 spellId = 0;
+    Player* target = nullptr;
+
+    constexpr uint32 hasteSpellId = Id(SwpSpells::SPELL_DRAGON_BREATH_HASTE);
+    constexpr uint32 revitalizeSpellId = Id(SwpSpells::SPELL_DRAGON_BREATH_REVITALIZE);
+
+    if (!dragon->HasSpellCooldown(hasteSpellId))
+    {
+        target = FindBestKiljaedenDragonClusterTarget(bot, dragon, hasteSpellId);
+        if (!target)
+            target = FindClosestKiljaedenDragonTarget(bot, dragon, hasteSpellId);
+        if (target)
+            spellId = hasteSpellId;
+    }
+
+    if (!target && !dragon->HasSpellCooldown(revitalizeSpellId))
+    {
+        target = FindBestKiljaedenDragonClusterTarget(bot, dragon, revitalizeSpellId);
+        if (!target)
+            target = FindClosestKiljaedenDragonTarget(bot, dragon, revitalizeSpellId);
+        if (target)
+            spellId = revitalizeSpellId;
+    }
+
+    if (!target)
+    {
+        target = FindClosestKiljaedenDragonTarget(bot, dragon);
+        if (!target)
+            return false;
+
+        if (!dragon->HasSpellCooldown(hasteSpellId))
+            spellId = hasteSpellId;
+        else if (!dragon->HasSpellCooldown(revitalizeSpellId))
+            spellId = revitalizeSpellId;
+        else
+            return false;
+    }
+
+    if (!spellId)
+        return false;
+
+    float const distanceToTarget = dragon->GetExactDist2d(target);
+
+    //By leewheel 2026-09-04: 上游1e110a5f——跟随改名 KILJAEDEN_DRAGON_BREATH_STANDOFF/KILJAEDEN_DRAGON_STANDOFF_TOLERANCE
+    if (distanceToTarget > KILJAEDEN_DRAGON_BREATH_STANDOFF + KILJAEDEN_DRAGON_STANDOFF_TOLERANCE ||
+        (distanceToTarget > std::numeric_limits<float>::min() &&
+         distanceToTarget < KILJAEDEN_DRAGON_BREATH_STANDOFF - KILJAEDEN_DRAGON_STANDOFF_TOLERANCE))
+    //End By leewheel
+    {
+        float const deltaX = target->GetPositionX() - dragon->GetPositionX();
+        float const deltaY = target->GetPositionY() - dragon->GetPositionY();
+        float const moveRatio =
+            //By leewheel 2026-09-04: 上游1e110a5f——跟随改名 KILJAEDEN_DRAGON_BREATH_STANDOFF
+            (distanceToTarget - KILJAEDEN_DRAGON_BREATH_STANDOFF) / distanceToTarget;
+            //End By leewheel
+        float const moveX = dragon->GetPositionX() + deltaX * moveRatio;
+        float const moveY = dragon->GetPositionY() + deltaY * moveRatio;
+
+        dragon->GetMotionMaster()->MovePoint(0, moveX, moveY, target->GetPositionZ());
+        return true;
+    }
+
+    dragon->SetFacingToObject(target);
+
+    return CastKiljaedenDragonSpell(dragon, spellId);
+}

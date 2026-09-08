@@ -1,0 +1,169 @@
+/*
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
+ */
+
+#include "WhoAction.h"
+
+#include "AiFactory.h"
+#include "Event.h"
+#include "ItemVisitors.h"
+#include "Playerbots.h"
+
+#ifndef WIN32
+inline int strcmpi(char const* s1, char const* s2)
+{
+    for (; *s1 && *s2 && (toupper(*s1) == toupper(*s2)); ++s1, ++s2)
+    {
+    }
+    return *s1 - *s2;
+}
+#endif
+
+bool WhoAction::Execute(Event event)
+{
+    Player* owner = event.getOwner();
+    if (!owner)
+        return false;
+
+    std::ostringstream out;
+
+    std::string const text = event.getParam();
+    if (!text.empty())
+    {
+        out << QuerySkill(text);
+
+        if (sRandomPlayerbotMgr.IsRandomBot(bot))
+            out << QueryTrade(text);
+    }
+    else
+    {
+        out << QuerySpec(text);
+    }
+
+    if (!out.str().empty())
+    {
+        if (AreaTableEntry const* areaEntry = sAreaTableStore.LookupEntry(bot->GetAreaId()))
+        {
+            //By leewheel 2026-07-10: TC中LocalizedString的operator[]需要LocaleConstant而非int
+            out << ", (|cffb04040" << areaEntry->area_name()[DEFAULT_LOCALE] << "|r)";
+            //End By leewheel
+        }
+    }
+
+    if (botAI->GetMaster())
+    {
+        if (!out.str().empty())
+            out << ", ";
+
+        //By leewheel 2026-08-01: 玩家可见文本中文化
+        out << "正在和 " << botAI->GetMaster()->GetName() << " 一起玩";
+        //End By leewheel
+    }
+
+    std::string const tell = out.str();
+    if (tell.empty())
+        return false;
+
+    // ignore random bot chat filter
+    bot->Whisper(tell, LANG_UNIVERSAL, owner);
+    return true;
+}
+
+std::string const WhoAction::QueryTrade(std::string const text)
+{
+    std::ostringstream out;
+
+    std::vector<Item*> items = InventoryAction::parseItems(text);
+    for (Item* sell : items)
+    {
+        //By leewheel 2026-07-10: TC中SellPrice是方法GetSellPrice()
+        int32 sellPrice =
+            sell->GetTemplate()->GetSellPrice() * sRandomPlayerbotMgr.GetSellMultiplier(bot) * sell->GetCount();
+        //End By leewheel
+        if (!sellPrice)
+            continue;
+
+        //By leewheel 2026-08-01: 玩家可见文本中文化
+        out << "出售 " << chat->FormatItem(sell->GetTemplate(), sell->GetCount()) << " 价格 "
+            << chat->formatMoney(sellPrice);
+        //End By leewheel
+        return out.str();
+    }
+
+    return "";
+}
+
+std::string const WhoAction::QuerySkill(std::string const text)
+{
+    std::ostringstream out;
+    uint32 skill = chat->parseSkill(text);
+    if (!skill || !botAI->HasSkill((SkillType)skill))
+        return "";
+
+    std::string const skillName = chat->FormatSkill(skill);
+    uint32 spellId = AI_VALUE2(uint32, "spell id", skillName);
+    uint16 value = bot->GetSkillValue(skill);
+    uint16 maxSkill = bot->GetMaxSkillValue(skill);
+    ObjectGuid guid = bot->GetGUID();
+
+    std::string const data = "0";
+    out << "|cFFFFFF00|Htrade:" << spellId << ":" << value << ":" << maxSkill << ":" << std::hex << std::uppercase
+        << guid.GetCounter() << std::nouppercase << std::dec << ":" << data << "|h[" << skillName << "]|h|r"
+        << " |h|cff00ff00" << value << "|h|cffffffff/"
+        << "|h|cff00ff00" << maxSkill << "|h|cffffffff ";
+
+    return out.str();
+}
+
+std::string const WhoAction::QuerySpec(std::string const /*text*/)
+{
+    std::ostringstream out;
+
+    uint8 spec = AiFactory::GetPlayerSpecTab(bot);
+
+    out << "|h|cffffffff" << chat->FormatRace(bot->getRace()) << " [" << (bot->getGender() == GENDER_MALE ? "M" : "F")
+        << "] " << chat->FormatClass(bot, spec);
+    //By leewheel 2026-08-01: 玩家可见文本中文化
+    out << " (|h|cff00ff00" << (uint32)bot->GetLevel() << "|h|cffffffff 级), ";
+    out << "|h|cff00ff00" << botAI->GetEquipGearScore(bot/*, false, false*/) << "|h|cffffffff 装等 (";
+    //End By leewheel
+
+    ItemCountByQuality visitor;
+    IterateItems(&visitor, ITERATE_ITEMS_IN_EQUIP);
+
+    bool needSlash = false;
+    if (visitor.count[ITEM_QUALITY_LEGENDARY])
+    {
+        out << "|h|cffff00ff" << visitor.count[ITEM_QUALITY_LEGENDARY] << "|h|cffffffff";
+        needSlash = true;
+    }
+
+    if (visitor.count[ITEM_QUALITY_EPIC])
+    {
+        out << "|h|cffff00ff" << visitor.count[ITEM_QUALITY_EPIC] << "|h|cffffffff";
+        needSlash = true;
+    }
+
+    if (visitor.count[ITEM_QUALITY_RARE])
+    {
+        if (needSlash)
+            out << "/";
+
+        out << "|h|cff8080ff" << visitor.count[ITEM_QUALITY_RARE] << "|h|cffffffff";
+        needSlash = true;
+    }
+
+    if (visitor.count[ITEM_QUALITY_UNCOMMON])
+    {
+        if (needSlash)
+            out << "/";
+
+        out << "|h|cff00ff00" << visitor.count[ITEM_QUALITY_UNCOMMON] << "|h|cffffffff";
+        needSlash = true;
+    }
+
+    out << ")";
+
+    return out.str();
+}

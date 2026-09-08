@@ -1,0 +1,833 @@
+/* 毒蛇神殿 机器人策略 */
+#include "SSCMultipliers.h"
+#include "ChooseTargetActions.h"
+#include "DKActions.h"
+#include "DruidActions.h"
+#include "DruidBearActions.h"
+#include "DruidCatActions.h"
+#include "DruidShapeshiftActions.h"
+#include "FollowActions.h"
+#include "GenericSpellActions.h"
+#include "HunterActions.h"
+#include "LootAction.h"
+#include "MageActions.h"
+#include "PaladinActions.h"
+#include "Playerbots.h"
+#include "ReachTargetActions.h"
+#include "RogueActions.h"
+#include "SSCActions.h"
+#include "SSCHelpers.h"
+#include "Timer.h"
+#include "ShamanActions.h"
+#include "WarlockActions.h"
+#include "WarriorActions.h"
+#include "WipeAction.h"
+
+//By leewheel 2026-09-04: 上游——命名空间改 SscHelpers
+using namespace SscHelpers;
+//End By leewheel
+
+// Trash
+
+//By leewheel 2026-09-04: 上游——spell 引用 Id 化; 逻辑重构为 early-return 链(新增 AttackAction 放行)
+float UnderbogColossusEscapeToxicPoolMultiplier::GetValue(Action* action)
+{
+    if (!bot->HasAura(Id(SscSpells::SPELL_TOXIC_POOL)))
+        return 1.0f;
+
+    if (!dynamic_cast<MovementAction*>(action))
+        return 1.0f;
+
+    if (dynamic_cast<AttackAction*>(action))
+        return 1.0f;
+
+    return dynamic_cast<UnderbogColossusEscapeToxicPoolAction*>(action) ? 1.0f : 0.0f;
+}
+//End By leewheel
+
+// Hydross the Unstable <Duke of Currents>
+
+float HydrossTheUnstableDisableTankActionsMultiplier::GetValue(Action* action)
+{
+    if (!PlayerbotAI::IsMainTank(bot) && !PlayerbotAI::IsAssistTankOfIndex(bot, 0, true))
+        return 1.0f;
+
+    Unit* hydross = AI_VALUE2(Unit*, "find target", "21216");
+    if (!hydross)
+        return 1.0f;
+
+    if (dynamic_cast<TankAssistAction*>(action) ||
+        dynamic_cast<CombatFormationMoveAction*>(action))
+        return 0.0f;
+
+    //By leewheel 2026-09-04: 上游——spell 引用 Id 化; 判定拆分为两个 early-return
+    if (PlayerbotAI::IsMainTank(bot) && !hydross->HasAura(Id(SscSpells::SPELL_CORRUPTION)))
+        return 1.0f;
+
+    if (PlayerbotAI::IsAssistTankOfIndex(bot, 0, true) &&
+        hydross->HasAura(Id(SscSpells::SPELL_CORRUPTION)))
+    {
+        return 1.0f;
+    }
+    //End By leewheel
+
+    if (dynamic_cast<CastReachTargetSpellAction*>(action) ||
+        dynamic_cast<ReachTargetAction*>(action) ||
+        (dynamic_cast<AttackAction*>(action) &&
+         !dynamic_cast<HydrossTheUnstablePositionFrostTankAction*>(action) &&
+         !dynamic_cast<HydrossTheUnstablePositionNatureTankAction*>(action)))
+        return 0.0f;
+
+    return 1.0f;
+}
+
+float HydrossTheUnstableWaitForDpsMultiplier::GetValue(Action* action)
+{
+    Unit* hydross = AI_VALUE2(Unit*, "find target", "21216");
+    if (!hydross)
+        return 1.0f;
+
+    Unit* waterElemental = AI_VALUE2(Unit*, "find target", "pure spawn of hydross");
+    Unit* natureElemental = AI_VALUE2(Unit*, "find target", "tainted spawn of hydross");
+    if (PlayerbotAI::IsAssistTank(bot) && !PlayerbotAI::IsAssistTankOfIndex(bot, 0, true) &&
+        (waterElemental || natureElemental))
+        return 1.0f;
+
+    if (dynamic_cast<HydrossTheUnstableMisdirectBossToTankAction*>(action))
+        return 1.0f;
+
+    const uint32 instanceId = hydross->GetMap()->GetInstanceId();
+    const uint32 now = getMSTime();
+    constexpr uint32 phaseChangeWaitMs = 1 * IN_MILLISECONDS;
+    constexpr uint32 dpsWaitMs = 5 * IN_MILLISECONDS;
+
+    //By leewheel 2026-09-04: 上游——spell 引用 Id 化
+    if (!hydross->HasAura(Id(SscSpells::SPELL_CORRUPTION)) && !PlayerbotAI::IsMainTank(bot))
+    {
+        auto itDps = hydrossFrostDpsWaitTimer.find(instanceId);
+        auto itPhase = hydrossChangeToFrostPhaseTimer.find(instanceId);
+
+        bool justChanged = (itDps == hydrossFrostDpsWaitTimer.end() ||
+                            getMSTimeDiff(itDps->second, now) < dpsWaitMs);
+        bool aboutToChange = (itPhase != hydrossChangeToFrostPhaseTimer.end() &&
+                              getMSTimeDiff(itPhase->second, now) > phaseChangeWaitMs);
+
+        if (!justChanged && !aboutToChange)
+            return 1.0f;
+
+        if (dynamic_cast<AttackAction*>(action) ||
+            (dynamic_cast<CastSpellAction*>(action) &&
+             !dynamic_cast<CastHealingSpellAction*>(action)))
+            return 0.0f;
+    }
+
+    //By leewheel 2026-09-04: 上游——spell 引用 Id 化
+    if (hydross->HasAura(Id(SscSpells::SPELL_CORRUPTION)) && !PlayerbotAI::IsAssistTankOfIndex(bot, 0, true))
+    {
+        auto itDps = hydrossNatureDpsWaitTimer.find(instanceId);
+        auto itPhase = hydrossChangeToNaturePhaseTimer.find(instanceId);
+
+        bool justChanged = (itDps == hydrossNatureDpsWaitTimer.end() ||
+                            getMSTimeDiff(itDps->second, now) < dpsWaitMs);
+        bool aboutToChange = (itPhase != hydrossChangeToNaturePhaseTimer.end() &&
+                              getMSTimeDiff(itPhase->second, now) > phaseChangeWaitMs);
+
+        if (!justChanged && !aboutToChange)
+            return 1.0f;
+
+        if (dynamic_cast<AttackAction*>(action) ||
+            (dynamic_cast<CastSpellAction*>(action) &&
+             !dynamic_cast<CastHealingSpellAction*>(action)))
+            return 0.0f;
+    }
+
+    return 1.0f;
+}
+
+float HydrossTheUnstableControlMisdirectionMultiplier::GetValue(Action* action)
+{
+    if (bot->getClass() != CLASS_HUNTER)
+        return 1.0f;
+
+    if (AI_VALUE2(Unit*, "find target", "21216") &&
+        dynamic_cast<CastMisdirectionOnMainTankAction*>(action))
+        return 0.0f;
+
+    return 1.0f;
+}
+
+// The Lurker Below
+
+float TheLurkerBelowStayAwayFromSpoutMultiplier::GetValue(Action* action)
+{
+    Unit* lurker = AI_VALUE2(Unit*, "find target", "21217");
+    if (!lurker)
+        return 1.0f;
+
+    const uint32 now = getMSTime();
+
+    auto it = lurkerSpoutTimer.find(lurker->GetMap()->GetInstanceId());
+    if (it != lurkerSpoutTimer.end() &&
+        getMSTimeDiff(it->second, now) < LURKER_SPOUT_DURATION_MS)
+    {
+        if (dynamic_cast<CastReachTargetSpellAction*>(action) ||
+            dynamic_cast<CastKillingSpreeAction*>(action) ||
+            dynamic_cast<CastBlinkBackAction*>(action) ||
+            dynamic_cast<CastDisengageAction*>(action))
+            return 0.0f;
+
+        if (dynamic_cast<MovementAction*>(action) &&
+            !dynamic_cast<AttackAction*>(action) &&
+            !dynamic_cast<TheLurkerBelowRunAroundBehindBossAction*>(action))
+            return 0.0f;
+    }
+
+    return 1.0f;
+}
+
+float TheLurkerBelowMaintainRangedSpreadMultiplier::GetValue(Action* action)
+{
+    if (!PlayerbotAI::IsRanged(bot))
+        return 1.0f;
+
+    if (!AI_VALUE2(Unit*, "find target", "21217"))
+        return 1.0f;
+
+    if (dynamic_cast<CombatFormationMoveAction*>(action) ||
+        dynamic_cast<FleeAction*>(action) ||
+        dynamic_cast<CastDisengageAction*>(action) ||
+        dynamic_cast<CastBlinkBackAction*>(action))
+        return 0.0f;
+
+    return 1.0f;
+}
+
+// Disable tank assist during Submerge only if there are 3 or more tanks in the raid
+float TheLurkerBelowDisableTankAssistMultiplier::GetValue(Action* action)
+{
+    if (!PlayerbotAI::IsTank(bot))
+        return 1.0f;
+
+    if (bot->GetVictim() == nullptr)
+        return 1.0f;
+
+    Unit* lurker = AI_VALUE2(Unit*, "find target", "21217");
+    if (!lurker || lurker->getStandState() != UNIT_STAND_STATE_SUBMERGED)
+        return 1.0f;
+
+    Group* group = bot->GetGroup();
+    if (!group)
+        return 1.0f;
+
+    uint8 tankCount = 0;
+    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+    {
+        Player* member = ref->GetSource();
+        if (!member || !member->IsAlive())
+            continue;
+
+        if (PlayerbotAI::IsTank(member))
+            ++tankCount;
+    }
+
+    if (tankCount < 3)
+        return 1.0f;
+
+    if (dynamic_cast<TankAssistAction*>(action))
+        return 0.0f;
+
+    return 1.0f;
+}
+
+// Leotheras the Blind
+
+float LeotherasTheBlindAvoidWhirlwindMultiplier::GetValue(Action* action)
+{
+    if (PlayerbotAI::IsTank(bot))
+        return 1.0f;
+
+    //By leewheel 2026-09-04: 上游——spell 引用 Id 化
+    if (bot->HasAura(Id(SscSpells::SPELL_INSIDIOUS_WHISPER)))
+        return 1.0f;
+
+    Unit* leotheras = AI_VALUE2(Unit*, "find target", "21215");
+    if (!leotheras || (!leotheras->HasAura(Id(SscSpells::SPELL_WHIRLWIND)) &&
+        !leotheras->HasAura(Id(SscSpells::SPELL_WHIRLWIND_CHANNEL))))
+        return 1.0f;
+    //End By leewheel
+
+    if (dynamic_cast<CastReachTargetSpellAction*>(action))
+        return 0.0f;
+
+    if (dynamic_cast<MovementAction*>(action) &&
+        !dynamic_cast<AttackAction*>(action) &&
+        !dynamic_cast<LeotherasTheBlindRunAwayFromWhirlwindAction*>(action))
+        return 0.0f;
+
+    return 1.0f;
+}
+
+float LeotherasTheBlindDisableTankActionsMultiplier::GetValue(Action* action)
+{
+    //By leewheel 2026-09-04: 上游——spell 引用 Id 化
+    if (!PlayerbotAI::IsTank(bot) || bot->HasAura(Id(SscSpells::SPELL_INSIDIOUS_WHISPER)))
+        return 1.0f;
+
+    if (!AI_VALUE2(Unit*, "find target", "21215"))
+        return 1.0f;
+
+    if (GetPhase2LeotherasDemon(bot) && dynamic_cast<AttackAction*>(action))
+        return 0.0f;
+
+    if (!GetPhase3LeotherasDemon(bot) && dynamic_cast<CastBerserkAction*>(action))
+        return 0.0f;
+
+    return 1.0f;
+}
+
+float LeotherasTheBlindFocusOnInnerDemonMultiplier::GetValue(Action* action)
+{
+    //By leewheel 2026-09-04: 上游——spell 引用 Id 化; 判定链合并为三元 return
+    if (!bot->HasAura(Id(SscSpells::SPELL_INSIDIOUS_WHISPER)))
+        return 1.0f;
+
+    return dynamic_cast<TankAssistAction*>(action) ||
+        dynamic_cast<DpsAssistAction*>(action) ||
+        dynamic_cast<CastHealingSpellAction*>(action) ||
+        dynamic_cast<CastCureSpellAction*>(action) ||
+        dynamic_cast<CurePartyMemberAction*>(action) ||
+        dynamic_cast<CastBuffSpellAction*>(action) ||
+        dynamic_cast<ResurrectPartyMemberAction*>(action) ||
+        dynamic_cast<PartyMemberActionNameSupport*>(action) ||
+        dynamic_cast<CastBearFormAction*>(action) ||
+        dynamic_cast<CastDireBearFormAction*>(action) ||
+        dynamic_cast<CastTreeFormAction*>(action) ? 0.0f : 1.0f;
+    //End By leewheel
+}
+
+float LeotherasTheBlindMeleeDpsAvoidChaosBlastMultiplier::GetValue(Action* action)
+{
+    if (PlayerbotAI::IsRanged(bot) || PlayerbotAI::IsTank(bot))
+        return 1.0f;
+
+    if (!GetPhase2LeotherasDemon(bot))
+        return 1.0f;
+
+    //By leewheel 2026-09-04: 上游——spell 引用 Id 化
+    Aura* chaosBlast = bot->GetAura(Id(SscSpells::SPELL_CHAOS_BLAST));
+    //End By leewheel
+    if (!chaosBlast || chaosBlast->GetStackAmount() < 5)
+        return 1.0f;
+
+    if (dynamic_cast<AttackAction*>(action) ||
+        dynamic_cast<ReachTargetAction*>(action) ||
+        dynamic_cast<CombatFormationMoveAction*>(action) ||
+        dynamic_cast<CastReachTargetSpellAction*>(action) ||
+        dynamic_cast<CastKillingSpreeAction*>(action))
+        return 0.0f;
+
+    return 1.0f;
+}
+
+float LeotherasTheBlindWaitForDpsMultiplier::GetValue(Action* action)
+{
+    Unit* leotheras = AI_VALUE2(Unit*, "find target", "21215");
+    if (!leotheras)
+        return 1.0f;
+
+    //By leewheel 2026-09-04: 上游——spell 引用 Id 化; 返回类型 Unit*→Creature*
+    if (bot->HasAura(Id(SscSpells::SPELL_INSIDIOUS_WHISPER)))
+        return 1.0f;
+
+    if (dynamic_cast<LeotherasTheBlindMisdirectBossToDemonFormTankAction*>(action))
+        return 1.0f;
+
+    const uint32 instanceId = leotheras->GetMap()->GetInstanceId();
+    const uint32 now = getMSTime();
+
+    constexpr uint32 dpsWaitMsPhase1 = 5 * IN_MILLISECONDS;
+    Creature* leotherasHuman = GetLeotherasHuman(bot);
+    Creature* leotherasPhase3Demon = GetPhase3LeotherasDemon(bot);
+    if (leotherasHuman && !leotherasHuman->HasAura(Id(SscSpells::SPELL_LEOTHERAS_BANISHED)) &&
+        !leotherasPhase3Demon)
+    {
+        if (PlayerbotAI::IsTank(bot))
+            return 1.0f;
+
+        auto it = leotherasHumanFormDpsWaitTimer.find(instanceId);
+        if (it == leotherasHumanFormDpsWaitTimer.end() ||
+            getMSTimeDiff(it->second, now) < dpsWaitMsPhase1)
+        {
+            if (dynamic_cast<AttackAction*>(action) ||
+                (dynamic_cast<CastSpellAction*>(action) &&
+                 !dynamic_cast<CastHealingSpellAction*>(action)))
+                return 0.0f;
+        }
+    }
+
+    constexpr uint32 dpsWaitMsPhase2 = 12 * IN_MILLISECONDS;
+    Creature* leotherasPhase2Demon = GetPhase2LeotherasDemon(bot);
+    //End By leewheel
+    Player* demonFormTank = GetLeotherasDemonFormTank(bot);
+    if (leotherasPhase2Demon)
+    {
+        if (demonFormTank && demonFormTank == bot)
+            return 1.0f;
+
+        if (!demonFormTank && PlayerbotAI::IsTank(bot))
+            return 1.0f;
+
+        auto it = leotherasDemonFormDpsWaitTimer.find(instanceId);
+        if (it == leotherasDemonFormDpsWaitTimer.end() ||
+            getMSTimeDiff(it->second, now) < dpsWaitMsPhase2)
+        {
+            if (dynamic_cast<AttackAction*>(action) ||
+                (dynamic_cast<CastSpellAction*>(action) &&
+                 !dynamic_cast<CastHealingSpellAction*>(action)))
+                return 0.0f;
+        }
+    }
+
+    constexpr uint32 dpsWaitMsPhase3 = 8 * IN_MILLISECONDS;
+    if (leotherasPhase3Demon)
+    {
+        if ((demonFormTank && demonFormTank == bot) || PlayerbotAI::IsTank(bot))
+            return 1.0f;
+
+        auto it = leotherasFinalPhaseDpsWaitTimer.find(instanceId);
+        if (it == leotherasFinalPhaseDpsWaitTimer.end() ||
+            getMSTimeDiff(it->second, now) < dpsWaitMsPhase3)
+        {
+            if (dynamic_cast<AttackAction*>(action) ||
+                (dynamic_cast<CastSpellAction*>(action) &&
+                 !dynamic_cast<CastHealingSpellAction*>(action)))
+                return 0.0f;
+        }
+    }
+
+    return 1.0f;
+}
+
+// Don't use Bloodlust/Heroism during the Channeler phase
+float LeotherasTheBlindDelayBloodlustAndHeroismMultiplier::GetValue(Action* action)
+{
+    if (bot->getClass() != CLASS_SHAMAN)
+        return 1.0f;
+
+    Unit* leotheras = AI_VALUE2(Unit*, "find target", "21215");
+    //By leewheel 2026-09-04: 上游——spell 引用 Id 化
+    if (!leotheras || !leotheras->HasAura(Id(SscSpells::SPELL_LEOTHERAS_BANISHED)))
+        return 1.0f;
+
+    if (dynamic_cast<CastHeroismAction*>(action) ||
+        dynamic_cast<CastBloodlustAction*>(action))
+        return 0.0f;
+
+    return 1.0f;
+}
+
+// Fathom-Lord Karathress
+
+float FathomLordKarathressDisableTankActionsMultiplier::GetValue(Action* action)
+{
+    if (!PlayerbotAI::IsTank(bot))
+        return 1.0f;
+
+    if (!AI_VALUE2(Unit*, "find target", "21214"))
+        return 1.0f;
+
+    if (bot->GetVictim() != nullptr && dynamic_cast<TankAssistAction*>(action))
+        return 0.0f;
+
+    if (dynamic_cast<CombatFormationMoveAction*>(action) ||
+        dynamic_cast<AvoidAoeAction*>(action) ||
+        dynamic_cast<CastTauntAction*>(action) ||
+        dynamic_cast<CastChallengingShoutAction*>(action) ||
+        dynamic_cast<CastThunderClapAction*>(action) ||
+        dynamic_cast<CastShockwaveAction*>(action) ||
+        dynamic_cast<CastCleaveAction*>(action) ||
+        dynamic_cast<CastGrowlAction*>(action) ||
+        dynamic_cast<CastSwipeBearAction*>(action) ||
+        dynamic_cast<CastChallengingRoarAction*>(action) ||
+        dynamic_cast<CastHandOfReckoningAction*>(action) ||
+        dynamic_cast<CastAvengersShieldAction*>(action) ||
+        dynamic_cast<CastConsecrationAction*>(action) ||
+        dynamic_cast<CastDarkCommandAction*>(action) ||
+        dynamic_cast<CastDeathAndDecayAction*>(action) ||
+        dynamic_cast<CastPestilenceAction*>(action) ||
+        dynamic_cast<CastBloodBoilAction*>(action))
+        return 0.0f;
+
+    return 1.0f;
+}
+
+float FathomLordKarathressDisableAoeMultiplier::GetValue(Action* action)
+{
+    if (!PlayerbotAI::IsDps(bot))
+        return 1.0f;
+
+    if (!AI_VALUE2(Unit*, "find target", "21214"))
+        return 1.0f;
+
+    auto castSpellAction = dynamic_cast<CastSpellAction*>(action);
+    if (castSpellAction && castSpellAction->getThreatType() == Action::ActionThreatType::Aoe)
+        return 0.0f;
+
+    return 1.0f;
+}
+
+float FathomLordKarathressControlMisdirectionMultiplier::GetValue(Action* action)
+{
+    if (bot->getClass() != CLASS_HUNTER)
+        return 1.0f;
+
+    if (!AI_VALUE2(Unit*, "find target", "21214"))
+        return 1.0f;
+
+    if (dynamic_cast<CastMisdirectionOnMainTankAction*>(action))
+        return 0.0f;
+
+    return 1.0f;
+}
+
+float FathomLordKarathressWaitForDpsMultiplier::GetValue(Action* action)
+{
+    if (PlayerbotAI::IsTank(bot))
+        return 1.0f;
+
+    Unit* karathress = AI_VALUE2(Unit*, "find target", "21214");
+    if (!karathress)
+        return 1.0f;
+
+    if (dynamic_cast<FathomLordKarathressMisdirectBossesToTanksAction*>(action))
+        return 1.0f;
+
+    const uint32 now = getMSTime();
+    constexpr uint32 dpsWaitMs = 12 * IN_MILLISECONDS;
+
+    auto it = karathressDpsWaitTimer.find(karathress->GetMap()->GetInstanceId());
+    if (it == karathressDpsWaitTimer.end() ||
+        getMSTimeDiff(it->second, now) < dpsWaitMs)
+    {
+        if (dynamic_cast<AttackAction*>(action) ||
+            (dynamic_cast<CastSpellAction*>(action) &&
+             !dynamic_cast<CastHealingSpellAction*>(action)))
+            return 0.0f;
+    }
+
+    return 1.0f;
+}
+
+float FathomLordKarathressCaribdisTankHealerMaintainPositionMultiplier::GetValue(Action* action)
+{
+    if (!PlayerbotAI::IsAssistHealOfIndex(bot, 0, true))
+        return 1.0f;
+
+    if (!AI_VALUE2(Unit*, "find target", "21964"))
+        return 1.0f;
+
+    if (dynamic_cast<FleeAction*>(action) ||
+        dynamic_cast<FollowAction*>(action))
+        return 0.0f;
+
+    return 1.0f;
+}
+
+// Morogrim Tidewalker
+
+// Use Bloodlust/Heroism after the first Murloc spawn
+float MorogrimTidewalkerDelayBloodlustAndHeroismMultiplier::GetValue(Action* action)
+{
+    if (bot->getClass() != CLASS_SHAMAN)
+        return 1.0f;
+
+    if (!AI_VALUE2(Unit*, "find target", "21213"))
+        return 1.0f;
+
+    if (AI_VALUE2(Unit*, "find target", "21920"))
+        return 1.0f;
+
+    if (dynamic_cast<CastHeroismAction*>(action) ||
+        dynamic_cast<CastBloodlustAction*>(action))
+        return 0.0f;
+
+    return 1.0f;
+}
+
+float MorogrimTidewalkerDisableTankActionsMultiplier::GetValue(Action* action)
+{
+    if (!PlayerbotAI::IsMainTank(bot))
+        return 1.0f;
+
+    if (!AI_VALUE2(Unit*, "find target", "21213"))
+        return 1.0f;
+
+    if (dynamic_cast<CombatFormationMoveAction*>(action))
+        return 0.0f;
+
+    return 1.0f;
+}
+
+float MorogrimTidewalkerMaintainPhase2StackingMultiplier::GetValue(Action* action)
+{
+    if (!PlayerbotAI::IsRanged(bot))
+        return 1.0f;
+
+    Unit* tidewalker = AI_VALUE2(Unit*, "find target", "21213");
+    if (!tidewalker || tidewalker->GetHealthPct() > 25.0f)
+        return 1.0f;
+
+    if (dynamic_cast<CombatFormationMoveAction*>(action) ||
+        dynamic_cast<FleeAction*>(action) ||
+        dynamic_cast<CastDisengageAction*>(action) ||
+        dynamic_cast<CastBlinkBackAction*>(action))
+        return 0.0f;
+
+    return 1.0f;
+}
+
+// Lady Vashj <Coilfang Matron>
+
+// Wait until phase 3 to use Bloodlust/Heroism
+// Don't use other major cooldowns in Phase 1, either
+float LadyVashjDelayCooldownsMultiplier::GetValue(Action* action)
+{
+    if (!AI_VALUE2(Unit*, "find target", "21212"))
+        return 1.0f;
+
+    //By leewheel 2026-09-04: 上游——条件折行规范化
+    if (bot->getClass() == CLASS_SHAMAN && !IsLadyVashjInPhase3(botAI) &&
+        (dynamic_cast<CastBloodlustAction*>(action) ||
+         dynamic_cast<CastHeroismAction*>(action)))
+        return 0.0f;
+    //End By leewheel
+
+    if (!PlayerbotAI::IsDps(bot) || !IsLadyVashjInPhase1(botAI))
+        return 1.0f;
+
+    if (dynamic_cast<CastMetamorphosisAction*>(action) ||
+        dynamic_cast<CastAdrenalineRushAction*>(action) ||
+        dynamic_cast<CastBladeFlurryAction*>(action) ||
+        dynamic_cast<CastIcyVeinsAction*>(action) ||
+        dynamic_cast<CastColdSnapAction*>(action) ||
+        dynamic_cast<CastArcanePowerAction*>(action) ||
+        dynamic_cast<CastPresenceOfMindAction*>(action) ||
+        dynamic_cast<CastCombustionAction*>(action) ||
+        dynamic_cast<CastRapidFireAction*>(action) ||
+        dynamic_cast<CastReadinessAction*>(action) ||
+        dynamic_cast<CastAvengingWrathAction*>(action) ||
+        dynamic_cast<CastElementalMasteryAction*>(action) ||
+        dynamic_cast<CastFeralSpiritAction*>(action) ||
+        dynamic_cast<CastFireElementalTotemAction*>(action) ||
+        dynamic_cast<CastFireElementalTotemMeleeAction*>(action) ||
+        dynamic_cast<CastForceOfNatureAction*>(action) ||
+        dynamic_cast<CastArmyOfTheDeadAction*>(action) ||
+        dynamic_cast<CastSummonGargoyleAction*>(action) ||
+        dynamic_cast<CastBerserkingAction*>(action) ||
+        dynamic_cast<CastBloodFuryAction*>(action) ||
+        dynamic_cast<UseTrinketAction*>(action))
+        return 0.0f;
+
+    return 1.0f;
+}
+
+float LadyVashjMainTankGroupShamanUseGroundingTotemMultiplier::GetValue(Action* action)
+{
+    if (bot->getClass() != CLASS_SHAMAN)
+        return 1.0f;
+
+    if (!AI_VALUE2(Unit*, "find target", "21212"))
+        return 1.0f;
+
+    if (!IsMainTankInSameSubgroup(bot))
+        return 1.0f;
+
+    if (dynamic_cast<CastWindfuryTotemAction*>(action) ||
+        dynamic_cast<SetWindfuryTotemAction*>(action) ||
+        dynamic_cast<CastWrathOfAirTotemAction*>(action) ||
+        dynamic_cast<SetWrathOfAirTotemAction*>(action) ||
+        dynamic_cast<CastNatureResistanceTotemAction*>(action) ||
+        dynamic_cast<SetNatureResistanceTotemAction*>(action))
+        return 0.0f;
+
+    return 1.0f;
+}
+
+float LadyVashjMaintainPhase1RangedSpreadMultiplier::GetValue(Action* action)
+{
+    if (!PlayerbotAI::IsRanged(bot))
+        return 1.0f;
+
+    if (!AI_VALUE2(Unit*, "find target", "21212") ||
+        !IsLadyVashjInPhase1(botAI))
+        return 1.0f;
+
+    if (dynamic_cast<CombatFormationMoveAction*>(action) ||
+        dynamic_cast<FleeAction*>(action) ||
+        dynamic_cast<CastDisengageAction*>(action) ||
+        dynamic_cast<CastBlinkBackAction*>(action))
+        return 0.0f;
+
+    return 1.0f;
+}
+
+float LadyVashjStaticChargeStayAwayFromGroupMultiplier::GetValue(Action* action)
+{
+    //By leewheel 2026-09-04: 上游——spell 引用 Id 化
+    if (PlayerbotAI::IsMainTank(bot) || !bot->HasAura(Id(SscSpells::SPELL_STATIC_CHARGE)))
+        return 1.0f;
+
+    if (!AI_VALUE2(Unit*, "find target", "21212"))
+        return 1.0f;
+
+    if (dynamic_cast<CombatFormationMoveAction*>(action) ||
+        dynamic_cast<ReachTargetAction*>(action) ||
+        dynamic_cast<FollowAction*>(action) ||
+        dynamic_cast<CastKillingSpreeAction*>(action) ||
+        dynamic_cast<CastReachTargetSpellAction*>(action))
+        return 0.0f;
+
+    return 1.0f;
+}
+
+// Bots should not loot the core with normal looting logic
+float LadyVashjDoNotLootTheTaintedCoreMultiplier::GetValue(Action* action)
+{
+    if (!AI_VALUE2(Unit*, "find target", "21212"))
+        return 1.0f;
+
+    if (dynamic_cast<LootAction*>(action))
+        return 0.0f;
+
+    return 1.0f;
+}
+
+float LadyVashjCorePassersPrioritizePositioningMultiplier::GetValue(Action* action)
+{
+    if (!AI_VALUE2(Unit*, "find target", "21212") || !IsLadyVashjInPhase2(botAI))
+        return 1.0f;
+
+    if (dynamic_cast<WipeAction*>(action))
+        return 1.0f;
+
+    auto coreHandlers = GetCoreHandlers(botAI, bot);
+
+    bool isCoreHandler = false;
+    for (int i = 0; i < static_cast<int>(coreHandlers.size()); ++i)
+    {
+        if (coreHandlers[i] && coreHandlers[i] == bot)
+        {
+            isCoreHandler = true;
+        }
+    }
+    if (!isCoreHandler)
+        return 1.0f;
+
+    auto hasCore = [](Player* player)
+    {
+        //By leewheel 2026-09-04: 上游——item 引用 Id 化
+        return player && player->HasItemCount(Id(SscItems::ITEM_TAINTED_CORE), 1, false);
+        //End By leewheel
+    };
+
+    // If the bot actually has the core, only allow core handling
+    if (hasCore(bot) && !dynamic_cast<LadyVashjPassTheTaintedCoreAction*>(action))
+        return 0.0f;
+
+    //By leewheel 2026-08-18: 移植 brighton-chi the-lab 84384819(瓦丝琪守卫核心处理器)——指定拾取者必须守在污浊元素旁直到拿到核心
+    if (botAI->HasCheat(BotCheatMask::raid) && bot == coreHandlers[0] && !hasCore(bot) &&
+        dynamic_cast<LadyVashjAssignPhase2AndPhase3DpsPriorityAction*>(action))
+    {
+        constexpr float corpseSearchRadius = 30.0f;
+        //By leewheel 2026-09-04: 上游——entry 引用 Id 化
+        if (AI_VALUE2(Unit*, "find target", "22009") ||
+            bot->FindNearestCreature(
+                Id(SscNpcs::NPC_TAINTED_ELEMENTAL), corpseSearchRadius, false))
+            return 0.0f;
+        //End By leewheel
+    }
+    //End By leewheel
+
+    // First and second passers block movement when the looter teleports to the elemental
+    Unit* tainted = AI_VALUE2(Unit*, "find target", "22009");
+    //By leewheel 2026-08-18: 移植 brighton-chi the-lab 61e3c186(污浊核心拾取者目标/战斗修复)——判空保护
+    if (tainted && coreHandlers[0] && coreHandlers[0]->GetExactDist2d(tainted) < 5.0f &&
+        (bot == coreHandlers[1] || bot == coreHandlers[2]) &&
+        (dynamic_cast<MovementAction*>(action) &&
+         !dynamic_cast<LadyVashjPassTheTaintedCoreAction*>(action)))
+        return 0.0f;
+    //End By leewheel
+
+    // If any prior handler (including self) recently had the core, block other movement
+    if (AnyRecentCoreInInventory(botAI, bot) &&
+        dynamic_cast<MovementAction*>(action) &&
+        !dynamic_cast<LadyVashjPassTheTaintedCoreAction*>(action))
+        return 0.0f;
+
+    return 1.0f;
+}
+
+// All of phases 2 and 3 require a custom movement and targeting system
+// So the standard target selection system must be disabled
+float LadyVashjDisableAutomaticTargetingAndMovementModifier::GetValue(Action *action)
+{
+    Unit* vashj = AI_VALUE2(Unit*, "find target", "21212");
+    if (!vashj)
+        return 1.0f;
+
+    if (dynamic_cast<AvoidAoeAction*>(action))
+        return 0.0f;
+
+    if (IsLadyVashjInPhase2(botAI))
+    {
+        if (botAI->GetState() == BOT_STATE_COMBAT &&
+            (dynamic_cast<DpsAssistAction*>(action) ||
+             dynamic_cast<TankAssistAction*>(action)))
+        {
+            return 0.0f;
+        }
+
+        if (dynamic_cast<FleeAction*>(action))
+            return 0.0f;
+
+        if (bot->GetExactDist2d(vashj) < 60.0f &&
+            dynamic_cast<FollowAction*>(action))
+            return 0.0f;
+
+        if (!PlayerbotAI::IsHeal(bot) && dynamic_cast<CastHealingSpellAction*>(action))
+            return 0.0f;
+
+        Unit* enchanted = AI_VALUE2(Unit*, "find target", "21958");
+        if (enchanted && AI_VALUE(Unit*, "current target") == enchanted &&
+            dynamic_cast<CastDebuffSpellOnAttackerAction*>(action))
+            return 0.0f;
+    }
+
+    if (IsLadyVashjInPhase3(botAI))
+    {
+        if (botAI->GetState() == BOT_STATE_COMBAT &&
+            (dynamic_cast<DpsAssistAction*>(action) ||
+             dynamic_cast<TankAssistAction*>(action)))
+        {
+            return 0.0f;
+        }
+
+        Unit* enchanted = AI_VALUE2(Unit*, "find target", "21958");
+        Unit* strider = AI_VALUE2(Unit*, "find target", "22056");
+        Unit* elite = AI_VALUE2(Unit*, "find target", "22055");
+        if (enchanted || strider || elite)
+        {
+            if (dynamic_cast<FollowAction*>(action) ||
+                dynamic_cast<FleeAction*>(action))
+                return 0.0f;
+
+            if (enchanted && AI_VALUE(Unit*, "current target") == enchanted &&
+                dynamic_cast<CastDebuffSpellOnAttackerAction*>(action))
+                return 0.0f;
+        }
+        else if (dynamic_cast<CombatFormationMoveAction*>(action))
+            return 0.0f;
+    }
+
+    return 1.0f;
+}

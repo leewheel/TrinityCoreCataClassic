@@ -20,6 +20,9 @@
 #include "BattlegroundMgr.h"
 #include "GameTime.h"
 #include "isle_of_conquest.h"
+//By leewheel 2026-09-06: 移植mod-playerbots，IC节点状态查询兼容接口(供Playerbots战术模块查询)
+#include "isle_of_conquest_state_compat.h"
+//End By leewheel
 #include "Map.h"
 #include "Player.h"
 #include "ScriptMgr.h"
@@ -285,10 +288,14 @@ static constexpr Position GunshipTeleportTriggerPosition[2] =
     { 7.30560922622680664f, -0.09524600207805633f, 34.51021575927734375f, 3.159045934677124023f }
 };
 
-struct battleground_isle_of_conquest : BattlegroundScript
+struct battleground_isle_of_conquest : BattlegroundScript, BattlegroundIsleOfConquestAccess
 {
     explicit battleground_isle_of_conquest(BattlegroundMap* map) : BattlegroundScript(map)
     {
+        //By leewheel 2026-09-06: 移植mod-playerbots，把本IC实例注册到状态查询注册表
+        IoCCompatInstanceRegistry()[battleground->GetInstanceID()] = this;
+        //End By leewheel
+
         _factionReinforcements = { MAX_REINFORCEMENTS, MAX_REINFORCEMENTS };
 
         _gateStatus = { BG_IC_GATE_OK, BG_IC_GATE_OK, BG_IC_GATE_OK, BG_IC_GATE_OK, BG_IC_GATE_OK, BG_IC_GATE_OK };
@@ -309,6 +316,52 @@ struct battleground_isle_of_conquest : BattlegroundScript
 
         _resourceTimer.Reset(IOC_RESOURCE_TIMER);
     }
+
+    //By leewheel 2026-09-06: 移植mod-playerbots，析构时从状态查询注册表移除本实例
+    ~battleground_isle_of_conquest() override
+    {
+        IoCCompatInstanceRegistry().erase(battleground->GetInstanceID());
+    }
+
+    //By leewheel 2026-09-06: 移植mod-playerbots，IC节点状态查询兼容实现(供Playerbots战术模块使用)
+    bool GetNodeStateCompat(uint8 nodeType, uint8& state) override
+    {
+        if (nodeType >= MAX_NODE_TYPES || !_nodePoints[nodeType])
+            return false;
+
+        switch (_nodePoints[nodeType]->GetState())
+        {
+            case IsleOfConquestNodeState::Neutral:
+                state = uint8(IoCCompat::NODE_STATE_NEUTRAL);
+                break;
+            case IsleOfConquestNodeState::ConflictA:
+                state = uint8(IoCCompat::NODE_STATE_CONFLICT_A);
+                break;
+            case IsleOfConquestNodeState::ConflictH:
+                state = uint8(IoCCompat::NODE_STATE_CONFLICT_H);
+                break;
+            case IsleOfConquestNodeState::ControlledA:
+                state = uint8(IoCCompat::NODE_STATE_CONTROLLED_A);
+                break;
+            case IsleOfConquestNodeState::ControlledH:
+                state = uint8(IoCCompat::NODE_STATE_CONTROLLED_H);
+                break;
+            default:
+                return false;
+        }
+        return true;
+    }
+
+    // 城门状态查询：0部落前门/1部落西门/2部落东门/3联盟前门/4联盟西门/5联盟东门(与BG_IC_H_FRONT..A_EAST一致)
+    bool GetGateStateCompat(uint8 gateId, uint8& state) override
+    {
+        if (gateId >= 6)
+            return false;
+
+        state = uint8(_gateStatus[gateId]);
+        return true;
+    }
+    //End By leewheel
 
     void OnUpdate(uint32 diff) override
     {

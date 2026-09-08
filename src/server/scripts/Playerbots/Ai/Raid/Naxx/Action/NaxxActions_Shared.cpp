@@ -1,0 +1,24 @@
+/*
+ * 纳克萨玛斯团本 Boss 共享动作策略
+ *
+ * 作者: leewheel
+ */
+
+#include "NaxxActions.h"
+
+uint32 RotateAroundTheCenterPointAction::FindNearestWaypoint()
+{
+    float minDistance = 0;
+    int ret = -1;
+    for (uint32 i = 0; i < intervals; i++)
+    {
+        float w_x = waypoints[i].first, w_y = waypoints[i].second;
+        float dis = bot->GetDistance2d(w_x, w_y);
+        if (ret == -1 || dis < minDistance)
+        {
+            ret = i;
+            minDistance = dis;
+        }
+    }
+    return ret;
+}

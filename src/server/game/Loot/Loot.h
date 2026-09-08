@@ -265,6 +265,13 @@ public:
 
     bool IsLootItem(ObjectGuid const& lootObject, uint32 lootListId) const;
 
+    //By leewheel 2026-09-06: 移植mod-playerbots，AC兼容访问器(机器人模块查询roll状态与投票表)
+    RollVoteMap const& GetRollVoteMap() const { return m_rollVoteMap; }
+    LootItem const* GetLootItem() const { return m_lootItem; }
+    Loot const* GetLoot() const { return m_loot; }
+    bool IsStarted() const { return m_isStarted; }
+    //End By leewheel
+
 private:
     void SendStartRoll();
     void SendAllPassed();

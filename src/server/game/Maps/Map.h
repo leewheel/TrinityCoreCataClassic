@@ -509,6 +509,13 @@ class TC_GAME_API Map : public GridRefManager<NGridType>
         }
         bool getObjectHitPos(PhaseShift const& phaseShift, float x1, float y1, float z1, float x2, float y2, float z2, float& rx, float &ry, float& rz, float modifyDist);
 
+        //By leewheel 2026-09-06: 移植mod-playerbots，AC兼容碰撞校验(WotLK的Map::CheckCollisionAndGetValidCoords)
+        //从起点到终点做碰撞射线，命中时把终点钳制到接触点；failOnCollision=true时命中返回false
+        //注：TC-Cata的GetHeight/GetStaticHeight为非const，故本方法也声明为非const
+        bool CheckCollisionAndGetValidCoords(WorldObject const* source, float startX, float startY, float startZ,
+            float& destX, float& destY, float& destZ, bool failOnCollision = true);
+        //End By leewheel
+
         void RequestRebuildNavMeshOnGameObjectModelChange(GameObjectModel const& model, PhaseShift const& phaseShift);
 
         virtual ObjectGuid::LowType GetOwnerGuildId(uint32 /*team*/ = TEAM_OTHER) const { return UI64LIT(0); }

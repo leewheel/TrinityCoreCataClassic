@@ -331,6 +331,11 @@ class TC_GAME_API Group
 
         GroupRefManager& GetMembers() { return m_memberMgr; }
         GroupRefManager const& GetMembers() const { return m_memberMgr; }
+        //By leewheel 2026-09-06: 移植mod-playerbots，AC兼容接口GetFirstMember
+        //配合GroupReference::next()供模块以AC风格迭代小组成员；空链表时返回nullptr
+        GroupReference* GetFirstMember() { return m_memberMgr.empty() ? nullptr : m_memberMgr.front(); }
+        GroupReference const* GetFirstMember() const { return m_memberMgr.empty() ? nullptr : m_memberMgr.front(); }
+        //End By leewheel
         MemberSlotList const& GetMemberSlots() const { return m_memberSlots; }
         uint32 GetMembersCount() const { return uint32(m_memberSlots.size()); }
         uint32 GetInviteeCount() const { return m_invitees.size(); }
@@ -349,6 +354,9 @@ class TC_GAME_API Group
         void ChangeMembersGroup(ObjectGuid guid, uint8 group);
         void SwapMembersGroups(ObjectGuid firstGuid, ObjectGuid secondGuid);
         void SetTargetIcon(uint8 symbol, ObjectGuid target, ObjectGuid changedBy);
+        //By leewheel 2026-09-06: 移植mod-playerbots，新增目标图标读取接口(AC兼容)
+        ObjectGuid GetTargetIcon(uint8 symbol) const { ASSERT(symbol < TARGET_ICONS_COUNT); return m_targetIcons[symbol]; }
+        //End By leewheel
         void SetGroupMemberFlag(ObjectGuid guid, bool apply, GroupMemberFlags flag);
         void RemoveUniqueGroupMemberFlag(GroupMemberFlags flag);
 
@@ -464,4 +472,35 @@ class TC_GAME_API Group
         struct NoopGroupDeleter { void operator()(Group*) const { /*noop - not managed*/ } };
         Trinity::unique_trackable_ptr<Group> m_scriptRef;
 };
+
+//By leewheel 2026-09-06: 移植mod-playerbots，AC兼容迭代接口GroupReference::next()的实现
+//TC-Cata为环形双链表：尾元素的next是所属RefManager的哨兵头节点(iHeader)而非空指针
+//iHeader是LinkedListHead的首成员且LinkedListHead无虚函数，
+//故把GetMembers()地址按LinkedListElement*解释即为哨兵地址，据此在尾部返回nullptr
+inline GroupReference* GroupReference::next()
+{
+    LinkedListElement* n = LinkedListElement::next();
+    if (!n)
+        return nullptr;
+
+    Group* group = getTarget();
+    if (!group || n == reinterpret_cast<LinkedListElement*>(&group->GetMembers()))
+        return nullptr;
+
+    return static_cast<GroupReference*>(n);
+}
+
+inline GroupReference const* GroupReference::next() const
+{
+    LinkedListElement const* n = LinkedListElement::next();
+    if (!n)
+        return nullptr;
+
+    Group const* group = getTarget();
+    if (!group || n == reinterpret_cast<LinkedListElement const*>(&group->GetMembers()))
+        return nullptr;
+
+    return static_cast<GroupReference const*>(n);
+}
+//End By leewheel
 #endif

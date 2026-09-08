@@ -24,6 +24,9 @@
 #include "Implementation/WorldDatabase.h"
 #include "Implementation/CharacterDatabase.h"
 #include "Implementation/HotfixDatabase.h"
+//By leewheel 2026-09-06: 移植mod-playerbots，包含Playerbots数据库实现头
+#include "Implementation/PlayerbotsDatabase.h"
+//End By leewheel
 #include "Log.h"
 #include "MySQLPreparedStatement.h"
 #include "PreparedStatement.h"
@@ -620,3 +623,6 @@ template class TC_DATABASE_API DatabaseWorkerPool<LoginDatabaseConnection>;
 template class TC_DATABASE_API DatabaseWorkerPool<WorldDatabaseConnection>;
 template class TC_DATABASE_API DatabaseWorkerPool<CharacterDatabaseConnection>;
 template class TC_DATABASE_API DatabaseWorkerPool<HotfixDatabaseConnection>;
+//By leewheel 2026-09-06: 移植mod-playerbots，实例化Playerbots数据库工作池模板
+template class TC_DATABASE_API DatabaseWorkerPool<PlayerbotsDatabaseConnection>;
+//End By leewheel

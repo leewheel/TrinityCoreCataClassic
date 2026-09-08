@@ -1,0 +1,510 @@
+/*
+ * 区域和地图ID定义
+ * 从 AzerothCore 移植，用于 Playerbots 模块
+ * 注意: 部分AREA_*宏已在TC SharedDefines.h中定义，此处只补充缺失的
+ */
+
+#ifndef PLAYERBOTS_AREA_DEFINES_H
+#define PLAYERBOTS_AREA_DEFINES_H
+
+#include "Define.h"
+#include "SharedDefines.h"
+
+// TC SharedDefines.h 已定义的 AREA_*:
+// AREA_WINTERGRASP=4197, AREA_THE_SUNKEN_RING=4538, AREA_THE_BROKEN_TEMPLATE=4539,
+// AREA_WINTERGRASP_FORTRESS=4575, AREA_THE_CHILLED_QUAGMIRE=4589,
+// AREA_WESTPARK_WORKSHOP=4611, AREA_EASTPARK_WORKSHOP=4612
+// 此处只定义 TC 中缺失的
+
+enum PlayerbotsAreaTableIDs : uint32
+{
+    PB_AREA_DUN_MOROGH                                          = 1,
+    PB_AREA_BADLANDS                                            = 3,
+    PB_AREA_BLASTED_LANDS                                       = 4,
+    PB_AREA_SWAMP_OF_SORROWS                                    = 8,
+    PB_AREA_DUSKWOOD                                            = 10,
+    PB_AREA_WETLANDS                                            = 11,
+    PB_AREA_ELWYNN_FOREST                                       = 12,
+    PB_AREA_DUROTAR                                             = 14,
+    PB_AREA_DUSTWALLOW_MARSH                                    = 15,
+    PB_AREA_AZSHARA                                             = 16,
+    PB_AREA_THE_BARRENS                                         = 17,
+    PB_AREA_WESTERN_PLAGUELANDS                                 = 28,
+    PB_AREA_STRANGLETHORN_VALE                                  = 33,
+    PB_AREA_LOCH_MODAN                                          = 38,
+    PB_AREA_WESTFALL                                            = 40,
+    PB_AREA_REDRIDGE_MOUNTAINS                                  = 44,
+    PB_AREA_ARATHI_HIGHLANDS                                    = 45,
+    PB_AREA_BURNING_STEPPES                                     = 46,
+    PB_AREA_THE_HINTERLANDS                                     = 47,
+    PB_AREA_SEARING_GORGE                                       = 51,
+    PB_AREA_DRAGONBLIGHT                                        = 65,
+    PB_AREA_ZUL_DRAK                                            = 66,
+    PB_AREA_THE_STORM_PEAKS                                     = 67,
+    PB_AREA_TIRISFAL_GLADES                                     = 85,
+    PB_AREA_GOLDSHIRE                                           = 87,
+    PB_AREA_WESTFALL_LIGHTHOUSE                                 = 115,
+    PB_AREA_SILVERPINE_FOREST                                   = 130,
+    PB_AREA_KHARANOS                                            = 131,
+    PB_AREA_EASTERN_PLAGUELANDS                                 = 139,
+    PB_AREA_TELDRASSIL                                          = 141,
+    PB_AREA_DARKSHORE                                           = 148,
+    PB_AREA_BRILL                                               = 159,
+    PB_AREA_FELSTONE_FIELD                                      = 199,
+    PB_AREA_DALSONS_TEARS                                       = 200,
+    PB_AREA_GAHRRONS_WITHERING                                  = 201,
+    PB_AREA_THE_WRITHING_HAUNT                                  = 202,
+    PB_AREA_MULGORE                                             = 215,
+    PB_AREA_HILLSBRAD_FOOTHILLS                                 = 267,
+    PB_AREA_ASHENVALE                                           = 331,
+    PB_AREA_FERALAS                                             = 357,
+    PB_AREA_RAZOR_HILL                                          = 362,
+    PB_AREA_CAMP_TAURAJO                                        = 378,
+    PB_AREA_THE_CROSSROADS                                      = 380,
+    PB_AREA_THE_MERCHANT_COAST                                  = 391,
+    PB_AREA_GRIZZLY_HILLS                                       = 394,
+    PB_AREA_THOUSAND_NEEDLES                                    = 400,
+    PB_AREA_DESOLACE                                            = 405,
+    PB_AREA_STONETALON_MOUNTAINS                                = 406,
+    PB_AREA_TANARIS                                             = 440,
+    PB_AREA_MOONGLADE                                           = 493,
+    PB_AREA_HOWLING_FJORD                                       = 495,
+    PB_AREA_WINTERSPRING                                        = 618,
+    PB_AREA_GATES_OF_IRONFORGE                                  = 809,
+    PB_AREA_ROCKTUSK_FARM                                       = 1296,
+    PB_AREA_SILITHUS                                            = 1377,
+    PB_AREA_UNDERCITY                                           = 1497,
+    PB_AREA_STORMWIND_CITY                                      = 1519,
+    PB_AREA_IRONFORGE                                           = 1537,
+    PB_AREA_ORGRIMMAR                                           = 1637,
+    PB_AREA_THUNDER_BLUFF                                       = 1638,
+    PB_AREA_DARNASSUS                                           = 1657,
+    PB_AREA_STRATHOLME                                          = 2017,
+    PB_AREA_SCHOLOMANCE                                         = 2057,
+    PB_AREA_ALCAZ_ISLAND                                        = 2079,
+    PB_AREA_DEEPRUN_TRAM                                        = 2257,
+    PB_AREA_ALTERAC_VALLEY                                      = 2597,
+    PB_AREA_CRYSTALSONG_FOREST                                  = 2817,
+    PB_AREA_WARSONG_GULCH                                       = 3277,
+    PB_AREA_ARATHI_BASIN                                        = 3358,
+    PB_AREA_AHN_QIRAJ                                           = 3428,
+    PB_AREA_RUINS_OF_AHN_QIRAJ                                  = 3429,
+    PB_AREA_EVERSONG_WOODS                                      = 3430,
+    PB_AREA_GHOSTLANDS                                          = 3433,
+    PB_AREA_HELLFIRE_PENINSULA                                  = 3483,
+    PB_AREA_SILVERMOON_CITY                                     = 3487,
+    PB_AREA_NAGRAND                                             = 3518,
+    PB_AREA_TEROKKAR_FOREST                                     = 3519,
+    PB_AREA_SHADOWMOON_VALLEY                                   = 3520,
+    PB_AREA_ZANGARMARSH                                         = 3521,
+    PB_AREA_BLADES_EDGE_MOUNTAINS                               = 3522,
+    PB_AREA_NETHERSTORM                                         = 3523,
+    PB_AREA_AZUREMYST_ISLE                                      = 3524,
+    PB_AREA_BLOODMYST_ISLE                                      = 3525,
+    PB_AREA_BOREAN_TUNDRA                                       = 3537,
+    PB_AREA_THE_EXODAR                                          = 3557,
+    PB_AREA_HELLFIRE_RAMPARTS                                   = 3562,
+    PB_AREA_HELLFIRE_CITADEL                                    = 3563,
+    PB_AREA_AZURE_WATCH                                         = 3576,
+    PB_AREA_SERPENTSHRINE_CAVERN                                = 3607,
+    PB_AREA_HALAA                                               = 3628,
+    PB_AREA_FALCONWING_SQUARE                                   = 3665,
+    PB_AREA_NAGRAND_ARENA                                       = 3698,
+    PB_AREA_BLADES_EDGE_ARENA                                   = 3702,
+    PB_AREA_SHATTRATH_CITY                                      = 3703,
+    PB_AREA_NORDRASSIL                                          = 3710,
+    PB_AREA_SHOLAZAR_BASIN                                      = 3711,
+    PB_AREA_THE_BLOOD_FURNACE                                   = 3713,
+    PB_AREA_THE_SHATTERED_HALLS                                 = 3714,
+    PB_AREA_THE_STEAMVAULT                                      = 3715,
+    PB_AREA_THE_UNDERBOG                                        = 3716,
+    PB_AREA_THE_SLAVE_PENS                                      = 3717,
+    PB_AREA_SOCRETHARS_SEAT                                     = 3742,
+    PB_AREA_SHADOW_LABYRINTH                                    = 3789,
+    PB_AREA_AUCHENAI_CRYPTS                                     = 3790,
+    PB_AREA_SETHEKK_HALLS                                       = 3791,
+    PB_AREA_MANA_TOMBS                                          = 3792,
+    PB_AREA_EYE_OF_THE_STORM                                    = 3820,
+    PB_AREA_MAGTHERIDONS_LAIR                                   = 3836,
+    PB_AREA_THE_BOTANICA                                        = 3847,
+    PB_AREA_THE_ARCATRAZ                                        = 3848,
+    PB_AREA_THE_MECHANAR                                        = 3849,
+    PB_AREA_INVASION_POINT_OVERLORD                             = 3900,
+    PB_AREA_RUINS_OF_LORDAERON                                  = 3968,
+    PB_AREA_SHATTERED_STRAITS                                   = 4064,
+    PB_AREA_SUNWELL_PLATEAU                                     = 4075,
+    PB_AREA_ISLE_OF_QUEL_DANAS                                  = 4080,
+    PB_AREA_THE_CULLING_OF_STRATHOLME                           = 4100,
+    PB_AREA_NAXXANAR                                            = 4128,
+    PB_AREA_MAGISTERS_TERRACE                                   = 4131,
+    PB_AREA_WINTERGARDE_KEEP                                    = 4177,
+    PB_AREA_THE_OCULUS                                          = 4228,
+    PB_AREA_ULDUAR                                              = 4273,
+    PB_AREA_PLAGUELANDS_THE_SCARLET_ENCLAVE                     = 4298,
+    PB_AREA_DALARAN_ARENA                                       = 4378,
+    PB_AREA_STRAND_OF_THE_ANCIENTS                              = 4384,
+    PB_AREA_DALARAN                                             = 4395,
+    PB_ARENA_THE_RING_OF_VALOR                                  = 4406,
+    PB_AREA_THE_VIOLET_HOLD                                     = 4415,
+    PB_AREA_VALLEY_OF_ANCIENT_WINTERS                           = 4437,
+    PB_AREA_THE_BROKEN_TEMPLE                                   = 4539,
+    PB_AREA_SEWER_EXIT_PIPE                                     = 4569,
+    PB_AREA_VARGOTHS_RETREAT                                    = 4637,
+    PB_AREA_FORMATION_GROUNDS                                   = 4652,
+    PB_AREA_THE_CONSERVATORY_OF_LIFE                            = 4656,
+    PB_AREA_ARGENT_TOURNAMENT_GROUNDS                           = 4658,
+    PB_AREA_THE_RING_OF_CHAMPIONS                               = 4669,
+    PB_AREA_THE_ASPIRANTS_RING                                  = 4670,
+    PB_AREA_THE_ARGENT_VALIANTS_RING                            = 4671,
+    PB_AREA_THE_ALLIANCE_VALIANTS_RING                          = 4672,
+    PB_AREA_THE_HORDE_VALIANTS_RING                             = 4673,
+    PB_AREA_SUNREAVER_PAVILION                                  = 4676,
+    PB_AREA_SILVER_COVENANT_PAVILION                            = 4677,
+    PB_AREA_ISLE_OF_CONQUEST                                    = 4710,
+    PB_AREA_ICECROWN_CITADEL                                    = 4812,
+    PB_AREA_HALLS_OF_REFLECTION                                 = 4820,
+    PB_AREA_THE_FROZEN_THRONE                                   = 4859,
+    PB_AREA_THE_FROST_QUEENS_LAIR                               = 4889,
+    PB_AREA_PUTRICIDES_LABORATORY_OF_ALCHEMICAL_HORRORS_AND_FUN = 4890,
+    PB_AREA_THE_SANCTUM_OF_BLOOD                                = 4891,
+    PB_AREA_FROSTMOURNE                                         = 4910,
+    PB_AREA_THE_RUBY_SANCTUM                                    = 4987
+};
+
+enum PlayerbotsMapIDs : uint32
+{
+    PB_MAP_EASTERN_KINGDOMS                     = 0,
+    PB_MAP_KALIMDOR                             = 1,
+    PB_MAP_ALTERAC_VALLEY                       = 30,
+    PB_MAP_SHADOWFANG_KEEP                      = 33,
+    PB_MAP_STORMWIND_STOCKADE                   = 34,
+    PB_MAP_DEADMINES                            = 36,
+    PB_MAP_WAILING_CAVERNS                      = 43,
+    PB_MAP_RAZORFEN_KRAUL                       = 47,
+    PB_MAP_BLACKFATHOM_DEEPS                    = 48,
+    PB_MAP_ULDAMAN                              = 70,
+    PB_MAP_GNOMEREGAN                           = 90,
+    PB_MAP_SUNKEN_TEMPLE                        = 109,
+    PB_MAP_RAZORFEN_DOWNS                       = 129,
+    PB_MAP_SCARLET_MONASTERY                    = 189,
+    PB_MAP_ZUL_FARRAK                           = 209,
+    PB_MAP_BLACKROCK_SPIRE                      = 229,
+    PB_MAP_BLACKROCK_DEPTHS                     = 230,
+    PB_MAP_ONYXIAS_LAIR                         = 249,
+    PB_MAP_OPENING_OF_THE_DARK_PORTAL           = 269,
+    PB_MAP_SCHOLOMANCE                          = 289,
+    PB_MAP_ZUL_GURUB                            = 309,
+    PB_MAP_STRATHOLME                           = 329,
+    PB_MAP_MARAUDON                             = 349,
+    PB_MAP_RAGEFIRE_CHASM                       = 389,
+    PB_MAP_MOLTEN_CORE                          = 409,
+    PB_MAP_DIRE_MAUL                            = 429,
+    PB_MAP_BLACKWING_LAIR                       = 469,
+    PB_MAP_WARSONG_GULCH                        = 489,
+    PB_MAP_RUINS_OF_AHN_QIRAJ                   = 509,
+    PB_MAP_ARATHI_BASIN                         = 529,
+    PB_MAP_OUTLAND                              = 530,
+    PB_MAP_AHN_QIRAJ_TEMPLE                     = 531,
+    PB_MAP_KARAZHAN                             = 532,
+    PB_MAP_NAXXRAMAS                            = 533,
+    PB_MAP_THE_BATTLE_FOR_MOUNT_HYJAL           = 534,
+    PB_MAP_HELLFIRE_CITADEL_THE_SHATTERED_HALLS = 540,
+    PB_MAP_HELLFIRE_CITADEL_THE_BLOOD_FURNACE   = 542,
+    PB_MAP_HELLFIRE_CITADEL_RAMPARTS            = 543,
+    PB_MAP_MAGTHERIDONS_LAIR                    = 544,
+    PB_MAP_COILFANG_THE_STEAMVAULT              = 545,
+    PB_MAP_COILFANG_THE_UNDERBOG                = 546,
+    PB_MAP_COILFANG_THE_SLAVE_PENS              = 547,
+    PB_MAP_COILFANG_SERPENTSHRINE_CAVERN        = 548,
+    PB_MAP_TEMPEST_KEEP                         = 550,
+    PB_MAP_TEMPEST_KEEP_THE_ARCATRAZ            = 552,
+    PB_MAP_TEMPEST_KEEP_THE_BOTANICA            = 553,
+    PB_MAP_TEMPEST_KEEP_THE_MECHANAR            = 554,
+    PB_MAP_AUCHINDOUN_SHADOW_LABYRINTH          = 555,
+    PB_MAP_AUCHINDOUN_SETHEKK_HALLS             = 556,
+    PB_MAP_AUCHINDOUN_MANA_TOMBS                = 557,
+    PB_MAP_AUCHINDOUN_AUCHENAI_CRYPTS           = 558,
+    PB_MAP_THE_ESCAPE_FROM_DURNHOLDE            = 560,
+    PB_MAP_BLACK_TEMPLE                         = 564,
+    PB_MAP_GRUULS_LAIR                          = 565,
+    PB_MAP_EYE_OF_THE_STORM                     = 566,
+    PB_MAP_ZUL_AMA                              = 568,
+    PB_MAP_NORTHREND                            = 571,
+    PB_MAP_UTGARDE_KEEP                         = 574,
+    PB_MAP_UTGARDE_PINNACLE                     = 575,
+    PB_MAP_THE_NEXUS                            = 576,
+    PB_MAP_THE_OCULUS                           = 578,
+    PB_MAP_THE_SUNWELL                          = 580,
+    PB_MAP_MAGISTERS_TERRACE                    = 585,
+    PB_MAP_THE_CULLING_OF_STRATHOLME            = 595,
+    PB_MAP_HALLS_OF_STONE                       = 599,
+    PB_MAP_DRAK_THARON_KEEP                     = 600,
+    PB_MAP_AZJOL_NERUB                          = 601,
+    PB_MAP_HALLS_OF_LIGHTNING                   = 602,
+    PB_MAP_ULDUAR                               = 603,
+    PB_MAP_GUNDRAK                              = 604,
+    PB_MAP_STRAND_OF_THE_ANCIENTS               = 607,
+    PB_MAP_VIOLET_HOLD                          = 608,
+    PB_MAP_EBON_HOLD                            = 609,
+    PB_MAP_THE_OBSIDIAN_SANCTUM                 = 615,
+    PB_MAP_THE_EYE_OF_ETERNITY                  = 616,
+    PB_MAP_THE_RING_OF_VALOR                    = 618,
+    PB_MAP_AHN_KAHET_THE_OLD_KINGDOM            = 619,
+    PB_MAP_VAULT_OF_ARCHAVON                    = 624,
+    PB_MAP_ISLE_OF_CONQUEST                     = 628,
+    PB_MAP_ICECROWN_CITADEL                     = 631,
+    PB_MAP_THE_FORGE_OF_SOULS                   = 632,
+    PB_MAP_TRIAL_OF_THE_CRUSADER                = 649,
+    PB_MAP_TRIAL_OF_THE_CHAMPION                = 650,
+    PB_MAP_PIT_OF_SARON                         = 658,
+    PB_MAP_HALLS_OF_REFLECTION                  = 668,
+    PB_MAP_THE_RUBY_SANCTUM                     = 724
+};
+
+// 兼容性别名 - 将 PB_ 前缀映射回原始名称（仅对TC中不存在的定义）
+// playerbots代码中使用 AREA_xxx 和 MAP_xxx，此处用宏转换为PB_前缀避免冲突
+#define AREA_DUN_MOROGH PB_AREA_DUN_MOROGH
+#define AREA_BADLANDS PB_AREA_BADLANDS
+#define AREA_BLASTED_LANDS PB_AREA_BLASTED_LANDS
+#define AREA_SWAMP_OF_SORROWS PB_AREA_SWAMP_OF_SORROWS
+#define AREA_DUSKWOOD PB_AREA_DUSKWOOD
+#define AREA_WETLANDS PB_AREA_WETLANDS
+#define AREA_ELWYNN_FOREST PB_AREA_ELWYNN_FOREST
+#define AREA_DUROTAR PB_AREA_DUROTAR
+#define AREA_DUSTWALLOW_MARSH PB_AREA_DUSTWALLOW_MARSH
+#define AREA_AZSHARA PB_AREA_AZSHARA
+#define AREA_THE_BARRENS PB_AREA_THE_BARRENS
+#define AREA_WESTERN_PLAGUELANDS PB_AREA_WESTERN_PLAGUELANDS
+#define AREA_STRANGLETHORN_VALE PB_AREA_STRANGLETHORN_VALE
+#define AREA_LOCH_MODAN PB_AREA_LOCH_MODAN
+#define AREA_WESTFALL PB_AREA_WESTFALL
+#define AREA_REDRIDGE_MOUNTAINS PB_AREA_REDRIDGE_MOUNTAINS
+#define AREA_ARATHI_HIGHLANDS PB_AREA_ARATHI_HIGHLANDS
+#define AREA_BURNING_STEPPES PB_AREA_BURNING_STEPPES
+#define AREA_THE_HINTERLANDS PB_AREA_THE_HINTERLANDS
+#define AREA_SEARING_GORGE PB_AREA_SEARING_GORGE
+#define AREA_DRAGONBLIGHT PB_AREA_DRAGONBLIGHT
+#define AREA_ZUL_DRAK PB_AREA_ZUL_DRAK
+#define AREA_THE_STORM_PEAKS PB_AREA_THE_STORM_PEAKS
+#define AREA_TIRISFAL_GLADES PB_AREA_TIRISFAL_GLADES
+#define AREA_GOLDSHIRE PB_AREA_GOLDSHIRE
+#define AREA_WESTFALL_LIGHTHOUSE PB_AREA_WESTFALL_LIGHTHOUSE
+#define AREA_SILVERPINE_FOREST PB_AREA_SILVERPINE_FOREST
+#define AREA_KHARANOS PB_AREA_KHARANOS
+#define AREA_EASTERN_PLAGUELANDS PB_AREA_EASTERN_PLAGUELANDS
+#define AREA_TELDRASSIL PB_AREA_TELDRASSIL
+#define AREA_DARKSHORE PB_AREA_DARKSHORE
+#define AREA_BRILL PB_AREA_BRILL
+#define AREA_FELSTONE_FIELD PB_AREA_FELSTONE_FIELD
+#define AREA_DALSONS_TEARS PB_AREA_DALSONS_TEARS
+#define AREA_GAHRRONS_WITHERING PB_AREA_GAHRRONS_WITHERING
+#define AREA_THE_WRITHING_HAUNT PB_AREA_THE_WRITHING_HAUNT
+#define AREA_MULGORE PB_AREA_MULGORE
+#define AREA_HILLSBRAD_FOOTHILLS PB_AREA_HILLSBRAD_FOOTHILLS
+#define AREA_ASHENVALE PB_AREA_ASHENVALE
+#define AREA_FERALAS PB_AREA_FERALAS
+#define AREA_RAZOR_HILL PB_AREA_RAZOR_HILL
+#define AREA_CAMP_TAURAJO PB_AREA_CAMP_TAURAJO
+#define AREA_THE_CROSSROADS PB_AREA_THE_CROSSROADS
+#define AREA_THE_MERCHANT_COAST PB_AREA_THE_MERCHANT_COAST
+#define AREA_GRIZZLY_HILLS PB_AREA_GRIZZLY_HILLS
+#define AREA_THOUSAND_NEEDLES PB_AREA_THOUSAND_NEEDLES
+#define AREA_DESOLACE PB_AREA_DESOLACE
+#define AREA_STONETALON_MOUNTAINS PB_AREA_STONETALON_MOUNTAINS
+#define AREA_TANARIS PB_AREA_TANARIS
+#define AREA_MOONGLADE PB_AREA_MOONGLADE
+#define AREA_HOWLING_FJORD PB_AREA_HOWLING_FJORD
+#define AREA_WINTERSPRING PB_AREA_WINTERSPRING
+#define AREA_GATES_OF_IRONFORGE PB_AREA_GATES_OF_IRONFORGE
+#define AREA_ROCKTUSK_FARM PB_AREA_ROCKTUSK_FARM
+#define AREA_SILITHUS PB_AREA_SILITHUS
+#define AREA_UNDERCITY PB_AREA_UNDERCITY
+#define AREA_STORMWIND_CITY PB_AREA_STORMWIND_CITY
+#define AREA_IRONFORGE PB_AREA_IRONFORGE
+#define AREA_ORGRIMMAR PB_AREA_ORGRIMMAR
+#define AREA_THUNDER_BLUFF PB_AREA_THUNDER_BLUFF
+#define AREA_DARNASSUS PB_AREA_DARNASSUS
+#define AREA_STRATHOLME PB_AREA_STRATHOLME
+#define AREA_SCHOLOMANCE PB_AREA_SCHOLOMANCE
+#define AREA_ALCAZ_ISLAND PB_AREA_ALCAZ_ISLAND
+#define AREA_DEEPRUN_TRAM PB_AREA_DEEPRUN_TRAM
+#define AREA_ALTERAC_VALLEY PB_AREA_ALTERAC_VALLEY
+#define AREA_CRYSTALSONG_FOREST PB_AREA_CRYSTALSONG_FOREST
+#define AREA_WARSONG_GULCH PB_AREA_WARSONG_GULCH
+#define AREA_ARATHI_BASIN PB_AREA_ARATHI_BASIN
+#define AREA_AHN_QIRAJ PB_AREA_AHN_QIRAJ
+#define AREA_RUINS_OF_AHN_QIRAJ PB_AREA_RUINS_OF_AHN_QIRAJ
+#define AREA_EVERSONG_WOODS PB_AREA_EVERSONG_WOODS
+#define AREA_GHOSTLANDS PB_AREA_GHOSTLANDS
+#define AREA_HELLFIRE_PENINSULA PB_AREA_HELLFIRE_PENINSULA
+#define AREA_SILVERMOON_CITY PB_AREA_SILVERMOON_CITY
+//By leewheel 2026-09-03 修复C4005宏重定义警告：Playerbots.h的"缺失区域常量"段已有
+//#ifndef AREA_NAGRAND #define 3518 #endif，本文件的#define在Playerbots.h之后展开时触发重定义，
+//加#ifndef守卫使两侧定义共存(值同为3518，PB_AREA_NAGRAND=3518语义一致)
+#ifndef AREA_NAGRAND
+#define AREA_NAGRAND PB_AREA_NAGRAND
+#endif
+#define AREA_TEROKKAR_FOREST PB_AREA_TEROKKAR_FOREST
+#define AREA_SHADOWMOON_VALLEY PB_AREA_SHADOWMOON_VALLEY
+#define AREA_ZANGARMARSH PB_AREA_ZANGARMARSH
+#define AREA_BLADES_EDGE_MOUNTAINS PB_AREA_BLADES_EDGE_MOUNTAINS
+#define AREA_NETHERSTORM PB_AREA_NETHERSTORM
+#define AREA_AZUREMYST_ISLE PB_AREA_AZUREMYST_ISLE
+#define AREA_BLOODMYST_ISLE PB_AREA_BLOODMYST_ISLE
+#define AREA_BOREAN_TUNDRA PB_AREA_BOREAN_TUNDRA
+#define AREA_THE_EXODAR PB_AREA_THE_EXODAR
+#define AREA_HELLFIRE_RAMPARTS PB_AREA_HELLFIRE_RAMPARTS
+#define AREA_HELLFIRE_CITADEL PB_AREA_HELLFIRE_CITADEL
+#define AREA_AZURE_WATCH PB_AREA_AZURE_WATCH
+#define AREA_SERPENTSHRINE_CAVERN PB_AREA_SERPENTSHRINE_CAVERN
+#define AREA_HALAA PB_AREA_HALAA
+#define AREA_FALCONWING_SQUARE PB_AREA_FALCONWING_SQUARE
+#define AREA_NAGRAND_ARENA PB_AREA_NAGRAND_ARENA
+#define AREA_BLADES_EDGE_ARENA PB_AREA_BLADES_EDGE_ARENA
+#define AREA_SHATTRATH_CITY PB_AREA_SHATTRATH_CITY
+#define AREA_NORDRASSIL PB_AREA_NORDRASSIL
+#define AREA_SHOLAZAR_BASIN PB_AREA_SHOLAZAR_BASIN
+#define AREA_THE_BLOOD_FURNACE PB_AREA_THE_BLOOD_FURNACE
+#define AREA_THE_SHATTERED_HALLS PB_AREA_THE_SHATTERED_HALLS
+#define AREA_THE_STEAMVAULT PB_AREA_THE_STEAMVAULT
+#define AREA_THE_UNDERBOG PB_AREA_THE_UNDERBOG
+#define AREA_THE_SLAVE_PENS PB_AREA_THE_SLAVE_PENS
+#define AREA_SOCRETHARS_SEAT PB_AREA_SOCRETHARS_SEAT
+#define AREA_SHADOW_LABYRINTH PB_AREA_SHADOW_LABYRINTH
+#define AREA_AUCHENAI_CRYPTS PB_AREA_AUCHENAI_CRYPTS
+#define AREA_SETHEKK_HALLS PB_AREA_SETHEKK_HALLS
+#define AREA_MANA_TOMBS PB_AREA_MANA_TOMBS
+#define AREA_EYE_OF_THE_STORM PB_AREA_EYE_OF_THE_STORM
+#define AREA_MAGTHERIDONS_LAIR PB_AREA_MAGTHERIDONS_LAIR
+#define AREA_THE_BOTANICA PB_AREA_THE_BOTANICA
+#define AREA_THE_ARCATRAZ PB_AREA_THE_ARCATRAZ
+#define AREA_THE_MECHANAR PB_AREA_THE_MECHANAR
+#define AREA_INVASION_POINT_OVERLORD PB_AREA_INVASION_POINT_OVERLORD
+#define AREA_RUINS_OF_LORDAERON PB_AREA_RUINS_OF_LORDAERON
+#define AREA_SHATTERED_STRAITS PB_AREA_SHATTERED_STRAITS
+#define AREA_SUNWELL_PLATEAU PB_AREA_SUNWELL_PLATEAU
+#define AREA_ISLE_OF_QUEL_DANAS PB_AREA_ISLE_OF_QUEL_DANAS
+#define AREA_THE_CULLING_OF_STRATHOLME PB_AREA_THE_CULLING_OF_STRATHOLME
+#define AREA_NAXXANAR PB_AREA_NAXXANAR
+#define AREA_MAGISTERS_TERRACE PB_AREA_MAGISTERS_TERRACE
+#define AREA_WINTERGARDE_KEEP PB_AREA_WINTERGARDE_KEEP
+#define AREA_THE_OCULUS PB_AREA_THE_OCULUS
+#define AREA_ULDUAR PB_AREA_ULDUAR
+#define AREA_PLAGUELANDS_THE_SCARLET_ENCLAVE PB_AREA_PLAGUELANDS_THE_SCARLET_ENCLAVE
+#define AREA_DALARAN_ARENA PB_AREA_DALARAN_ARENA
+#define AREA_STRAND_OF_THE_ANCIENTS PB_AREA_STRAND_OF_THE_ANCIENTS
+#define AREA_DALARAN PB_AREA_DALARAN
+#define ARENA_THE_RING_OF_VALOR PB_ARENA_THE_RING_OF_VALOR
+#define AREA_THE_VIOLET_HOLD PB_AREA_THE_VIOLET_HOLD
+#define AREA_VALLEY_OF_ANCIENT_WINTERS PB_AREA_VALLEY_OF_ANCIENT_WINTERS
+#define AREA_THE_BROKEN_TEMPLE PB_AREA_THE_BROKEN_TEMPLE
+#define AREA_SEWER_EXIT_PIPE PB_AREA_SEWER_EXIT_PIPE
+#define AREA_VARGOTHS_RETREAT PB_AREA_VARGOTHS_RETREAT
+#define AREA_FORMATION_GROUNDS PB_AREA_FORMATION_GROUNDS
+#define AREA_THE_CONSERVATORY_OF_LIFE PB_AREA_THE_CONSERVATORY_OF_LIFE
+#define AREA_ARGENT_TOURNAMENT_GROUNDS PB_AREA_ARGENT_TOURNAMENT_GROUNDS
+#define AREA_THE_RING_OF_CHAMPIONS PB_AREA_THE_RING_OF_CHAMPIONS
+#define AREA_THE_ASPIRANTS_RING PB_AREA_THE_ASPIRANTS_RING
+#define AREA_THE_ARGENT_VALIANTS_RING PB_AREA_THE_ARGENT_VALIANTS_RING
+#define AREA_THE_ALLIANCE_VALIANTS_RING PB_AREA_THE_ALLIANCE_VALIANTS_RING
+#define AREA_THE_HORDE_VALIANTS_RING PB_AREA_THE_HORDE_VALIANTS_RING
+#define AREA_SUNREAVER_PAVILION PB_AREA_SUNREAVER_PAVILION
+#define AREA_SILVER_COVENANT_PAVILION PB_AREA_SILVER_COVENANT_PAVILION
+#define AREA_ISLE_OF_CONQUEST PB_AREA_ISLE_OF_CONQUEST
+#define AREA_ICECROWN_CITADEL PB_AREA_ICECROWN_CITADEL
+#define AREA_HALLS_OF_REFLECTION PB_AREA_HALLS_OF_REFLECTION
+#define AREA_THE_FROZEN_THRONE PB_AREA_THE_FROZEN_THRONE
+#define AREA_THE_FROST_QUEENS_LAIR PB_AREA_THE_FROST_QUEENS_LAIR
+#define AREA_PUTRICIDES_LABORATORY_OF_ALCHEMICAL_HORRORS_AND_FUN PB_AREA_PUTRICIDES_LABORATORY_OF_ALCHEMICAL_HORRORS_AND_FUN
+#define AREA_THE_SANCTUM_OF_BLOOD PB_AREA_THE_SANCTUM_OF_BLOOD
+#define AREA_FROSTMOURNE PB_AREA_FROSTMOURNE
+#define AREA_THE_RUBY_SANCTUM PB_AREA_THE_RUBY_SANCTUM
+
+#define MAP_EASTERN_KINGDOMS PB_MAP_EASTERN_KINGDOMS
+#define MAP_KALIMDOR PB_MAP_KALIMDOR
+#define MAP_ALTERAC_VALLEY PB_MAP_ALTERAC_VALLEY
+#define MAP_SHADOWFANG_KEEP PB_MAP_SHADOWFANG_KEEP
+#define MAP_STORMWIND_STOCKADE PB_MAP_STORMWIND_STOCKADE
+#define MAP_DEADMINES PB_MAP_DEADMINES
+#define MAP_WAILING_CAVERNS PB_MAP_WAILING_CAVERNS
+#define MAP_RAZORFEN_KRAUL PB_MAP_RAZORFEN_KRAUL
+#define MAP_BLACKFATHOM_DEEPS PB_MAP_BLACKFATHOM_DEEPS
+#define MAP_ULDAMAN PB_MAP_ULDAMAN
+#define MAP_GNOMEREGAN PB_MAP_GNOMEREGAN
+#define MAP_SUNKEN_TEMPLE PB_MAP_SUNKEN_TEMPLE
+#define MAP_RAZORFEN_DOWNS PB_MAP_RAZORFEN_DOWNS
+#define MAP_SCARLET_MONASTERY PB_MAP_SCARLET_MONASTERY
+#define MAP_ZUL_FARRAK PB_MAP_ZUL_FARRAK
+#define MAP_BLACKROCK_SPIRE PB_MAP_BLACKROCK_SPIRE
+#define MAP_BLACKROCK_DEPTHS PB_MAP_BLACKROCK_DEPTHS
+#define MAP_ONYXIAS_LAIR PB_MAP_ONYXIAS_LAIR
+#define MAP_OPENING_OF_THE_DARK_PORTAL PB_MAP_OPENING_OF_THE_DARK_PORTAL
+#define MAP_SCHOLOMANCE PB_MAP_SCHOLOMANCE
+#define MAP_ZUL_GURUB PB_MAP_ZUL_GURUB
+#define MAP_STRATHOLME PB_MAP_STRATHOLME
+#define MAP_MARAUDON PB_MAP_MARAUDON
+#define MAP_RAGEFIRE_CHASM PB_MAP_RAGEFIRE_CHASM
+#define MAP_MOLTEN_CORE PB_MAP_MOLTEN_CORE
+#define MAP_DIRE_MAUL PB_MAP_DIRE_MAUL
+#define MAP_BLACKWING_LAIR PB_MAP_BLACKWING_LAIR
+#define MAP_WARSONG_GULCH PB_MAP_WARSONG_GULCH
+#define MAP_RUINS_OF_AHN_QIRAJ PB_MAP_RUINS_OF_AHN_QIRAJ
+#define MAP_ARATHI_BASIN PB_MAP_ARATHI_BASIN
+#define MAP_OUTLAND PB_MAP_OUTLAND
+#define MAP_AHN_QIRAJ_TEMPLE PB_MAP_AHN_QIRAJ_TEMPLE
+#define MAP_KARAZHAN PB_MAP_KARAZHAN
+#define MAP_NAXXRAMAS PB_MAP_NAXXRAMAS
+#define MAP_THE_BATTLE_FOR_MOUNT_HYJAL PB_MAP_THE_BATTLE_FOR_MOUNT_HYJAL
+#define MAP_HELLFIRE_CITADEL_THE_SHATTERED_HALLS PB_MAP_HELLFIRE_CITADEL_THE_SHATTERED_HALLS
+#define MAP_HELLFIRE_CITADEL_THE_BLOOD_FURNACE PB_MAP_HELLFIRE_CITADEL_THE_BLOOD_FURNACE
+#define MAP_HELLFIRE_CITADEL_RAMPARTS PB_MAP_HELLFIRE_CITADEL_RAMPARTS
+#define MAP_MAGTHERIDONS_LAIR PB_MAP_MAGTHERIDONS_LAIR
+#define MAP_COILFANG_THE_STEAMVAULT PB_MAP_COILFANG_THE_STEAMVAULT
+#define MAP_COILFANG_THE_UNDERBOG PB_MAP_COILFANG_THE_UNDERBOG
+#define MAP_COILFANG_THE_SLAVE_PENS PB_MAP_COILFANG_THE_SLAVE_PENS
+#define MAP_COILFANG_SERPENTSHRINE_CAVERN PB_MAP_COILFANG_SERPENTSHRINE_CAVERN
+#define MAP_TEMPEST_KEEP PB_MAP_TEMPEST_KEEP
+#define MAP_TEMPEST_KEEP_THE_ARCATRAZ PB_MAP_TEMPEST_KEEP_THE_ARCATRAZ
+#define MAP_TEMPEST_KEEP_THE_BOTANICA PB_MAP_TEMPEST_KEEP_THE_BOTANICA
+#define MAP_TEMPEST_KEEP_THE_MECHANAR PB_MAP_TEMPEST_KEEP_THE_MECHANAR
+#define MAP_AUCHINDOUN_SHADOW_LABYRINTH PB_MAP_AUCHINDOUN_SHADOW_LABYRINTH
+#define MAP_AUCHINDOUN_SETHEKK_HALLS PB_MAP_AUCHINDOUN_SETHEKK_HALLS
+#define MAP_AUCHINDOUN_MANA_TOMBS PB_MAP_AUCHINDOUN_MANA_TOMBS
+#define MAP_AUCHINDOUN_AUCHENAI_CRYPTS PB_MAP_AUCHINDOUN_AUCHENAI_CRYPTS
+#define MAP_THE_ESCAPE_FROM_DURNHOLDE PB_MAP_THE_ESCAPE_FROM_DURNHOLDE
+#define MAP_BLACK_TEMPLE PB_MAP_BLACK_TEMPLE
+#define MAP_GRUULS_LAIR PB_MAP_GRUULS_LAIR
+#define MAP_EYE_OF_THE_STORM PB_MAP_EYE_OF_THE_STORM
+#define MAP_ZUL_AMA PB_MAP_ZUL_AMA
+#define MAP_NORTHREND PB_MAP_NORTHREND
+#define MAP_UTGARDE_KEEP PB_MAP_UTGARDE_KEEP
+#define MAP_UTGARDE_PINNACLE PB_MAP_UTGARDE_PINNACLE
+#define MAP_THE_NEXUS PB_MAP_THE_NEXUS
+#define MAP_THE_OCULUS PB_MAP_THE_OCULUS
+#define MAP_THE_SUNWELL PB_MAP_THE_SUNWELL
+#define MAP_MAGISTERS_TERRACE PB_MAP_MAGISTERS_TERRACE
+#define MAP_THE_CULLING_OF_STRATHOLME PB_MAP_THE_CULLING_OF_STRATHOLME
+#define MAP_HALLS_OF_STONE PB_MAP_HALLS_OF_STONE
+#define MAP_DRAK_THARON_KEEP PB_MAP_DRAK_THARON_KEEP
+#define MAP_AZJOL_NERUB PB_MAP_AZJOL_NERUB
+#define MAP_HALLS_OF_LIGHTNING PB_MAP_HALLS_OF_LIGHTNING
+#define MAP_ULDUAR PB_MAP_ULDUAR
+#define MAP_GUNDRAK PB_MAP_GUNDRAK
+#define MAP_STRAND_OF_THE_ANCIENTS PB_MAP_STRAND_OF_THE_ANCIENTS
+#define MAP_VIOLET_HOLD PB_MAP_VIOLET_HOLD
+#define MAP_EBON_HOLD PB_MAP_EBON_HOLD
+#define MAP_THE_OBSIDIAN_SANCTUM PB_MAP_THE_OBSIDIAN_SANCTUM
+#define MAP_THE_EYE_OF_ETERNITY PB_MAP_THE_EYE_OF_ETERNITY
+#define MAP_THE_RING_OF_VALOR PB_MAP_THE_RING_OF_VALOR
+#define MAP_AHN_KAHET_THE_OLD_KINGDOM PB_MAP_AHN_KAHET_THE_OLD_KINGDOM
+#define MAP_VAULT_OF_ARCHAVON PB_MAP_VAULT_OF_ARCHAVON
+#define MAP_ISLE_OF_CONQUEST PB_MAP_ISLE_OF_CONQUEST
+#define MAP_ICECROWN_CITADEL PB_MAP_ICECROWN_CITADEL
+#define MAP_THE_FORGE_OF_SOULS PB_MAP_THE_FORGE_OF_SOULS
+#define MAP_TRIAL_OF_THE_CRUSADER PB_MAP_TRIAL_OF_THE_CRUSADER
+#define MAP_TRIAL_OF_THE_CHAMPION PB_MAP_TRIAL_OF_THE_CHAMPION
+#define MAP_PIT_OF_SARON PB_MAP_PIT_OF_SARON
+#define MAP_HALLS_OF_REFLECTION PB_MAP_HALLS_OF_REFLECTION
+#define MAP_THE_RUBY_SANCTUM PB_MAP_THE_RUBY_SANCTUM
+
+#endif

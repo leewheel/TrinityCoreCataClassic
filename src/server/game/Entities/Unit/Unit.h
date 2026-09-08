@@ -22,6 +22,9 @@
 #include "CombatManager.h"
 #include "FlatSet.h"
 #include "SpellAuraDefines.h"
+//By leewheel 2026-09-06: 移植mod-playerbots，冷却兼容内联方法需要SpellHistory完整类型
+#include "SpellHistory.h"
+//End By leewheel
 #include "ThreatManager.h"
 #include "Timer.h"
 #include "UnitDefines.h"
@@ -1085,6 +1088,20 @@ class TC_GAME_API Unit : public WorldObject
         // threatmanager will NOT null check your pointers for you - misuse = crash
         ThreatManager& GetThreatManager() { return m_threatManager; }
         ThreatManager const& GetThreatManager() const { return m_threatManager; }
+
+        //By leewheel 2026-09-06: 移植mod-playerbots，AC兼容方法：Unit API差异
+        // AC: AddSpellCooldown(spellId, itemId, cooldown) → TC-Cata: GetSpellHistory()->AddCooldown()
+        void AddSpellCooldown(uint32 spellId, uint32 itemId, int32 cooldown) { GetSpellHistory()->AddCooldown(spellId, itemId, Milliseconds(cooldown)); }
+        // AC: HasSpellCooldown(spellId) → TC-Cata: GetSpellHistory()->HasCooldown()
+        bool HasSpellCooldown(uint32 spellId) const { return GetSpellHistory()->HasCooldown(spellId); }
+        // AC: RemoveSpellCooldown → 代理到SpellHistory
+        void RemoveSpellCooldown(uint32 spellId, bool update = false) { GetSpellHistory()->ResetCooldown(spellId, update); }
+        // AC: GetThreatMgr() → TC-Cata: GetThreatManager()
+        ThreatManager& GetThreatMgr() { return GetThreatManager(); }
+        ThreatManager const& GetThreatMgr() const { return GetThreatManager(); }
+        // AC: SendMovementFlagUpdate() → 重新广播移动信息
+        void SendMovementFlagUpdate();
+        //End By leewheel
 
         void SendClearTarget();
 

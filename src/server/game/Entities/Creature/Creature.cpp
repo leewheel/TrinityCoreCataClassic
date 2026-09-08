@@ -831,6 +831,11 @@ void Creature::Update(uint32 diff)
         {
             Unit::Update(diff);
 
+            //By leewheel 2026-09-06: 移植mod-playerbots，全局生物更新钩子(AC的AllCreatureScript等价)——
+            //仅遍历Playerbots注册的团本状态管理监听(独立小列表)，空列表时零开销；供ICC/BWL/Uld/RS等机制追踪使用
+            sScriptMgr->OnAllCreatureUpdate(this, diff);
+            //End By leewheel
+
             // creature can be dead after Unit::Update call
             // CORPSE/DEAD state will processed at next tick (in other case death timer will be updated unexpectedly)
             if (!IsAlive())

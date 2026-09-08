@@ -182,6 +182,40 @@ BaseLocation DBUpdater<HotfixDatabaseConnection>::GetBaseLocationType()
     return LOCATION_DOWNLOAD;
 }
 
+//By leewheel 2026-09-06: 移植mod-playerbots，新增Playerbots数据库更新器特化
+// Playerbots Database
+template<>
+std::string DBUpdater<PlayerbotsDatabaseConnection>::GetConfigEntry()
+{
+    return "Updates.Playerbots";
+}
+
+template<>
+std::string DBUpdater<PlayerbotsDatabaseConnection>::GetTableName()
+{
+    return "Playerbots";
+}
+
+template<>
+std::string DBUpdater<PlayerbotsDatabaseConnection>::GetBaseFile()
+{
+    return "playerbots_database.sql";
+}
+
+template<>
+bool DBUpdater<PlayerbotsDatabaseConnection>::IsEnabled(uint32 const updateMask)
+{
+    // 通过位与判断是否启用Playerbots数据库更新
+    return (updateMask & DatabaseLoader::DATABASE_PLAYERBOTS) ? true : false;
+}
+
+template<>
+BaseLocation DBUpdater<PlayerbotsDatabaseConnection>::GetBaseLocationType()
+{
+    return LOCATION_NONE;
+}
+//End By leewheel
+
 // All
 template<class T>
 BaseLocation DBUpdater<T>::GetBaseLocationType()
@@ -451,3 +485,6 @@ template class TC_DATABASE_API DBUpdater<LoginDatabaseConnection>;
 template class TC_DATABASE_API DBUpdater<WorldDatabaseConnection>;
 template class TC_DATABASE_API DBUpdater<CharacterDatabaseConnection>;
 template class TC_DATABASE_API DBUpdater<HotfixDatabaseConnection>;
+//By leewheel 2026-09-06: 移植mod-playerbots，实例化Playerbots数据库更新器模板
+template class TC_DATABASE_API DBUpdater<PlayerbotsDatabaseConnection>;
+//End By leewheel

@@ -25,6 +25,9 @@
 #include "Implementation/CharacterDatabase.h"
 #include "Implementation/WorldDatabase.h"
 #include "Implementation/HotfixDatabase.h"
+//By leewheel 2026-09-06: 移植mod-playerbots，新增Playerbots数据库层声明
+#include "Implementation/PlayerbotsDatabase.h"
+//End By leewheel
 
 #include "Field.h"
 #include "PreparedStatement.h"
@@ -40,5 +43,9 @@ TC_DATABASE_API extern DatabaseWorkerPool<CharacterDatabaseConnection> Character
 TC_DATABASE_API extern DatabaseWorkerPool<LoginDatabaseConnection> LoginDatabase;
 /// Accessor to the hotfix database
 TC_DATABASE_API extern DatabaseWorkerPool<HotfixDatabaseConnection> HotfixDatabase;
+//By leewheel 2026-09-06: 移植mod-playerbots，新增Playerbots数据库访问器
+/// Accessor to the playerbots database
+TC_DATABASE_API extern DatabaseWorkerPool<PlayerbotsDatabaseConnection> PlayerbotsDatabase;
+//End By leewheel
 
 #endif

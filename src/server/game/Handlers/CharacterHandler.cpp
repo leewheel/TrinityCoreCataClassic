@@ -67,18 +67,8 @@
 #include <boost/circular_buffer.hpp>
 #include <sstream>
 
-class LoginQueryHolder : public CharacterDatabaseQueryHolder
-{
-    private:
-        uint32 m_accountId;
-        ObjectGuid m_guid;
-    public:
-        LoginQueryHolder(uint32 accountId, ObjectGuid guid)
-            : m_accountId(accountId), m_guid(guid) { }
-        ObjectGuid GetGuid() const { return m_guid; }
-        uint32 GetAccountId() const { return m_accountId; }
-        bool Initialize();
-};
+//By leewheel 2026-09-06: 移植mod-playerbots，LoginQueryHolder类定义已移至WorldSession.h供Playerbots模块继承，此处仅保留Initialize实现
+//End By leewheel
 
 bool LoginQueryHolder::Initialize()
 {

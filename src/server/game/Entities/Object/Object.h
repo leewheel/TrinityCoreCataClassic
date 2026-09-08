@@ -661,6 +661,15 @@ class TC_GAME_API WorldObject : public Object, public WorldLocation
         void UpdateAllowedPositionZ(float x, float y, float &z, float* groundZ = nullptr) const;
 
         Position GetRandomPoint(Position const& srcPos, float distance, float minDistance = 0.0f) const;
+        //By leewheel 2026-09-06: 移植mod-playerbots，AC兼容输出引用式GetRandomPoint重载
+        void GetRandomPoint(Position const& srcPos, float distance, float& rx, float& ry, float& rz) const
+        {
+            Position pos = GetRandomPoint(srcPos, distance);
+            rx = pos.GetPositionX();
+            ry = pos.GetPositionY();
+            rz = pos.GetPositionZ();
+        }
+        //End By leewheel
 
         uint32 GetInstanceId() const { return m_InstanceId; }
 

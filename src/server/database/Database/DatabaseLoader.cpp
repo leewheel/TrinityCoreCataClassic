@@ -187,3 +187,7 @@ template TC_DATABASE_API
 DatabaseLoader& DatabaseLoader::AddDatabase<WorldDatabaseConnection>(DatabaseWorkerPool<WorldDatabaseConnection>&, std::string const&);
 template TC_DATABASE_API
 DatabaseLoader& DatabaseLoader::AddDatabase<HotfixDatabaseConnection>(DatabaseWorkerPool<HotfixDatabaseConnection>&, std::string const&);
+//By leewheel 2026-09-06: 移植mod-playerbots，为PlayerbotsDatabaseConnection添加显式模板实例化
+template TC_DATABASE_API
+DatabaseLoader& DatabaseLoader::AddDatabase<PlayerbotsDatabaseConnection>(DatabaseWorkerPool<PlayerbotsDatabaseConnection>&, std::string const&);
+//End By leewheel

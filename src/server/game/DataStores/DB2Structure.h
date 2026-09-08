@@ -112,6 +112,9 @@ struct AreaTableEntry
     EnumFlag<AreaFlags> GetFlags() const { return static_cast<AreaFlags>(Flags[0]); }
     EnumFlag<AreaFlags2> GetFlags2() const { return static_cast<AreaFlags2>(Flags[1]); }
     EnumFlag<AreaMountFlags> GetMountFlags() const { return static_cast<AreaMountFlags>(MountFlags); }
+    //By leewheel 2026-09-06: 移植mod-playerbots，AC兼容：按WotLK习惯以原始位访问区域Flags[0]
+    uint32 flags() const { return uint32(Flags[0]); }
+    //End By leewheel
 
     bool IsSanctuary() const
     {
@@ -3767,6 +3770,11 @@ struct TaxiPathEntry
     uint16 FromTaxiNode;
     uint16 ToTaxiNode;
     uint32 Cost;
+
+    //By leewheel 2026-09-06: 移植mod-playerbots，AC兼容访问器(from()/to())
+    uint32 from() const { return FromTaxiNode; }
+    uint32 to() const { return ToTaxiNode; }
+    //End By leewheel
 };
 
 // structure for TaxiPathNode.db2
@@ -4054,6 +4062,9 @@ struct VehicleSeatEntry
 
     inline bool CanEnterOrExit() const { return HasFlag(VehicleSeatFlags(VEHICLE_SEAT_FLAG_CAN_ENTER_OR_EXIT | VEHICLE_SEAT_FLAG_CAN_CONTROL | VEHICLE_SEAT_FLAG_SHOULD_USE_VEH_SEAT_EXIT_ANIM_ON_VOLUNTARY_EXIT)); }
     inline bool CanSwitchFromSeat() const { return HasFlag(VEHICLE_SEAT_FLAG_CAN_SWITCH); }
+    //By leewheel 2026-09-06: 移植mod-playerbots，AC兼容：该座位是否可被玩家操控
+    inline bool CanControl() const { return HasFlag(VEHICLE_SEAT_FLAG_CAN_CONTROL); }
+    //End By leewheel
     inline bool IsUsableByOverride() const {
         return HasFlag(VehicleSeatFlags(VEHICLE_SEAT_FLAG_UNCONTROLLED | VEHICLE_SEAT_FLAG_UNK18))
             || HasFlag(VehicleSeatFlagsB(VEHICLE_SEAT_FLAG_B_USABLE_FORCED | VEHICLE_SEAT_FLAG_B_USABLE_FORCED_2 |

@@ -42,8 +42,11 @@ public:
 
 enum BaseLocation
 {
+    //By leewheel 2026-09-06: 移植mod-playerbots，新增LOCATION_NONE供无基础SQL下载的模块数据库使用
+    LOCATION_NONE,
     LOCATION_REPOSITORY,
     LOCATION_DOWNLOAD
+    //End By leewheel
 };
 
 class DBUpdaterUtil

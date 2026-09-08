@@ -1782,6 +1782,45 @@ bool Map::getObjectHitPos(PhaseShift const& phaseShift, float x1, float y1, floa
     return result;
 }
 
+//By leewheel 2026-09-06: 移植mod-playerbots，AC兼容碰撞校验(算法来源: TC-WotLK Map::CheckCollisionAndGetValidCoords)
+bool Map::CheckCollisionAndGetValidCoords(WorldObject const* source, float startX, float startY, float startZ,
+    float& destX, float& destY, float& destZ, bool failOnCollision)
+{
+    // 验证坐标有效性
+    if (!Trinity::IsValidMapCoord(destX, destY, destZ) || !Trinity::IsValidMapCoord(startX, startY, startZ))
+        return false;
+
+    PhaseShift const& phaseShift = source->GetPhaseShift();
+
+    // 检查动态物件碰撞（游戏物件等），命中时把终点钳制到接触点
+    float hitX = destX, hitY = destY, hitZ = destZ;
+    bool collided = getObjectHitPos(phaseShift,
+        startX, startY, startZ + source->GetCollisionHeight() * 0.5f,
+        destX, destY, destZ + source->GetCollisionHeight() * 0.5f,
+        hitX, hitY, hitZ, -1.0f);
+
+    if (collided)
+    {
+        destX = hitX;
+        destY = hitY;
+        destZ = hitZ - source->GetCollisionHeight() * 0.5f;
+    }
+
+    // 获取地面高度并调整Z坐标
+    float groundZ = GetHeight(phaseShift, destX, destY, destZ + 2.0f, true, 50.0f);
+    if (groundZ <= INVALID_HEIGHT)
+        return false;
+
+    // 如果地面高度与目标高度差距过大，使用地面高度
+    if (std::abs(destZ - groundZ) > 5.0f)
+        destZ = groundZ;
+
+    destZ = std::max(destZ, groundZ);
+
+    return !failOnCollision || !collided;
+}
+//End By leewheel
+
 void Map::RequestRebuildNavMeshOnGameObjectModelChange(GameObjectModel const& model, PhaseShift const& phaseShift)
 {
     if (!m_mmapTileRebuilder)

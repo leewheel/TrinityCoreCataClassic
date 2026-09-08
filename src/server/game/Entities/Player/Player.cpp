@@ -16171,6 +16171,11 @@ void Player::SetQuestObjectiveData(QuestObjective const& objective, int32 data)
     else
         RemoveQuestSlotState(status.Slot, 256 << objective.StorageIndex);
 
+    //By leewheel 2026-09-06: 移植mod-playerbots，同步物品目标计数到AC兼容数组(供模块查询任务物品进度)
+    if (objective.Type == QUEST_OBJECTIVE_ITEM && objective.StorageIndex >= 0 && objective.StorageIndex < QUEST_ITEM_OBJECTIVES_COUNT)
+        status.ItemCount[uint32(objective.StorageIndex)] = uint16(data < 0 ? 0 : data);
+    //End By leewheel
+
     if (Quest const* quest = sObjectMgr->GetQuestTemplate(objective.QuestID))
         sScriptMgr->OnQuestObjectiveChange(this, quest, objective, oldData, data);
 }
@@ -18482,6 +18487,11 @@ void Player::_LoadQuestStatusObjectives(PreparedQueryResult result)
                         SetQuestSlotCounter(questStatusData.Slot, storageIndex, data);
                     else if (data)
                         SetQuestSlotState(questStatusData.Slot, 256 << storageIndex);
+
+                    //By leewheel 2026-09-06: 移植mod-playerbots，加载时同步物品目标计数到AC兼容数组
+                    if (objectiveItr->Type == QUEST_OBJECTIVE_ITEM && storageIndex < QUEST_ITEM_OBJECTIVES_COUNT)
+                        questStatusData.ItemCount[storageIndex] = uint16(data < 0 ? 0 : data);
+                    //End By leewheel
                 }
                 else
                     TC_LOG_ERROR("entities.player", "Player::_LoadQuestStatusObjectives: Player '{}' ({}) has quest {} out of range objective index {}.", GetName(), GetGUID().ToString(), questID, storageIndex);
@@ -28100,6 +28110,22 @@ void Player::UpdateAvailableTalentPoints()
 
     SetUpdateFieldValue(m_values.ModifyValue(&Player::m_activePlayerData).ModifyValue(&UF::ActivePlayerData::CharacterPoints), points - spentPoints);
 }
+
+//By leewheel 2026-09-06: 移植mod-playerbots，AC兼容：当前天赋方案已用点数
+uint32 Player::GetSpentTalentPointsCount() const
+{
+    uint32 spent = 0;
+    for (auto const& pair : _talentGroups[_activeTalentGroup].Talents)
+        spent += pair.second + 1;
+    return spent;
+}
+
+//By leewheel 2026-09-06: 移植mod-playerbots，AC兼容：额外天赋方案数(双天赋=1)
+uint8 Player::GetBonusTalentGroupCount() const
+{
+    return uint8(_talentGroups.size() - 1);
+}
+//End By leewheel
 
 void Player::SendRaidGroupOnlyMessage(RaidGroupReason reason, int32 delay) const
 {

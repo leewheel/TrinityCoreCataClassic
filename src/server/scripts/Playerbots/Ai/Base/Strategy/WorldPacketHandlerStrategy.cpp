@@ -1,0 +1,107 @@
+/*
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
+ */
+
+#include "WorldPacketHandlerStrategy.h"
+
+void WorldPacketHandlerStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
+{
+    PassThroughStrategy::InitTriggers(triggers);
+
+    triggers.push_back(
+        new TriggerNode("group invite", { NextAction("accept invitation", relevance) }));
+    triggers.push_back(
+        new TriggerNode("uninvite", { NextAction("uninvite", relevance) }));
+    triggers.push_back(
+        new TriggerNode("uninvite guid", { NextAction("uninvite", relevance) }));
+    triggers.push_back(
+        new TriggerNode("group set leader", { NextAction("reset botAI", relevance) }));
+    triggers.push_back(new TriggerNode(
+        "not enough money", { NextAction("tell not enough money", relevance) }));
+    triggers.push_back(
+        new TriggerNode("not enough reputation",
+                        { NextAction("tell not enough reputation", relevance) }));
+    triggers.push_back(
+        new TriggerNode("cannot equip", { NextAction("tell cannot equip", relevance) }));
+    triggers.push_back(
+        new TriggerNode("use game object", { NextAction("add loot", relevance),
+                                                             NextAction("use meeting stone", relevance) }));
+    triggers.push_back(
+        new TriggerNode("gossip hello", { NextAction("trainer", relevance) }));
+    triggers.push_back(new TriggerNode("activate taxi", { NextAction("remember taxi", relevance),
+                                                                          NextAction("taxi", relevance) }));
+    triggers.push_back(new TriggerNode("taxi done", { NextAction("taxi", relevance) }));
+    triggers.push_back(new TriggerNode("trade status", { NextAction("accept trade", relevance), NextAction("equip upgrades packet action", relevance) }));
+    triggers.push_back(new TriggerNode("trade status extended", { NextAction("trade status extended", relevance) }));
+    triggers.push_back(new TriggerNode("area trigger", { NextAction("reach area trigger", relevance) }));
+    triggers.push_back(new TriggerNode("within area trigger", { NextAction("area trigger", relevance) }));
+    triggers.push_back(new TriggerNode("loot response", { NextAction("store loot", relevance) }));
+    triggers.push_back(new TriggerNode("item push result", { NextAction("unlock items", relevance),
+                                                                                NextAction("open items", relevance),
+                                                                                NextAction("query item usage", relevance),
+                                                                                NextAction("equip upgrades packet action", relevance) }));
+    triggers.push_back(new TriggerNode("item push result", { NextAction("quest item push result", relevance) }));
+    triggers.push_back(new TriggerNode("loot roll won", { NextAction("equip upgrades packet action", relevance) }));
+    triggers.push_back(new TriggerNode("ready check finished", { NextAction("ready check finished", relevance) }));
+    // triggers.push_back(new TriggerNode("often", { NextAction("security check", relevance), NextAction("check mail", relevance) }));
+    triggers.push_back(new TriggerNode("guild invite", { NextAction("guild accept", relevance) }));
+    triggers.push_back(new TriggerNode("petition offer", { NextAction("petition sign", relevance) }));
+    triggers.push_back(new TriggerNode("lfg proposal", { NextAction("lfg accept", relevance) }));
+    triggers.push_back(new TriggerNode("lfg proposal active", { NextAction("lfg accept", relevance) }));
+    triggers.push_back(new TriggerNode("arena team invite", { NextAction("arena team accept", relevance) }));
+    //triggers.push_back(new TriggerNode("no non bot players around", { NextAction("delay", relevance) }));
+    triggers.push_back(new TriggerNode("bg status", { NextAction("bg status", relevance) }));
+    triggers.push_back(new TriggerNode("xpgain", { NextAction("xp gain", relevance) }));
+    triggers.push_back(
+        new TriggerNode("levelup", { NextAction("auto maintenance on levelup", relevance + 3) }));
+    // triggers.push_back(new TriggerNode("group destroyed", { NextAction("reset botAI",
+    // relevance) }));
+    triggers.push_back(new TriggerNode("group list", { NextAction("reset botAI", relevance) }));
+    triggers.push_back(new TriggerNode("see spell", { NextAction("see spell", relevance) }));
+    triggers.push_back(new TriggerNode("release spirit", { NextAction("release", relevance) }));
+    triggers.push_back(new TriggerNode("revive from corpse", { NextAction("revive from corpse", relevance) }));
+    triggers.push_back(new TriggerNode("master loot roll", { NextAction("master loot roll", relevance) }));
+
+    // quest ?
+    //triggers.push_back(new TriggerNode("quest confirm", { NextAction("quest confirm", relevance) }));
+    triggers.push_back(new TriggerNode("questgiver quest details", { NextAction("turn in query quest", relevance) }));
+
+    // loot roll
+    //By leewheel 2026-08-24: 修复"机器人Roll点太慢"——原"SMSG_START_LOOT_ROLL"包注册为
+    //"master loot roll"(仅无真实玩家主人的后台bot可用), 跟随真实玩家的机器人收包后无法立即响应,
+    //只能靠"very often"(每2秒1/3概率)轮询group rolls, 平均延迟3-6秒甚至更久。
+    //修复: SMSG_START_LOOT_ROLL 改为触发"loot roll"(事件驱动, 收到掷骰通知立即遍历投票),
+    //并保留"very often"轮询作为丢包兜底。
+    triggers.push_back(new TriggerNode("loot roll", { NextAction("loot roll", relevance) }));
+    triggers.push_back(new TriggerNode("very often", { NextAction("loot roll", relevance) }));
+    //End By leewheel
+}
+
+WorldPacketHandlerStrategy::WorldPacketHandlerStrategy(PlayerbotAI* botAI) : PassThroughStrategy(botAI)
+{
+    supported.push_back("loot roll");
+    supported.push_back("check mount state");
+    supported.push_back("party command");
+    supported.push_back("ready check");
+    supported.push_back("uninvite");
+    supported.push_back("lfg role check");
+    supported.push_back("lfg teleport");
+    supported.push_back("random bot update");
+    supported.push_back("inventory change failure");
+    supported.push_back("bg status");
+
+    // quests
+    supported.push_back("quest update add kill");
+    // supported.push_back("quest update add item");
+    supported.push_back("quest update failed");
+    supported.push_back("quest update failed timer");
+    supported.push_back("quest update complete");
+    supported.push_back("confirm quest");
+}
+
+void ReadyCheckStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
+{
+    triggers.push_back(
+        new TriggerNode("timer", { NextAction("ready check", relevance) }));
+}

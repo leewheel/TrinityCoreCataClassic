@@ -212,6 +212,18 @@ std::string WorldSession::GetPlayerInfo() const
 /// Send a packet to the client
 void WorldSession::SendPacket(WorldPacket const* packet, bool forced /*= false*/)
 {
+    //By leewheel 2026-09-06: 移植mod-playerbots，bot会话没有网络socket，不需要opcode handler检查
+    //许多SMSG包(如SMSG_AURA_UPDATE、SMSG_SPELL_GO等)在opcodeTable中没有handler条目
+    //对真实玩家会触发ERROR日志并丢弃，但bot只需要通过Playerbots钩子接收即可
+    //提前处理避免每秒数千条ERROR刷屏，同时确保bot能收到所有下行包
+    if (IsBot())
+    {
+        if (_player)
+            sScriptMgr->OnPlayerbotPacketSent(_player, packet);
+        return;
+    }
+    //End By leewheel
+
     if (!opcodeTable.IsValid(static_cast<OpcodeServer>(packet->GetOpcode())))
     {
         char const* specialName = packet->GetOpcode() == UNKNOWN_OPCODE ? "UNKNOWN_OPCODE" : "INVALID_OPCODE";
@@ -344,8 +356,11 @@ bool WorldSession::Update(uint32 diff, PacketFilter& updater)
     ///- Before we process anything:
     /// If necessary, kick the player because the client didn't send anything for too long
     /// (or they've been idling in character select)
-    if (IsConnectionIdle() && !HasPermission(rbac::RBAC_PERM_IGNORE_IDLE_CONNECTION))
-        m_Socket[CONNECTION_TYPE_REALM]->CloseSocket();
+    //By leewheel 2026-09-06: 移植mod-playerbots，bot会话没有socket，跳过空闲检查避免空指针崩溃
+    if (IsConnectionIdle() && !HasPermission(rbac::RBAC_PERM_IGNORE_IDLE_CONNECTION) && !IsBot())
+        if (m_Socket[CONNECTION_TYPE_REALM])
+            m_Socket[CONNECTION_TYPE_REALM]->CloseSocket();
+    //End By leewheel
 
     ///- Retrieve packets from the receive queue and call the appropriate handlers
     /// not process packets if socket already closed

@@ -128,6 +128,11 @@ class TC_DATABASE_API Field
             return buf;
         }
 
+        //By leewheel 2026-09-06: 移植mod-playerbots，AC兼容：Field::Get<T>() 模板取值
+        template<typename T>
+        T Get() const;
+        //End By leewheel
+
         bool IsNull() const noexcept
         {
             return _value == nullptr;
@@ -168,5 +173,20 @@ class TC_DATABASE_API Field
 
         void GetBinarySizeChecked(uint8* buf, size_t size) const noexcept;
 };
+
+//By leewheel 2026-09-06: 移植mod-playerbots，AC兼容：Field::Get<T>() 模板特化实现
+template<> inline uint8 Field::Get<uint8>() const { return GetUInt8(); }
+template<> inline int8 Field::Get<int8>() const { return GetInt8(); }
+template<> inline uint16 Field::Get<uint16>() const { return GetUInt16(); }
+template<> inline int16 Field::Get<int16>() const { return GetInt16(); }
+template<> inline uint32 Field::Get<uint32>() const { return GetUInt32(); }
+template<> inline int32 Field::Get<int32>() const { return GetInt32(); }
+template<> inline uint64 Field::Get<uint64>() const { return GetUInt64(); }
+template<> inline int64 Field::Get<int64>() const { return GetInt64(); }
+template<> inline float Field::Get<float>() const { return GetFloat(); }
+template<> inline double Field::Get<double>() const { return GetDouble(); }
+template<> inline std::string Field::Get<std::string>() const { return GetString(); }
+template<> inline bool Field::Get<bool>() const { return GetBool(); }
+//End By leewheel
 
 #endif

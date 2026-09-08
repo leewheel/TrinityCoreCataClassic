@@ -276,6 +276,34 @@ void Quest::LoadQuestObjective(Field* fields)
     obj.ProgressBarWeight = fields[8].GetFloat();
     obj.Description = fields[9].GetString();
 
+    //By leewheel 2026-09-06: 移植mod-playerbots，AC兼容：同步目标数据到旧版数组
+    //AC使用数组访问 quest->RequiredItemId[i] / quest->RequiredNpcOrGo[i] 等，
+    //Cata使用QuestObjectives向量，此处把向量数据同步到兼容数组供Playerbots模块使用
+    //物品目标按StorageIndex对齐(模块以storageIdx下标读取物品数组)，其余按插入顺序
+    uint32 idx = uint32(Objectives.size() - 1);
+    int32 storageIdx = obj.StorageIndex;
+    if (obj.Type == QUEST_OBJECTIVE_ITEM)
+    {
+        if (storageIdx >= 0 && storageIdx < QUEST_ITEM_OBJECTIVES_COUNT)
+        {
+            RequiredItemId[uint32(storageIdx)] = uint32(obj.ObjectID);
+            RequiredItemCount[uint32(storageIdx)] = uint32(obj.Amount);
+        }
+    }
+    else if (obj.Type == QUEST_OBJECTIVE_MONSTER || obj.Type == QUEST_OBJECTIVE_GAMEOBJECT)
+    {
+        if (idx < QUEST_OBJECTIVES_COUNT)
+        {
+            RequiredNpcOrGo[idx] = obj.ObjectID;
+            RequiredNpcOrGoCount[idx] = uint32(obj.Amount);
+        }
+    }
+
+    // 任务目标描述文本(AC的ObjectiveText)
+    if (!obj.Description.empty() && idx < QUEST_OBJECTIVES_COUNT)
+        ObjectiveText[idx] = obj.Description;
+    //End By leewheel
+
     bool hasCompletionEffect = std::any_of(fields + 10, fields + 15, [](Field const& f) { return !f.IsNull(); });
     if (hasCompletionEffect)
     {

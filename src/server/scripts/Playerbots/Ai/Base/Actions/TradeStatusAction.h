@@ -1,0 +1,30 @@
+/*
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
+ */
+
+#ifndef PLAYERBOTS_TRADESTATUSACTION_H
+#define PLAYERBOTS_TRADESTATUSACTION_H
+
+#include "QueryItemUsageAction.h"
+
+class Player;
+class PlayerbotAI;
+
+class TradeStatusAction : public QueryItemUsageAction
+{
+public:
+    TradeStatusAction(PlayerbotAI* botAI) : QueryItemUsageAction(botAI, "accept trade") {}
+
+    bool Execute(Event event) override;
+
+private:
+    void BeginTrade();
+    bool CheckTrade();
+    int32 CalculateCost(Player* player, bool sell);
+    //By leewheel 2026-07-22: 法师交易时自动放入魔法水/面包
+    void TryGiveConjuredItems(Player* trader);
+    //End By leewheel
+};
+
+#endif

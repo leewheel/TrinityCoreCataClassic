@@ -1320,6 +1320,13 @@ SpellInfo::SpellInfo(SpellNameEntry const* spellName, ::Difficulty difficulty, S
         _effects[i].EffectIndex = SpellEffIndex(i);
     }
 
+    //By leewheel 2026-09-06: 移植mod-playerbots，补齐效果槽到WotLK定长语义
+    //WotLK的SpellInfo::Effects为固定3槽(空槽为默认空效果)，Cata的_effects按实际效果条数存储；
+    //为兼容机器人模块Effects[0..2]式访问(空槽.Effect==SPELL_EFFECT_NONE与WotLK一致)，
+    //不足3槽时用默认空效果补齐(默认构造即SPELL_EFFECT_NONE)
+    if (_effects.size() < MAX_SPELL_EFFECTS)
+        Trinity::Containers::EnsureWritableVectorIndex(_effects, MAX_SPELL_EFFECTS - 1) = SpellEffectInfo();
+
     _effects.shrink_to_fit();
 
     SpellName = &spellName->Name;
@@ -1518,6 +1525,10 @@ SpellInfo::SpellInfo(SpellNameEntry const* spellName, ::Difficulty difficulty, s
         _effects[i]._spellInfo = this;
         _effects[i].EffectIndex = SpellEffIndex(i);
     }
+
+    //By leewheel 2026-09-06: 移植mod-playerbots，补齐效果槽到WotLK定长语义(同上，第二处构造)
+    if (_effects.size() < MAX_SPELL_EFFECTS)
+        Trinity::Containers::EnsureWritableVectorIndex(_effects, MAX_SPELL_EFFECTS - 1) = SpellEffectInfo();
 
     _effects.shrink_to_fit();
 }

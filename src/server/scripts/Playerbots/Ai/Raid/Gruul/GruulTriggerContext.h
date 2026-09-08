@@ -1,0 +1,102 @@
+/* 副本机器人策略 */
+#ifndef PLAYERBOTS_GRUULTRIGGERCONTEXT_H
+#define PLAYERBOTS_GRUULTRIGGERCONTEXT_H
+
+#include "GruulTriggers.h"
+#include "NamedObjectContext.h"
+
+class RaidGruulsLairTriggerContext : public NamedObjectContext<Trigger>
+{
+public:
+    RaidGruulsLairTriggerContext() : NamedObjectContext<Trigger>()
+    {
+        // General
+        creators["gruul's lair no encounter in progress"] =
+            &RaidGruulsLairTriggerContext::gruuls_lair_no_encounter_in_progress;
+
+        // High King Maulgar
+        creators["high king maulgar three ogres need melee tanks"] =
+            &RaidGruulsLairTriggerContext::high_king_maulgar_three_ogres_need_melee_tanks;
+
+        creators["high king maulgar krosh needs mage tank"] =
+            &RaidGruulsLairTriggerContext::high_king_maulgar_krosh_needs_mage_tank;
+
+        creators["high king maulgar kiggler needs moonkin tank"] =
+            &RaidGruulsLairTriggerContext::high_king_maulgar_kiggler_needs_moonkin_tank;
+
+        creators["high king maulgar determining kill order"] =
+            &RaidGruulsLairTriggerContext::high_king_maulgar_determining_kill_order;
+
+        creators["high king maulgar boss channeling whirlwind"] =
+            &RaidGruulsLairTriggerContext::high_king_maulgar_boss_channeling_whirlwind;
+
+        creators["high king maulgar krosh casts blast wave"] =
+            &RaidGruulsLairTriggerContext::high_king_maulgar_krosh_casts_blast_wave;
+
+        creators["high king maulgar wild fel stalker spawned"] =
+            &RaidGruulsLairTriggerContext::high_king_maulgar_wild_fel_stalker_spawned;
+
+        creators["high king maulgar pulling ogre council"] =
+            &RaidGruulsLairTriggerContext::high_king_maulgar_pulling_ogre_council;
+
+        //By leewheel 2026-09-04: 对齐上游b8304144——fear ward改由通用牧师策略处理，删除恐吓咆哮触发
+        //End By leewheel
+
+        // Gruul the Dragonkiller
+        creators["gruul the dragonkiller should be tanked"] =
+            &RaidGruulsLairTriggerContext::gruul_the_dragonkiller_should_be_tanked;
+
+        creators["gruul the dragonkiller ranged should spread"] =
+            &RaidGruulsLairTriggerContext::gruul_the_dragonkiller_ranged_should_spread;
+
+        creators["gruul the dragonkiller incoming shatter"] =
+            &RaidGruulsLairTriggerContext::gruul_the_dragonkiller_incoming_shatter;
+    }
+
+private:
+    // General
+    static Trigger* gruuls_lair_no_encounter_in_progress(PlayerbotAI* botAI) {
+        //By leewheel 2026-09-04: 上游8baf63da——类名对齐 GruulsLairNoEncounterInProgressTrigger
+        return new GruulsLairNoEncounterInProgressTrigger(botAI);
+        //End By leewheel
+    }
+
+    // High King Maulgar
+    static Trigger* high_king_maulgar_three_ogres_need_melee_tanks(PlayerbotAI* botAI) {
+        return new HighKingMaulgarThreeOgresNeedMeleeTanksTrigger(botAI);
+    }
+    static Trigger* high_king_maulgar_krosh_needs_mage_tank(PlayerbotAI* botAI) {
+        return new HighKingMaulgarKroshNeedsMageTankTrigger(botAI);
+    }
+    static Trigger* high_king_maulgar_kiggler_needs_moonkin_tank(PlayerbotAI* botAI) {
+        return new HighKingMaulgarKigglerNeedsMoonkinTankTrigger(botAI);
+    }
+    static Trigger* high_king_maulgar_determining_kill_order(PlayerbotAI* botAI) {
+        return new HighKingMaulgarDeterminingKillOrderTrigger(botAI);
+    }
+    static Trigger* high_king_maulgar_boss_channeling_whirlwind(PlayerbotAI* botAI) {
+        return new HighKingMaulgarBossChannelingWhirlwindTrigger(botAI);
+    }
+    static Trigger* high_king_maulgar_krosh_casts_blast_wave(PlayerbotAI* botAI) {
+        return new HighKingMaulgarKroshCastsBlastWaveTrigger(botAI);
+    }
+    static Trigger* high_king_maulgar_wild_fel_stalker_spawned(PlayerbotAI* botAI) {
+        return new HighKingMaulgarWildFelStalkerSpawnedTrigger(botAI);
+    }
+    static Trigger* high_king_maulgar_pulling_ogre_council(PlayerbotAI* botAI) {
+        return new HighKingMaulgarPullingOgreCouncilTrigger(botAI);
+    }
+
+    // Gruul the Dragonkiller
+    static Trigger* gruul_the_dragonkiller_should_be_tanked(PlayerbotAI* botAI) {
+        return new GruulTheDragonkillerShouldBeTankedTrigger(botAI);
+    }
+    static Trigger* gruul_the_dragonkiller_ranged_should_spread(PlayerbotAI* botAI) {
+        return new GruulTheDragonkillerRangedShouldSpreadTrigger(botAI);
+    }
+    static Trigger* gruul_the_dragonkiller_incoming_shatter(PlayerbotAI* botAI) {
+        return new GruulTheDragonkillerIncomingShatterTrigger(botAI);
+    }
+};
+
+#endif

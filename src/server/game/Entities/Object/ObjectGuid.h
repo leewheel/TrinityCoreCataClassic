@@ -339,6 +339,9 @@ class TC_GAME_API ObjectGuid
         LowType GetMaxCounter() const { return GetMaxCounter(GetHigh()); }
 
         bool IsEmpty()             const { return _data[0] == 0 && _data[1] == 0; }
+        //By leewheel 2026-09-06: 移植mod-playerbots，AC兼容：允许 if (guid) / guid ? x : y 写法
+        explicit operator bool() const { return !IsEmpty(); }
+        //End By leewheel
         bool IsCreature()          const { return GetHigh() == HighGuid::Creature; }
         bool IsPet()               const { return GetHigh() == HighGuid::Pet; }
         bool IsVehicle()           const { return GetHigh() == HighGuid::Vehicle; }

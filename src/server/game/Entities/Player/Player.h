@@ -1246,6 +1246,44 @@ class TC_GAME_API Player final : public Unit, public GridObject<Player>
         void GiveLevel(uint8 level);
         bool IsMaxLevel() const;
 
+        //By leewheel 2026-09-06: 移植mod-playerbots，AC兼容索引式UpdateField访问
+        //TC-Cata不再使用基于索引的UpdateField访问，这里把AC索引映射到Cata的结构化字段
+        //索引常量在Playerbots.h中定义(PLAYER_XP=2, PLAYER_NEXT_LEVEL_XP=3等)
+        uint32 GetUInt32Value(uint16 index) const
+        {
+            switch (index)
+            {
+                case 2: // PLAYER_XP
+                    return GetXP();
+                case 3: // PLAYER_NEXT_LEVEL_XP
+                    return m_activePlayerData->NextLevelXP;
+                case 4: // PLAYER_REST_STATE_EXPERIENCE
+                    return 0; // Cata使用不同的休息机制
+                case 5: // PLAYER_AMMO_ID
+                    return uint32(m_activePlayerData->AmmoID);
+                case 9: // PLAYER_SELF_RES_SPELL
+                    return !m_activePlayerData->SelfResSpells.empty() ? uint32(m_activePlayerData->SelfResSpells[0]) : 0;
+                default:
+                    return 0;
+            }
+        }
+
+        void SetUInt32Value(uint16 index, uint32 value)
+        {
+            switch (index)
+            {
+                case 2: // PLAYER_XP
+                    SetXP(value);
+                    break;
+                case 5: // PLAYER_AMMO_ID
+                    SetUpdateFieldValue(m_values.ModifyValue(&Player::m_activePlayerData).ModifyValue(&UF::ActivePlayerData::AmmoID), value);
+                    break;
+                default:
+                    break;
+            }
+        }
+        //End By leewheel
+
         void InitStatsForLevel(bool reapplyMods = false);
 
         // .cheat command related
@@ -1880,6 +1918,12 @@ class TC_GAME_API Player final : public Unit, public GridObject<Player>
         void SetActiveTalentGroup(uint8 group, bool withUpdate = true, bool loading = false);
         void SetPrimaryTalentTree(uint32 talentTabId, bool withUpdate = false);
         uint32 GetPrimaryTalentTree() const;
+        //By leewheel 2026-09-06: 移植mod-playerbots，AC兼容天赋方案接口
+        // AC: ActivateTalentGroup(group) → TC-Cata: SetActiveTalentGroup(group)
+        void ActivateTalentGroup(uint8 group) { SetActiveTalentGroup(group); }
+        // AC: GetBonusTalentGroupCount() → 额外天赋方案数(双天赋=1)，实现在Player.cpp
+        uint8 GetBonusTalentGroupCount() const;
+        //End By leewheel
         bool LearnTalent(uint32 talentId, uint8 rank);
         void UpdateAvailableTalentPoints();
 
@@ -2102,6 +2146,9 @@ class TC_GAME_API Player final : public Unit, public GridObject<Player>
         LootRoll* GetLootRoll(ObjectGuid const& lootObjectGuid, uint8 lootListId);
         void AddLootRoll(LootRoll* roll);
         void RemoveLootRoll(LootRoll* roll);
+        //By leewheel 2026-09-06: 移植mod-playerbots，AC兼容：枚举玩家待投票的roll列表
+        std::vector<LootRoll*> const& GetLootRolls() const { return m_lootRolls; }
+        //End By leewheel
 
         void RemovedInsignia(Player* looterPlr);
 
@@ -2328,6 +2375,24 @@ class TC_GAME_API Player final : public Unit, public GridObject<Player>
         bool CanBlock() const { return m_canBlock; }
         void SetCanBlock(bool value);
         bool CanTitanGrip(Item const* item) const;
+        //By leewheel 2026-09-06: 移植mod-playerbots，AC兼容方法
+        //无参CanTitanGrip(查询泰坦之握状态)
+        bool CanTitanGrip() const { return m_canTitanGrip; }
+        // AC兼容: GetRaidDifficulty() → TC-Cata: GetRaidDifficultyID()
+        Difficulty GetRaidDifficulty() const { return GetRaidDifficultyID(); }
+        // AC兼容: RemoveSpellCooldown(spellId) → SpellHistory
+        void RemoveSpellCooldown(uint32 spellId, bool update = false) { GetSpellHistory()->ResetCooldown(spellId, update); }
+        // AC兼容: HasSpellCooldown(spellId) → SpellHistory
+        bool HasSpellCooldown(uint32 spellId) const { return GetSpellHistory()->HasCooldown(spellId); }
+        // AC兼容: GetHoverHeight() → TC-Cata悬浮高度为字段值，机器人用途取0即可
+        float GetHoverHeight() const { return 0.0f; }
+        // AC兼容: GetFreeTalentPoints() → 当前可用天赋点(CharacterPoints)
+        uint32 GetFreeTalentPoints() const { return uint32(m_activePlayerData->CharacterPoints); }
+        // AC兼容: GetSpentTalentPointsCount() → 当前天赋方案已用点数(实现在Player.cpp，需TalentGroupInfo完整类型)
+        uint32 GetSpentTalentPointsCount() const;
+        // AC兼容: GetHonorPoints() → 当前荣誉点数
+        uint32 GetHonorPoints() const { return uint32(m_activePlayerData->Honor); }
+        //End By leewheel
         void SetCanTitanGrip(bool value, uint32 penaltySpellId = 0, int32 allowedItemClass = 0, int32 allowedItemSubClassMask = 0);
         void CheckTitanGripPenalty();
         bool CanTameExoticPets() const { return IsGameMaster() || HasAuraType(SPELL_AURA_ALLOW_TAME_PET_TYPE); }

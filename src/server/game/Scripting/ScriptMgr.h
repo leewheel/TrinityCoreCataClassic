@@ -66,6 +66,9 @@ class WorldPacket;
 class WorldSocket;
 class WorldObject;
 class WorldSession;
+//By leewheel 2026-09-06: 移植mod-playerbots，MiscScript需要Object前向声明
+class Object;
+//End By leewheel
 
 struct AchievementEntry;
 struct AreaTriggerEntry;
@@ -94,6 +97,10 @@ enum ShutdownMask : uint32;
 enum SpellEffIndex : uint8;
 enum WeatherState : uint32;
 enum XPColorChar : uint8;
+
+//By leewheel 2026-09-06: 移植mod-playerbots，Playerbots LFG前向声明
+namespace lfg { class Lfg5Guids; }
+//End By leewheel
 
 #define VISIBLE_RANGE       166.0f                          //MAX visible range (size of grid)
 
@@ -447,6 +454,12 @@ class TC_GAME_API CreatureScript : public ScriptObject
 
         // Called when a CreatureAI object is needed for the creature.
         virtual CreatureAI* GetAI(Creature* creature) const = 0;
+
+        //By leewheel 2026-09-06: 移植mod-playerbots，全局生物更新钩子——AC的AllCreatureScript::OnAllCreatureUpdate等价物。
+        //仅注册到ScriptMgr独立列表的脚本(见ScriptMgr::RegisterCreatureUpdateScript)会被每tick分发，
+        //默认空实现且默认不注册，不影响其他CreatureScript。
+        virtual void OnAllCreatureUpdate(Creature* /*creature*/, uint32 /*diff*/) { }
+        //End By leewheel
 };
 
 class TC_GAME_API GameObjectScript : public ScriptObject
@@ -792,6 +805,61 @@ class TC_GAME_API PlayerScript : public ScriptObject
 
         // Called when a player choose a response from a PlayerChoice
         virtual void OnPlayerChoiceResponse(Player* player, uint32 choiceId, uint32 responseId);
+
+//By leewheel 2026-09-06: 移植mod-playerbots，将OnPlayerbot*方法合并到PlayerScript
+// 原因: PlayerbotsPlayerScript继承PlayerScript并override这些方法，
+// 需要PlayerScript提供这些虚函数入口(默认空实现)
+        // ===== Playerbots 扩展方法开始 =====
+
+        // 玩家更新tick之后调用
+        virtual void OnPlayerAfterUpdate(Player* /*player*/, uint32 /*diff*/) { }
+
+        // 玩家发送聊天消息时调用 - 返回false阻止聊天
+        virtual bool OnPlayerCanUseChat(Player* /*player*/, uint32 /*type*/, uint32 /*lang*/, std::string& /*msg*/, Player* /*receiver*/) { return true; }
+        virtual bool OnPlayerCanUseChat(Player* /*player*/, uint32 /*type*/, uint32 /*lang*/, std::string& /*msg*/, Group* /*group*/) { return true; }
+        virtual bool OnPlayerCanUseChat(Player* /*player*/, uint32 /*type*/, uint32 /*lang*/, std::string& /*msg*/, Guild* /*guild*/) { return true; }
+        virtual bool OnPlayerCanUseChat(Player* /*player*/, uint32 /*type*/, uint32 /*lang*/, std::string& /*msg*/, Channel* /*channel*/) { return true; }
+
+        // 玩家传送之前调用 - 返回false阻止传送
+        virtual bool OnPlayerBeforeTeleport(Player* /*player*/, uint32 /*mapid*/, float /*x*/, float /*y*/, float /*z*/,
+                                            float /*orientation*/, uint32 /*options*/, Unit* /*target*/) { return true; }
+
+        // 成就完成之前调用 - 返回false阻止完成
+        virtual bool OnPlayerBeforeAchievementComplete(Player* /*player*/, AchievementEntry const* /*achievement*/) { return true; }
+
+        // ===== Playerbots PlayerbotScript合并方法开始 =====
+
+        // LFG队列检查 - 返回false表示有非机器人玩家在队列中
+        virtual bool OnPlayerbotCheckLFGQueue(lfg::Lfg5Guids const& /*guidsList*/) { return true; }
+
+        // 击杀任务检查
+        virtual void OnPlayerbotCheckKillTask(Player* /*player*/, Unit* /*victim*/) { }
+
+        // 公会请愿书检查 - 机器人不能签署
+        virtual void OnPlayerbotCheckPetitionAccount(Player* /*player*/, bool& /*found*/) { }
+
+        // 是否需要向该玩家发送更新 - 机器人不需要
+        virtual bool OnPlayerbotCheckUpdatesToSend(Player* /*player*/) { return true; }
+
+        // 服务器向玩家发送包时调用 - 让机器人拦截服务器包
+        virtual void OnPlayerbotPacketSent(Player* /*player*/, WorldPacket const* /*packet*/) { }
+
+        // 世界更新时调用 - 处理机器人会话
+        virtual void OnPlayerbotUpdate(uint32 /*diff*/) { }
+
+        // 玩家更新时调用 - 处理玩家机器人会话
+        virtual void OnPlayerbotUpdateSessions(Player* /*player*/) { }
+
+        // 玩家登出时调用
+        virtual void OnPlayerbotLogout(Player* /*player*/) { }
+
+        // 服务器关闭时登出所有机器人
+        virtual void OnPlayerbotLogoutBots() { }
+
+        // ===== Playerbots PlayerbotScript合并方法结束 =====
+
+        // ===== Playerbots 扩展方法结束 =====
+//End By leewheel
 };
 
 class TC_GAME_API AccountScript : public ScriptObject
@@ -991,10 +1059,87 @@ class TC_GAME_API EventScript : public ScriptObject
         virtual void OnTrigger(WorldObject* object, WorldObject* invoker, uint32 eventId);
 };
 
+//By leewheel 2026-09-06: 移植mod-playerbots，新增DatabaseScript/MiscScript/PlayerbotScript/AllBattlegroundScript脚本类
+// ===== Playerbots 脚本类型开始 =====
+
+class TC_GAME_API DatabaseScript : public ScriptObject
+{
+    protected:
+        explicit DatabaseScript(char const* name);
+
+    public:
+        ~DatabaseScript();
+
+        virtual bool OnDatabasesLoading() { return true; }
+        virtual void OnDatabasesKeepAlive() { }
+        virtual void OnDatabasesClosing() { }
+        virtual void OnDatabaseWarnAboutSyncQueries(bool /*apply*/) { }
+        virtual void OnDatabaseSelectIndexLogout(Player* /*player*/, uint32& /*statementIndex*/, uint32& /*statementParam*/) { }
+        virtual void OnDatabaseGetDBRevision(std::string& /*revision*/) { }
+};
+
+class TC_GAME_API MiscScript : public ScriptObject
+{
+    protected:
+        explicit MiscScript(char const* name);
+
+    public:
+        ~MiscScript();
+
+        virtual void OnConstructObject(Object* /*origin*/) { }
+        virtual void OnDestructObject(Object* /*origin*/) { }
+        virtual void OnConstructPlayer(Player* /*origin*/) { }
+        virtual void OnDestructPlayer(Player* /*origin*/) { }
+        virtual void OnConstructGroup(Group* /*origin*/) { }
+        virtual void OnDestructGroup(Group* /*origin*/) { }
+};
+
+class TC_GAME_API PlayerbotScript : public ScriptObject
+{
+    protected:
+        explicit PlayerbotScript(char const* name);
+
+    public:
+        ~PlayerbotScript();
+
+        virtual bool OnPlayerbotCheckLFGQueue(lfg::Lfg5Guids const& /*guidsList*/) { return true; }
+        virtual void OnPlayerbotCheckKillTask(Player* /*player*/, Unit* /*victim*/) { }
+        virtual void OnPlayerbotCheckPetitionAccount(Player* /*player*/, bool& /*found*/) { }
+        virtual bool OnPlayerbotCheckUpdatesToSend(Player* /*player*/) { return true; }
+        virtual void OnPlayerbotPacketSent(Player* /*player*/, WorldPacket const* /*packet*/) { }
+        virtual void OnPlayerbotUpdate(uint32 /*diff*/) { }
+        virtual void OnPlayerbotUpdateSessions(Player* /*player*/) { }
+        virtual void OnPlayerbotLogout(Player* /*player*/) { }
+        virtual void OnPlayerbotLogoutBots() { }
+};
+
+class TC_GAME_API AllBattlegroundScript : public ScriptObject
+{
+    protected:
+        explicit AllBattlegroundScript(char const* name);
+
+    public:
+        ~AllBattlegroundScript();
+
+        virtual void OnBattlegroundStart(Battleground* /*bg*/) { }
+        virtual void OnBattlegroundEnd(Battleground* /*bg*/, TeamId /*winnerTeam*/) { }
+        virtual void OnBattlegroundUpdate(Battleground* /*bg*/, uint32 /*diff*/) { }
+        virtual void OnBattlegroundAddPlayer(Battleground* /*bg*/, Player* /*player*/) { }
+        virtual void OnBattlegroundBeforeAddPlayer(Battleground* /*bg*/, Player* /*player*/) { }
+        virtual void OnBattlegroundRemovePlayerAtLeave(Battleground* /*bg*/, Player* /*player*/) { }
+        virtual void OnBattlegroundEndReward(Battleground* /*bg*/, Player* /*player*/, TeamId /*winnerTeamId*/) { }
+        virtual void OnBattlegroundDestroy(Battleground* /*bg*/) { }
+        virtual void OnBattlegroundCreate(Battleground* /*bg*/) { }
+};
+
+using BGScript = AllBattlegroundScript;
+
+// ===== Playerbots 脚本类型结束 =====
+//End By leewheel
+
 // Manages registration, loading, and execution of scripts.
 class TC_GAME_API ScriptMgr
-{
-    friend class ScriptObject;
+{    friend class ScriptObject;
 
     private:
         ScriptMgr();
@@ -1228,6 +1373,61 @@ class TC_GAME_API ScriptMgr
         void OnMovieComplete(Player* player, uint32 movieId);
         void OnPlayerChoiceResponse(Player* player, uint32 choiceId, uint32 responseId);
 
+        //By leewheel 2026-09-06: 移植mod-playerbots，新增Playerbots派发方法(遍历所有PlayerScript)
+        // ===== Playerbots 扩展方法开始 =====
+        void OnPlayerAfterUpdate(Player* player, uint32 diff);
+        bool OnPlayerCanUseChat(Player* player, uint32 type, uint32 lang, std::string& msg, Player* receiver);
+        bool OnPlayerCanUseChat(Player* player, uint32 type, uint32 lang, std::string& msg, Group* group);
+        bool OnPlayerCanUseChat(Player* player, uint32 type, uint32 lang, std::string& msg, Guild* guild);
+        bool OnPlayerCanUseChat(Player* player, uint32 type, uint32 lang, std::string& msg, Channel* channel);
+        bool OnPlayerBeforeTeleport(Player* player, uint32 mapid, float x, float y, float z, float orientation, uint32 options, Unit* target);
+        bool OnPlayerBeforeAchievementComplete(Player* player, AchievementEntry const* achievement);
+
+        // PlayerbotScript
+        bool OnPlayerbotCheckLFGQueue(lfg::Lfg5Guids const& guidsList);
+        void OnPlayerbotCheckKillTask(Player* player, Unit* victim);
+        void OnPlayerbotCheckPetitionAccount(Player* player, bool& found);
+        bool OnPlayerbotCheckUpdatesToSend(Player* player);
+        void OnPlayerbotPacketSent(Player* player, WorldPacket const* packet);
+        void OnPlayerbotUpdate(uint32 diff);
+        void OnPlayerbotUpdateSessions(Player* player);
+        void OnPlayerbotLogout(Player* player);
+        void OnPlayerbotLogoutBots();
+        // ===== Playerbots 扩展方法结束 =====
+        //End By leewheel
+
+        //By leewheel 2026-09-06: 移植mod-playerbots，新增DatabaseScript/MiscScript/AllBattlegroundScript派发方法
+    public: /* DatabaseScript */
+
+        bool OnDatabasesLoading();
+        void OnDatabasesKeepAlive();
+        void OnDatabasesClosing();
+        void OnDatabaseWarnAboutSyncQueries(bool apply);
+        void OnDatabaseSelectIndexLogout(Player* player, uint32& statementIndex, uint32& statementParam);
+        void OnDatabaseGetDBRevision(std::string& revision);
+
+    public: /* MiscScript */
+
+        void OnConstructObject(Object* origin);
+        void OnDestructObject(Object* origin);
+        void OnConstructPlayer(Player* origin);
+        void OnDestructPlayer(Player* origin);
+        void OnConstructGroup(Group* origin);
+        void OnDestructGroup(Group* origin);
+
+    public: /* AllBattlegroundScript */
+
+        void OnBattlegroundStart(Battleground* bg);
+        void OnBattlegroundEnd(Battleground* bg, TeamId winnerTeam);
+        void OnBattlegroundUpdate(Battleground* bg, uint32 diff);
+        void OnBattlegroundAddPlayer(Battleground* bg, Player* player);
+        void OnBattlegroundBeforeAddPlayer(Battleground* bg, Player* player);
+        void OnBattlegroundRemovePlayerAtLeave(Battleground* bg, Player* player);
+        void OnBattlegroundEndReward(Battleground* bg, Player* player, TeamId winnerTeamId);
+        void OnBattlegroundDestroy(Battleground* bg);
+        void OnBattlegroundCreate(Battleground* bg);
+        //End By leewheel
+
     public: /* AccountScript */
 
         void OnAccountLogin(uint32 accountId);
@@ -1299,6 +1499,14 @@ class TC_GAME_API ScriptMgr
 
         void OnEventTrigger(WorldObject* object, WorldObject* invoker, uint32 eventId);
 
+    public: /* Global creature update (AllCreatureScript) */
+
+        //By leewheel 2026-09-06: 移植mod-playerbots，注册全局生物更新监听(AC的AllCreatureScript等价)，
+        //仅Playerbots团本状态管理类使用；每tick对所有注册的监听分发生物更新(独立小列表，不影响普通CreatureScript)
+        void RegisterCreatureUpdateScript(CreatureScript* script);
+        void OnAllCreatureUpdate(Creature* creature, uint32 diff);
+        //End By leewheel
+
     private:
         uint32 _scriptCount;
         bool _scriptIdUpdated;
@@ -1306,6 +1514,10 @@ class TC_GAME_API ScriptMgr
         ScriptLoaderCallbackType _script_loader_callback;
 
         std::string _currentContext;
+
+        //By leewheel 2026-09-06: 全局生物更新监听列表(独立于ScriptRegistry，避免遍历全部CreatureScript的开销)
+        std::vector<CreatureScript*> _creatureUpdateScripts;
+        //End By leewheel
 };
 
 namespace Trinity::SpellScripts

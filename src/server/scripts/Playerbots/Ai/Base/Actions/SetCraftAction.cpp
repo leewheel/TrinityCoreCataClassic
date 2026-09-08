@@ -1,0 +1,181 @@
+/*
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
+ */
+
+#include "SetCraftAction.h"
+
+#include "ChatHelper.h"
+#include "CraftValue.h"
+#include "Event.h"
+#include "PlayerbotTextMgr.h"
+#include "Playerbots.h"
+
+std::map<uint32, SkillLineAbilityEntry const*> SetCraftAction::skillSpells;
+
+bool SetCraftAction::Execute(Event event)
+{
+    Player* master = GetMaster();
+    if (!master)
+        return false;
+
+    std::string const link = event.getParam();
+
+    CraftData& data = AI_VALUE(CraftData&, "craft");
+    if (link == "reset")
+    {
+        data.Reset();
+        //By leewheel 2026-08-01: 玩家可见文本中文化
+        botAI->TellMaster(PlayerbotTextMgr::instance().GetBotTextOrDefault(
+            "craft_reset", "我不会制作任何东西", {}));
+        //End By leewheel
+        return true;
+    }
+
+    if (link == "?")
+    {
+        TellCraft();
+        return true;
+    }
+
+    ItemIds itemIds = chat->parseItems(link);
+    if (itemIds.empty())
+    {
+        //By leewheel 2026-08-01: 玩家可见文本中文化
+        botAI->TellMaster(PlayerbotTextMgr::instance().GetBotTextOrDefault(
+            "craft_usage", "用法: 'craft [物品ID]' 或 'craft reset'", {}));
+        //End By leewheel
+        return false;
+    }
+
+    uint32 itemId = *itemIds.begin();
+    ItemTemplate const* proto = sObjectMgr->GetItemTemplate(itemId);
+    if (!proto)
+        return false;
+
+    if (skillSpells.empty())
+    {
+        for (SkillLineAbilityEntry const* skillLine : sSkillLineAbilityStore)
+            skillSpells[skillLine->Spell] = skillLine;
+    }
+
+    data.required.clear();
+    data.obtained.clear();
+
+    for (PlayerSpellMap::iterator itr = bot->GetSpellMap().begin(); itr != bot->GetSpellMap().end(); ++itr)
+    {
+        uint32 spellId = itr->first;
+
+        //By leewheel 2026-07-10: TC中PlayerSpell是struct不是指针，用.访问成员
+        if (itr->second.state == PLAYERSPELL_REMOVED || !itr->second.active)
+        //End By leewheel
+            continue;
+
+        SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellId);
+        if (!spellInfo)
+            continue;
+
+        SkillLineAbilityEntry const* skillLine = skillSpells[spellId];
+        if (skillLine != nullptr)
+        {
+            for (uint8 i = 0; i < 3; ++i)
+            {
+                if (spellInfo->GetEffects()[i].Effect == SPELL_EFFECT_CREATE_ITEM &&
+                    itemId == spellInfo->GetEffects()[i].ItemType)
+                {
+                    for (uint32 x = 0; x < MAX_SPELL_REAGENTS; ++x)
+                    {
+                        if (spellInfo->Reagent[x] <= 0)
+                            continue;
+
+                        uint32 itemid = spellInfo->Reagent[x];
+                        uint32 reagentsRequired = spellInfo->ReagentCount[x];
+                        if (itemid)
+                        {
+                            data.required[itemid] = reagentsRequired;
+                            data.obtained[itemid] = 0;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (data.required.empty())
+    {
+        //By leewheel 2026-08-01: 玩家可见文本中文化
+        botAI->TellMaster(PlayerbotTextMgr::instance().GetBotTextOrDefault(
+            "craft_cannot_craft", "我无法制作这个", {}));
+        //End By leewheel
+        return false;
+    }
+
+    data.itemId = itemId;
+
+    TellCraft();
+    return true;
+}
+
+void SetCraftAction::TellCraft()
+{
+    CraftData& data = AI_VALUE(CraftData&, "craft");
+    if (data.IsEmpty())
+    {
+        //By leewheel 2026-08-01: 玩家可见文本中文化
+        botAI->TellMaster(PlayerbotTextMgr::instance().GetBotTextOrDefault(
+            "craft_reset", "我不会制作任何东西", {}));
+        //End By leewheel
+        return;
+    }
+
+    ItemTemplate const* proto = sObjectMgr->GetItemTemplate(data.itemId);
+    if (!proto)
+        return;
+
+    std::ostringstream reagentsOut;
+
+    bool first = true;
+    for (std::map<uint32, uint32>::iterator i = data.required.begin(); i != data.required.end(); ++i)
+    {
+        uint32 item = i->first;
+        uint32 required = i->second;
+
+        if (ItemTemplate const* reagent = sObjectMgr->GetItemTemplate(item))
+        {
+            if (first)
+                first = false;
+            else
+                reagentsOut << ", ";
+
+            reagentsOut << chat->FormatItem(reagent, required);
+
+            uint32 given = data.obtained[item];
+            if (given)
+                //By leewheel 2026-08-01: 玩家可见文本中文化
+                reagentsOut << "|cffffff00(已给x" << given << ")|r ";
+                //End By leewheel
+        }
+    }
+
+    //By leewheel 2026-08-01: 玩家可见文本中文化
+    botAI->TellMaster(PlayerbotTextMgr::instance().GetBotTextOrDefault(
+        "craft_summary",
+        "我将使用材料 %reagents 制作 %item（制作费用: %money）",
+        {{"%item", chat->FormatItem(proto)},
+         {"%reagents", reagentsOut.str()},
+         {"%money", chat->formatMoney(GetCraftFee(data))}}));
+    //End By leewheel
+}
+
+uint32 SetCraftAction::GetCraftFee(CraftData& data)
+{
+    if (data.IsEmpty())
+        return 0;
+
+    ItemTemplate const* proto = sObjectMgr->GetItemTemplate(data.itemId);
+    if (!proto)
+        return 0;
+
+    uint32 level = std::max((uint32)proto->GetItemLevel(), (uint32)proto->GetBaseRequiredLevel()); // By leewheel 2026-07-09
+    return level * level / 40;
+}

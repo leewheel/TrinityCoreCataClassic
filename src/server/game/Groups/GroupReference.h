@@ -37,5 +37,12 @@ class TC_GAME_API GroupReference : public Reference<Group, Player, GroupReferenc
         ~GroupReference() { unlink(); }
         uint8 getSubGroup() const { return iSubGroup; }
         void setSubGroup(uint8 pSubGroup) { iSubGroup = pSubGroup; }
+
+        //By leewheel 2026-09-06: 移植mod-playerbots，AC兼容迭代接口
+        //TC-Cata为环形双链表：尾元素的next是所属RefManager的哨兵头节点(iHeader)而非空指针
+        //实现需要Group完整类型(访问GetMembers()哨兵地址)，故声明在此、定义于Group.h末尾
+        GroupReference* next();
+        GroupReference const* next() const;
+        //End By leewheel
 };
 #endif

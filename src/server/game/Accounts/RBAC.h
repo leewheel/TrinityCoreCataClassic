@@ -757,6 +757,9 @@ enum RBACPermissions
     // IF YOU ADD NEW PERMISSIONS, ADD THEM IN 3.3.5 BRANCH AS WELL!
     //
     // custom permissions 1000+
+    //By leewheel 2026-09-06: 移植mod-playerbots，Playerbots机器人命令权限
+    RBAC_PERM_COMMAND_PLAYER_BOT        = 1002,
+    //End By leewheel
     RBAC_PERM_MAX
 };
 

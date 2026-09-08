@@ -196,6 +196,13 @@ class TC_GAME_API Item : public Object
         bool IsBroken() const { return *m_itemData->MaxDurability > 0 && *m_itemData->Durability == 0; }
         void SetDurability(uint32 durability) { SetUpdateFieldValue(m_values.ModifyValue(&Item::m_itemData).ModifyValue(&UF::ItemData::Durability), durability); }
         void SetMaxDurability(uint32 maxDurability) { SetUpdateFieldValue(m_values.ModifyValue(&Item::m_itemData).ModifyValue(&UF::ItemData::MaxDurability), maxDurability); }
+        //By leewheel 2026-09-06: 移植mod-playerbots，AC兼容getter(耐久/最大耐久/随机属性ID/制造者法术)
+        uint32 GetDurability() const { return *m_itemData->Durability; }
+        uint32 GetMaxDurability() const { return *m_itemData->MaxDurability; }
+        int32 GetItemRandomPropertyId() const { return *m_itemData->RandomPropertiesID; }
+        //Cata的ItemData无制造者法术字段(改为物品 bonus 数据)，恒返回0
+        uint32 GetCreatedBySpell() const { return 0; }
+        //End By leewheel
         bool CanBeTraded(bool mail = false, bool trade = false) const;
         void SetInTrade(bool b = true) { mb_in_trade = b; }
         bool IsInTrade() const { return mb_in_trade; }

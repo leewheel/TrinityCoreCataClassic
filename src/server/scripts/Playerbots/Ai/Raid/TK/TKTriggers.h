@@ -1,0 +1,398 @@
+/*
+ * 风暴要塞 机器人触发器声明
+ *
+ * 作者: leewheel
+ * 移植来源: AC [TKTriggers.h] 移植适配 TC 框架
+ * 业务对标: AC mod-playerbots src/Ai/Raid/TK/TKTriggers.h
+ * By leewheel 2026-09-04: 上游4f9815d1——新增 TempestKeepEncounterTrigger 中间基类(IsEncounterInProgress 廉价闸门,
+ *   Boss 触发器改继承基类, IsActive() final + IsActiveInEncounter() 虚函数); 卡空坠落触发器补每秒节流
+ * End By leewheel
+ */
+
+#ifndef PLAYERBOTS_TKTRIGGERS_H
+#define PLAYERBOTS_TKTRIGGERS_H
+
+#include "EncounterHelpers.h"
+#include "TKHelpers.h"
+#include "Trigger.h"
+#include <string>
+
+// General
+
+class TempestKeepEncounterTrigger : public Trigger
+{
+public:
+    TempestKeepEncounterTrigger(PlayerbotAI* botAI, std::string const name, int32 checkInterval = 1)
+        : Trigger(botAI, name, checkInterval) {}
+
+    bool IsActive() final
+    {
+        return EncounterHelpers::IsEncounterInProgress(bot, TkHelpers::TK_MAP_ID) &&
+            IsActiveInEncounter();
+    }
+
+protected:
+    virtual bool IsActiveInEncounter() = 0;
+};
+
+class TempestKeepNoEncounterInProgressTrigger : public Trigger
+{
+public:
+    TempestKeepNoEncounterInProgressTrigger(PlayerbotAI* botAI)
+        : Trigger(botAI, "tempest keep no encounter in progress", 1000) {} //By leewheel 2026-09-04: 上游067fab59——无战斗触发器每秒节流一次(平时/清理无紧迫性)
+    bool IsActive() override;
+};
+
+class TempestKeepBotIsStuckFallingTrigger : public Trigger
+{
+public:
+    //By leewheel 2026-09-04: 上游4f9815d1——补每秒节流(应对凯尔萨斯阶段边缘灭团场景)
+    TempestKeepBotIsStuckFallingTrigger(PlayerbotAI* botAI)
+        : Trigger(botAI, "tempest keep bot is stuck falling", 1000) {}
+    bool IsActive() override;
+    //End By leewheel
+};
+
+// Trash
+
+class CrimsonHandCenturionCastsArcaneFlurryTrigger : public Trigger
+{
+public:
+    CrimsonHandCenturionCastsArcaneFlurryTrigger(PlayerbotAI* botAI)
+        : Trigger(botAI, "crimson hand centurion casts arcane flurry") {}
+    bool IsActive() override;
+};
+
+// Al'ar <Phoenix God>
+
+class AlarPullingBossTrigger : public Trigger
+{
+public:
+    AlarPullingBossTrigger(PlayerbotAI* botAI)
+        : Trigger(botAI, "al'ar pulling boss") {}
+    bool IsActive() override;
+};
+
+class AlarBossIsFlyingBetweenPlatformsTrigger : public TempestKeepEncounterTrigger
+{
+public:
+    AlarBossIsFlyingBetweenPlatformsTrigger(PlayerbotAI* botAI)
+        : TempestKeepEncounterTrigger(botAI, "al'ar boss is flying between platforms") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+class AlarEmbersExplodeUponDeathTrigger : public TempestKeepEncounterTrigger
+{
+public:
+    AlarEmbersExplodeUponDeathTrigger(PlayerbotAI* botAI)
+        : TempestKeepEncounterTrigger(botAI, "al'ar embers explode upon death") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+class AlarKillingEmbersDamagesBossTrigger : public TempestKeepEncounterTrigger
+{
+public:
+    AlarKillingEmbersDamagesBossTrigger(PlayerbotAI* botAI)
+        : TempestKeepEncounterTrigger(botAI, "al'ar killing embers damages boss") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+class AlarIncomingFlameQuillsTrigger : public TempestKeepEncounterTrigger
+{
+public:
+    AlarIncomingFlameQuillsTrigger(PlayerbotAI* botAI)
+        : TempestKeepEncounterTrigger(botAI, "al'ar incoming flame quills") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+class AlarRisingFromTheAshesTrigger : public TempestKeepEncounterTrigger
+{
+public:
+    AlarRisingFromTheAshesTrigger(PlayerbotAI* botAI)
+        : TempestKeepEncounterTrigger(botAI, "al'ar rising from the ashes") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+class AlarIsInPhase2Trigger : public TempestKeepEncounterTrigger
+{
+public:
+    AlarIsInPhase2Trigger(PlayerbotAI* botAI)
+        : TempestKeepEncounterTrigger(botAI, "al'ar is in phase 2") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+class AlarShouldManagePhaseTrackerTrigger : public TempestKeepEncounterTrigger
+{
+public:
+    AlarShouldManagePhaseTrackerTrigger(PlayerbotAI* botAI)
+        : TempestKeepEncounterTrigger(botAI, "al'ar should manage phase tracker") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+// Void Reaver
+
+class VoidReaverShouldBeTankedTrigger : public TempestKeepEncounterTrigger
+{
+public:
+    VoidReaverShouldBeTankedTrigger(PlayerbotAI* botAI)
+        : TempestKeepEncounterTrigger(botAI, "void reaver should be tanked") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+class VoidReaverKnockAwayPullsAggroToNonTanksTrigger : public TempestKeepEncounterTrigger
+{
+public:
+    VoidReaverKnockAwayPullsAggroToNonTanksTrigger(PlayerbotAI* botAI)
+        : TempestKeepEncounterTrigger(botAI, "void reaver knock away pulls aggro to non-tanks") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+class VoidReaverRangedShouldStandBackTrigger : public TempestKeepEncounterTrigger
+{
+public:
+    VoidReaverRangedShouldStandBackTrigger(PlayerbotAI* botAI)
+        : TempestKeepEncounterTrigger(botAI, "void reaver ranged should stand back") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+class VoidReaverArcaneOrbIsIncomingTrigger : public TempestKeepEncounterTrigger
+{
+public:
+    VoidReaverArcaneOrbIsIncomingTrigger(PlayerbotAI* botAI)
+        : TempestKeepEncounterTrigger(botAI, "void reaver arcane orb is incoming") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+// High Astromancer Solarian
+
+class HighAstromancerSolarianShouldBeTankedTrigger : public TempestKeepEncounterTrigger
+{
+public:
+    HighAstromancerSolarianShouldBeTankedTrigger(PlayerbotAI* botAI)
+        : TempestKeepEncounterTrigger(botAI, "high astromancer solarian should be tanked") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+class HighAstromancerSolarianBotHasWrathOfTheAstromancerTrigger : public TempestKeepEncounterTrigger
+{
+public:
+    HighAstromancerSolarianBotHasWrathOfTheAstromancerTrigger(PlayerbotAI* botAI)
+        : TempestKeepEncounterTrigger(botAI, "high astromancer solarian bot has wrath of the astromancer") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+class HighAstromancerSolarianSolariumPriestsSpawnedTrigger : public TempestKeepEncounterTrigger
+{
+public:
+    HighAstromancerSolarianSolariumPriestsSpawnedTrigger(PlayerbotAI* botAI)
+        : TempestKeepEncounterTrigger(botAI, "high astromancer solarian solarium priests spawned") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+//By leewheel 2026-09-04: 对齐上游b8304144——fear ward改由通用牧师策略处理，删除尖叫触发类
+//End By leewheel
+
+// Kael'thas Sunstrider <Lord of the Blood Elves>
+
+class KaelthasSunstriderThaladredIsFixatedOnBotTrigger : public TempestKeepEncounterTrigger
+{
+public:
+    KaelthasSunstriderThaladredIsFixatedOnBotTrigger(PlayerbotAI* botAI)
+        : TempestKeepEncounterTrigger(botAI, "kael'thas sunstrider thaladred is fixated on bot") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+class KaelthasSunstriderPullingTankableAdvisorsTrigger : public TempestKeepEncounterTrigger
+{
+public:
+    KaelthasSunstriderPullingTankableAdvisorsTrigger(PlayerbotAI* botAI)
+        : TempestKeepEncounterTrigger(botAI, "kael'thas sunstrider pulling tankable advisors") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+class KaelthasSunstriderSanguinarOrTelonicusShouldBeTankedTrigger : public TempestKeepEncounterTrigger
+{
+public:
+    KaelthasSunstriderSanguinarOrTelonicusShouldBeTankedTrigger(PlayerbotAI* botAI)
+        : TempestKeepEncounterTrigger(botAI, "kael'thas sunstrider sanguinar or telonicus should be tanked") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+//By leewheel 2026-09-04: 对齐上游b8304144——fear ward改由通用牧师策略处理，删除咆哮触发类
+//End By leewheel
+
+class KaelthasSunstriderCapernianShouldBeTankedByWarlockTrigger : public TempestKeepEncounterTrigger
+{
+public:
+    KaelthasSunstriderCapernianShouldBeTankedByWarlockTrigger(PlayerbotAI* botAI)
+        : TempestKeepEncounterTrigger(botAI, "kael'thas sunstrider capernian should be tanked by warlock") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+class KaelthasSunstriderCapernianBlowsUpNearAndFarTrigger : public TempestKeepEncounterTrigger
+{
+public:
+    KaelthasSunstriderCapernianBlowsUpNearAndFarTrigger(PlayerbotAI* botAI)
+        : TempestKeepEncounterTrigger(botAI, "kael'thas sunstrider capernian blows up near and far") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+class KaelthasSunstriderBotsShouldHoldPhase3PositionsTrigger : public TempestKeepEncounterTrigger
+{
+public:
+    KaelthasSunstriderBotsShouldHoldPhase3PositionsTrigger(PlayerbotAI* botAI)
+        : TempestKeepEncounterTrigger(botAI, "kael'thas sunstrider bots should hold phase 3 positions") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+class KaelthasSunstriderDeterminingAdvisorKillOrderTrigger : public TempestKeepEncounterTrigger
+{
+public:
+    KaelthasSunstriderDeterminingAdvisorKillOrderTrigger(PlayerbotAI* botAI)
+        : TempestKeepEncounterTrigger(botAI, "kael'thas sunstrider determining advisor kill order") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+class KaelthasSunstriderShouldManageAdvisorDpsTimerTrigger : public TempestKeepEncounterTrigger
+{
+public:
+    KaelthasSunstriderShouldManageAdvisorDpsTimerTrigger(PlayerbotAI* botAI)
+        : TempestKeepEncounterTrigger(botAI, "kael'thas sunstrider should manage advisor dps timer") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+class KaelthasSunstriderLegendaryWeaponsAreAliveTrigger : public TempestKeepEncounterTrigger
+{
+public:
+    KaelthasSunstriderLegendaryWeaponsAreAliveTrigger(PlayerbotAI* botAI)
+        : TempestKeepEncounterTrigger(botAI, "kael'thas sunstrider legendary weapons are alive") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+class KaelthasSunstriderLegendaryAxeCastsWhirlwindTrigger : public TempestKeepEncounterTrigger
+{
+public:
+    KaelthasSunstriderLegendaryAxeCastsWhirlwindTrigger(PlayerbotAI* botAI)
+        : TempestKeepEncounterTrigger(botAI, "kael'thas sunstrider legendary axe casts whirlwind") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+class KaelthasSunstriderLegendaryWeaponsAreDeadTrigger : public TempestKeepEncounterTrigger
+{
+public:
+    KaelthasSunstriderLegendaryWeaponsAreDeadTrigger(PlayerbotAI* botAI)
+        : TempestKeepEncounterTrigger(botAI, "kael'thas sunstrider legendary weapons are dead") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+class KaelthasSunstriderLegendaryWeaponsAreEquippedTrigger : public TempestKeepEncounterTrigger
+{
+public:
+    KaelthasSunstriderLegendaryWeaponsAreEquippedTrigger(PlayerbotAI* botAI)
+        : TempestKeepEncounterTrigger(botAI, "kael'thas sunstrider legendary weapons are equipped") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+class KaelthasSunstriderLegendaryWeaponsWereLostTrigger : public TempestKeepEncounterTrigger
+{
+public:
+    KaelthasSunstriderLegendaryWeaponsWereLostTrigger(PlayerbotAI* botAI)
+        : TempestKeepEncounterTrigger(botAI, "kael'thas sunstrider legendary weapons were lost") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+class KaelthasSunstriderBossHasEnteredTheFightTrigger : public TempestKeepEncounterTrigger
+{
+public:
+    KaelthasSunstriderBossHasEnteredTheFightTrigger(PlayerbotAI* botAI)
+        : TempestKeepEncounterTrigger(botAI, "kael'thas sunstrider boss has entered the fight") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+class KaelthasSunstriderPhoenixesAndEggsAreSpawningTrigger : public TempestKeepEncounterTrigger
+{
+public:
+    KaelthasSunstriderPhoenixesAndEggsAreSpawningTrigger(PlayerbotAI* botAI)
+        : TempestKeepEncounterTrigger(botAI, "kael'thas sunstrider phoenixes and eggs are spawning") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+class KaelthasSunstriderRaidMemberIsMindControlledTrigger : public TempestKeepEncounterTrigger
+{
+public:
+    KaelthasSunstriderRaidMemberIsMindControlledTrigger(PlayerbotAI* botAI)
+        : TempestKeepEncounterTrigger(botAI, "kael'thas sunstrider raid member is mind controlled") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+class KaelthasSunstriderBossIsManipulatingGravityTrigger : public TempestKeepEncounterTrigger
+{
+public:
+    KaelthasSunstriderBossIsManipulatingGravityTrigger(PlayerbotAI* botAI)
+        : TempestKeepEncounterTrigger(botAI, "kael'thas sunstrider boss is manipulating gravity") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+#endif

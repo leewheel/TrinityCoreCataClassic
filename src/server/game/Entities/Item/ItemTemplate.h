@@ -828,6 +828,10 @@ struct TC_GAME_API ItemTemplate
     int32 GetAllowableClass() const { return ExtendedData->AllowableClass; }
     Trinity::RaceMask<int64> GetAllowableRace() const { return ExtendedData->AllowableRace; }
     uint32 GetBaseItemLevel() const { return ExtendedData->ItemLevel; }
+    //By leewheel 2026-09-06: 移植mod-playerbots，AC兼容: GetItemLevel()/GetRandomSuffixGroupID()
+    uint32 GetItemLevel() const { return GetBaseItemLevel(); }
+    uint16 GetRandomSuffixGroupID() const { return GetItemRandomSuffixGroupID(); }
+    //End By leewheel
     int32 GetBaseRequiredLevel() const { return ExtendedData->RequiredLevel; }
     uint32 GetRequiredSkill() const { return ExtendedData->RequiredSkill; }
     uint32 GetRequiredSkillRank() const { return ExtendedData->RequiredSkillRank; }

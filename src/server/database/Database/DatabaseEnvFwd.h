@@ -31,6 +31,9 @@ class CharacterDatabaseConnection;
 class HotfixDatabaseConnection;
 class LoginDatabaseConnection;
 class WorldDatabaseConnection;
+//By leewheel 2026-09-06: 移植mod-playerbots，新增Playerbots数据库前向声明
+class PlayerbotsDatabaseConnection;
+//End By leewheel
 
 class PreparedStatementBase;
 
@@ -41,6 +44,9 @@ using CharacterDatabasePreparedStatement = PreparedStatement<CharacterDatabaseCo
 using HotfixDatabasePreparedStatement = PreparedStatement<HotfixDatabaseConnection>;
 using LoginDatabasePreparedStatement = PreparedStatement<LoginDatabaseConnection>;
 using WorldDatabasePreparedStatement = PreparedStatement<WorldDatabaseConnection>;
+//By leewheel 2026-09-06: 移植mod-playerbots，新增Playerbots预处理语句别名
+using PlayerbotsDatabasePreparedStatement = PreparedStatement<PlayerbotsDatabaseConnection>;
+//End By leewheel
 
 class PreparedResultSet;
 using PreparedQueryResult = std::shared_ptr<PreparedResultSet>;
@@ -65,6 +71,9 @@ using CharacterDatabaseTransaction = SQLTransaction<CharacterDatabaseConnection>
 using HotfixDatabaseTransaction = SQLTransaction<HotfixDatabaseConnection>;
 using LoginDatabaseTransaction = SQLTransaction<LoginDatabaseConnection>;
 using WorldDatabaseTransaction = SQLTransaction<WorldDatabaseConnection>;
+//By leewheel 2026-09-06: 移植mod-playerbots，新增Playerbots事务别名
+using PlayerbotsDatabaseTransaction = SQLTransaction<PlayerbotsDatabaseConnection>;
+//End By leewheel
 
 class SQLQueryHolderBase;
 
@@ -75,6 +84,9 @@ using CharacterDatabaseQueryHolder = SQLQueryHolder<CharacterDatabaseConnection>
 using HotfixDatabaseQueryHolder = SQLQueryHolder<HotfixDatabaseConnection>;
 using LoginDatabaseQueryHolder = SQLQueryHolder<LoginDatabaseConnection>;
 using WorldDatabaseQueryHolder = SQLQueryHolder<WorldDatabaseConnection>;
+//By leewheel 2026-09-06: 移植mod-playerbots，新增Playerbots查询持有者别名
+using PlayerbotsDatabaseQueryHolder = SQLQueryHolder<PlayerbotsDatabaseConnection>;
+//End By leewheel
 
 class SQLQueryHolderCallback;
 bool InvokeAsyncCallbackIfReady(SQLQueryHolderCallback& callback);

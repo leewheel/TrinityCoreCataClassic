@@ -48,6 +48,11 @@ namespace WorldPackets::Quest
 #define QUEST_EMOTE_COUNT 4
 #define QUEST_REWARD_CURRENCY_COUNT 4
 #define QUEST_REWARD_DISPLAY_SPELL_COUNT 3
+//By leewheel 2026-09-06: 移植mod-playerbots，补齐AC兼容计数宏(取WotLK数值)
+#define QUEST_OBJECTIVES_COUNT 24
+#define QUEST_ITEM_OBJECTIVES_COUNT 6
+#define QUEST_SOURCE_ITEM_IDS_COUNT 4
+//End By leewheel
 
 // EnumUtils: DESCRIBE THIS
 enum QuestFailedReason : uint32
@@ -700,6 +705,18 @@ class TC_GAME_API Quest
         std::array<uint32, QUEST_REWARD_CURRENCY_COUNT> RewardCurrencyId = { };
         std::array<uint32, QUEST_REWARD_CURRENCY_COUNT> RewardCurrencyCount = { };
         QuestObjectives Objectives;
+        //By leewheel 2026-09-06: 移植mod-playerbots，AC兼容数组成员 - 从Objectives同步
+        //AC使用数组访问 quest->RequiredItemId[i] 等，Cata使用QuestObjectives向量
+        //这些数组在LoadQuestObjective时从Objectives同步填充
+        //注：ItemDrop/ItemDropQuantity核心已有(QUEST_ITEM_DROP_COUNT)，无需重复添加
+        std::array<uint32, QUEST_ITEM_OBJECTIVES_COUNT> RequiredItemId = { };
+        std::array<uint32, QUEST_ITEM_OBJECTIVES_COUNT> RequiredItemCount = { };
+        std::array<int32, QUEST_OBJECTIVES_COUNT> RequiredNpcOrGo = { };
+        std::array<uint32, QUEST_OBJECTIVES_COUNT> RequiredNpcOrGoCount = { };
+
+        // AC兼容: ObjectiveText - 任务目标描述文本
+        std::array<std::string, QUEST_OBJECTIVES_COUNT> ObjectiveText = { };
+        //End By leewheel
         std::array<uint32, QUEST_EMOTE_COUNT> DetailsEmote = { };
         std::array<uint32, QUEST_EMOTE_COUNT> DetailsEmoteDelay = { };
         std::array<int32, QUEST_EMOTE_COUNT> OfferRewardEmote = { };
@@ -843,6 +860,10 @@ struct QuestStatusData
     time_t AcceptTime = time_t(0);
     uint32 Timer = 0;
     bool Explored = false;
+    //By leewheel 2026-09-06: 移植mod-playerbots，AC兼容：按物品目标StorageIndex记录的任务物品计数
+    //Cata把目标进度移到QuestLog字段，此数组在SetQuestObjectiveData/加载时同步填充供模块查询
+    std::array<uint16, QUEST_ITEM_OBJECTIVES_COUNT> ItemCount = { };
+    //End By leewheel
 };
 
 #endif

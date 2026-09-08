@@ -36,11 +36,26 @@ typedef std::vector<uint32> AutoSpellList;
 class Player;
 class PetAura;
 
+//By leewheel 2026-09-06: 移植mod-playerbots，宠物快乐值系统在Cata已移除，补齐兼容枚举与常量接口
+enum HappinessState
+{
+    UNHAPPY  = 1,
+    CONTENT  = 2,
+    HAPPY    = 3
+};
+//End By leewheel
+
 class TC_GAME_API Pet final : public Guardian
 {
     public:
         explicit Pet(Player* owner, PetType type = MAX_PET_TYPE);
         virtual ~Pet();
+
+        //By leewheel 2026-09-06: 移植mod-playerbots，AC兼容：Cata宠物无快乐值/天赋系统
+        //快乐值恒为HAPPY，可用天赋点恒为0(配合模块MAX_TALENT_RANK循环为无操作)
+        HappinessState GetHappinessState() const { return HAPPY; }
+        uint32 GetFreeTalentPoints() const { return 0; }
+        //End By leewheel
 
         void AddToWorld() override;
         void RemoveFromWorld() override;
