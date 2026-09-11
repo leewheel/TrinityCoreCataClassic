@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
  * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
@@ -50,7 +50,7 @@ WorldLocation MoveStance::GetLocationInternal()
     Unit* target = GetTarget();
     float distance = std::max(sPlayerbotAIConfig.meleeDistance, target->GetCombatReach());
 
-    float angle = GetAngle();
+    float angle = GetStanceAngle();
     return GetNearLocation(angle, distance);
 }
 
@@ -72,7 +72,7 @@ class NearStance : public MoveStance
 public:
     NearStance(PlayerbotAI* botAI) : MoveStance(botAI, "near") {}
 
-    float GetAngle() override
+    float GetStanceAngle() override
     {
         Unit* target = GetTarget();
 
@@ -119,7 +119,7 @@ class TankStance : public MoveStance
 public:
     TankStance(PlayerbotAI* botAI) : MoveStance(botAI, "tank") {}
 
-    float GetAngle() override
+    float GetStanceAngle() override
     {
         Unit* target = GetTarget();
         return target->GetOrientation();
@@ -131,7 +131,7 @@ class TurnBackStance : public MoveStance
 public:
     TurnBackStance(PlayerbotAI* botAI) : MoveStance(botAI, "turnback") {}
 
-    float GetAngle() override
+    float GetStanceAngle() override
     {
         Unit* target = GetTarget();
 
@@ -162,7 +162,7 @@ class BehindStance : public MoveStance
 public:
     BehindStance(PlayerbotAI* botAI) : MoveStance(botAI, "behind") {}
 
-    float GetAngle() override
+    float GetStanceAngle() override
     {
         Unit* target = GetTarget();
 

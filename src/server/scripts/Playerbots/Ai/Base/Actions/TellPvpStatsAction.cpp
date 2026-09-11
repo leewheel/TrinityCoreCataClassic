@@ -51,7 +51,7 @@ bool TellPvpStatsAction::Execute(Event event)
 
     // PVP currencies
     std::map<std::string, std::string> currencyPlaceholders;
-    currencyPlaceholders["%arena_points"] = std::to_string(bot->GetArenaPoints());
+    currencyPlaceholders["%arena_points"] = std::to_string(Player_GetArenaPoints(bot));
     currencyPlaceholders["%honor_points"] = std::to_string(bot->GetHonorPoints());
 
     std::string const currencyText = PlayerbotTextMgr::instance().GetBotTextOrDefault(

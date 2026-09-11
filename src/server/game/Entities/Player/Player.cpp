@@ -16175,6 +16175,11 @@ void Player::SetQuestObjectiveData(QuestObjective const& objective, int32 data)
     if (objective.Type == QUEST_OBJECTIVE_ITEM && objective.StorageIndex >= 0 && objective.StorageIndex < QUEST_ITEM_OBJECTIVES_COUNT)
         status.ItemCount[uint32(objective.StorageIndex)] = uint16(data < 0 ? 0 : data);
     //End By leewheel
+    //By leewheel 2026-09-09: 同步生物/物件目标计数到AC兼容数组
+    if ((objective.Type == QUEST_OBJECTIVE_MONSTER || objective.Type == QUEST_OBJECTIVE_GAMEOBJECT) &&
+        objective.StorageIndex >= 0 && objective.StorageIndex < QUEST_ITEM_OBJECTIVES_COUNT)
+        status.CreatureOrGOCount[uint32(objective.StorageIndex)] = uint16(data < 0 ? 0 : data);
+    //End By leewheel
 
     if (Quest const* quest = sObjectMgr->GetQuestTemplate(objective.QuestID))
         sScriptMgr->OnQuestObjectiveChange(this, quest, objective, oldData, data);
@@ -18491,6 +18496,11 @@ void Player::_LoadQuestStatusObjectives(PreparedQueryResult result)
                     //By leewheel 2026-09-06: 移植mod-playerbots，加载时同步物品目标计数到AC兼容数组
                     if (objectiveItr->Type == QUEST_OBJECTIVE_ITEM && storageIndex < QUEST_ITEM_OBJECTIVES_COUNT)
                         questStatusData.ItemCount[storageIndex] = uint16(data < 0 ? 0 : data);
+                    //End By leewheel
+                    //By leewheel 2026-09-09: 加载时同步生物/物件目标计数到AC兼容数组
+                    if ((objectiveItr->Type == QUEST_OBJECTIVE_MONSTER || objectiveItr->Type == QUEST_OBJECTIVE_GAMEOBJECT) &&
+                        storageIndex < QUEST_ITEM_OBJECTIVES_COUNT)
+                        questStatusData.CreatureOrGOCount[storageIndex] = uint16(data < 0 ? 0 : data);
                     //End By leewheel
                 }
                 else
@@ -28118,6 +28128,12 @@ uint32 Player::GetSpentTalentPointsCount() const
     for (auto const& pair : _talentGroups[_activeTalentGroup].Talents)
         spent += pair.second + 1;
     return spent;
+}
+
+//By leewheel 2026-09-09: 移植mod-playerbots，AC兼容：获取指定天赋方案的天赋映射
+std::unordered_map<uint32, uint8> const& Player::GetPlayerTalentMap(uint8 group) const
+{
+    return _talentGroups[group].Talents;
 }
 
 //By leewheel 2026-09-06: 移植mod-playerbots，AC兼容：额外天赋方案数(双天赋=1)

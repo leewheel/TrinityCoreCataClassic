@@ -132,9 +132,11 @@ bool GossipHelloAction::Execute(ObjectGuid guid, int32 menuToSelect, bool silent
         return false;
     }
 
-    //By leewheel 2026-07-10: TC中GossipMenuId是方法而非成员变量，需要加括号
+    //By leewheel 2026-07-10 / 2026-09-09: TC GossipMenuId API兼容
+    // Creature::GetGossipMenuId()直接返回uint32菜单ID
+    // CreatureTemplate的GossipMenuIds是vector而非单个字段
     auto pMenuItemBounds =
-        sObjectMgr->GetGossipMenuItemsMapBounds(pCreature->GetCreatureTemplate()->GossipMenuId());
+        sObjectMgr->GetGossipMenuItemsMapBounds(pCreature->GetGossipMenuId());
     //End By leewheel
     //By leewheel 2026-07-10: TC的Trinity::IteratorPair没有first/second，使用begin()/end()
     if (pMenuItemBounds.begin() == pMenuItemBounds.end())

@@ -103,7 +103,8 @@ void FleeManager::calculatePossibleDestinations(std::vector<FleePoint*>& points)
                 bot->UpdateAllowedPositionZ(x, y, z);
 
                 Map* map = startPosition.getMap();
-                if (map && map->IsInWater(bot->GetPhaseShift(), x, y, z, nullptr, bot->GetCollisionHeight()))
+                //By leewheel 2026-09-09: TC-Cata的IsInWater只接受5个参数(phaseShift, x, y, z, data)
+                if (map && map->IsInWater(bot->GetPhaseShift(), x, y, z))
                     continue;
 
                 if (!bot->IsWithinLOS(x, y, z) || (target && !target->IsWithinLOS(x, y, z)))

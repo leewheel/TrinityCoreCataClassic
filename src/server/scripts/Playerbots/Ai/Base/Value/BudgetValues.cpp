@@ -135,11 +135,10 @@ uint32 TrainCostValue::Calculate()
         if (!trainer)
             continue;
 
-        //By leewheel 2025-07-10
-        // TC使用Trainer::Type::Class枚举类
-        // 注意: Playerbots.h中 #define Class GetClass 会把 Trainer::Type::Class 展开为 Trainer::Type::GetClass
-        // 因此使用 static_cast<Trainer::Type>(0) 绕过宏替换 (Class = 0)
-        if (trainer->GetTrainerType() != static_cast<Trainer::Type>(0) || !trainer->IsTrainerValidForPlayer(bot))
+        //By leewheel 2025-07-10 / 2026-09-09: TC Trainer API兼容
+        // TC使用GetType()代替GetTrainerType()；无IsTrainerValidForPlayer，由下方CanTeachSpell逐法术校验
+        // Trainer::Type::Talent 对应AC的职业训练师
+        if (trainer->GetType() != Trainer::Type::Talent)
         //End By leewheel
             continue;
 

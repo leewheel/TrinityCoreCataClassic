@@ -1,4 +1,4 @@
-// By leewheel 2026-07-08: 重写以适配TC的OutdoorPvP API
+﻿// By leewheel 2026-07-08: 重写以适配TC的OutdoorPvP API
 // TC的OPvPCapturePoint没有_capturePoint、GetMinValue()、GetSlider()、m_capturePointSpawnId等成员
 // 改为使用spawnId从ObjectMgr获取GameObjectData和GameObjectTemplate来获取位置和半径信息
 // End By leewheel
@@ -103,7 +103,10 @@ bool NewRpgOutdoorPvpAction::Execute(Event)
         return false;
 
     // 使用GameObjectData的位置创建WorldPosition
-    WorldPosition targetPos(goData->mapId, goData->posX(), goData->posY(), goData->posZ(), goData->orientation());
+    //By leewheel 2026-09-09: TC的GameObjectData用spawnPoint(Position)存储位置，而非posX()/posY()/posZ()/orientation()
+    WorldPosition targetPos(goData->mapId, goData->spawnPoint.GetPositionX(), goData->spawnPoint.GetPositionY(),
+                            goData->spawnPoint.GetPositionZ(), goData->spawnPoint.GetOrientation());
+    //End By leewheel
 
     // 获取夺旗点半径
     //By leewheel 2026-07-10: TC的capturePoint没有radius成员，使用InteractRadiusOverride(单位:百分之一)

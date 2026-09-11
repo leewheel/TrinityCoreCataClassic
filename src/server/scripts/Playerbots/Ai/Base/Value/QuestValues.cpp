@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
  * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
@@ -27,13 +27,13 @@ entryQuestRelationMap EntryQuestRelationMapValue::Calculate()
         rMap[-(int32)relation.first][relation.second] |= (int)QuestRelationFlag::questGiver;
 
     // Quest objectives
-    ObjectMgr::QuestMap const& questMap = sObjectMgr->GetQuestTemplates();
+    ObjectMgr::QuestContainer const& questMap = sObjectMgr->GetQuestTemplates();
 
     for (auto& questItr : questMap)
     {
         uint32 questId = questItr.first;
-        //By leewheel 2026-07-10: TC中QuestContainer的值是const Quest对象，取地址得到const Quest*
-        Quest const* quest = &questItr.second;
+        //By leewheel 2026-07-10: TC中QuestContainer的值是unique_trackable_ptr<Quest>，用.get()得到const Quest*
+        Quest const* quest = questItr.second.get();
         //End By leewheel
 
         for (uint32 objective = 0; objective < QUEST_OBJECTIVES_COUNT; objective++)
@@ -104,7 +104,7 @@ questGuidpMap QuestGuidpMapValue::Calculate()
     FindQuestObjectData worker;
     for (auto const& itr : sObjectMgr->GetAllCreatureData())
         worker(itr.second);
-    for (auto const& itr : sObjectMgr->GetAllGOData())
+    for (auto const& itr : sObjectMgr->GetAllGameObjectData())
         worker(itr.second);
 
     return worker.GetResult();
@@ -218,7 +218,7 @@ std::vector<GuidPosition> ActiveQuestTakersValue::Calculate()
 
         QuestStatus status = questStatus.second.Status;
         if ((status != QUEST_STATUS_COMPLETE || bot->GetQuestRewardStatus(questId)) &&
-            (!quest->IsAutoComplete() || !bot->CanTakeQuest(quest, false)))
+            (!Quest_IsAutoComplete(quest) || !bot->CanTakeQuest(quest, false)))
             continue;
 
         auto q = questMap.find(questId);
@@ -296,7 +296,7 @@ std::vector<GuidPosition> ActiveQuestObjectivesValue::Calculate()
             if (quest->RequiredNpcOrGoCount[objective])
             {
                 uint32 reqCount = quest->RequiredNpcOrGoCount[objective];
-                uint32 hasCount = statusData.CreatureOrGOCount[objective];
+                uint32 hasCount = QuestStatusData_GetCreatureOrGOCount(&statusData, questId, quest->RequiredNpcOrGo[objective]);
 
                 if (!reqCount || hasCount >= reqCount)
                     continue;
@@ -385,9 +385,9 @@ uint32 DialogStatusValue::getDialogStatus(Player* bot, int32 questgiver, uint32 
         QuestStatus status = bot->GetQuestStatus(qId);
 
         if ((status == QUEST_STATUS_COMPLETE && !bot->GetQuestRewardStatus(qId)) ||
-            (pQuest->IsAutoComplete() && bot->CanTakeQuest(pQuest, false)))
+            (Quest_IsAutoComplete(pQuest) && bot->CanTakeQuest(pQuest, false)))
         {
-            if (pQuest->IsAutoComplete() && pQuest->IsRepeatable())
+            if (Quest_IsAutoComplete(pQuest) && pQuest->IsRepeatable())
             {
                 dialogStatusNew = DIALOG_STATUS_REWARD_REP;
             }
@@ -433,7 +433,7 @@ uint32 DialogStatusValue::getDialogStatus(Player* bot, int32 questgiver, uint32 
                 if (bot->SatisfyQuestLevel(pQuest, false))
                 {
                     int32 lowLevelDiff = sWorld->getIntConfig(CONFIG_QUEST_LOW_LEVEL_HIDE_DIFF);
-                    if (pQuest->IsAutoComplete() ||
+                    if (Quest_IsAutoComplete(pQuest) ||
                         (pQuest->IsRepeatable() &&
                          bot->getQuestStatusMap()[qId].Status == QUEST_STATUS_REWARDED))
                     {

@@ -13,8 +13,8 @@
 #include "MotionMaster.h"
 #include "MovementDefines.h"
 #include "MovementGenerator.h"
-#include "AbstractPursuer.h"
-#include "ChaseMovementGenerator.h"
+//By leewheel 2026-09-09: TC-Cata无AbstractPursuer.h，ChaseMovementGenerator路径不同
+#include "Movement/MovementGenerators/ChaseMovementGenerator.h"
 
 float ServerFacade::GetDistance2d(Unit* unit, WorldObject* wo)
 {

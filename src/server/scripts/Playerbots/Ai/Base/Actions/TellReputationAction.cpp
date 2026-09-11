@@ -59,11 +59,14 @@ std::string TellReputationAction::BuildReputationLine(FactionEntry const* entry)
 
     out << "|cffffffff";
 
+    //By leewheel 2026-09-09: TC无ReputationMgr::PointsInRank，使用本地静态数组
+    static constexpr int32 PointsInRank[] = {36000, 3000, 3000, 3000, 3000, 3000, 3000, 3000};
     int32 base = ReputationMgr::Reputation_Cap + 1;
     for (int32 i = MAX_REPUTATION_RANK - 1; i >= rank; --i)
-        base -= ReputationMgr::PointsInRank[i];
+        base -= PointsInRank[i];
 
-    out << " (" << (reputation - base) << "/" << ReputationMgr::PointsInRank[rank] << ")";
+    out << " (" << (reputation - base) << "/" << PointsInRank[rank] << ")";
+    //End By leewheel
     return out.str();
 }
 
@@ -122,9 +125,8 @@ bool TellReputationAction::Execute(Event event)
 
     FactionTemplateEntry const* factionTemplate = unit->GetFactionTemplateEntry();
 
-    //By leewheel 2025-07-10
-    // TC中FactionTemplateEntry的faction是兼容方法（返回Faction成员），需要加()调用
-    FactionEntry const* entry = sFactionStore.LookupEntry(factionTemplate->faction());
+    //By leewheel 2026-09-09: TC中FactionTemplateEntry的Faction是直接字段(uint16)，非方法
+    FactionEntry const* entry = sFactionStore.LookupEntry(factionTemplate->Faction);
     //End By leewheel
     if (!entry)
         return false;

@@ -199,7 +199,8 @@ bool GoAction::Execute(Event event)
             return false;
         }
 
-        if (map->IsInWater(bot->GetPhaseShift(), x, y, z, nullptr, bot->GetCollisionHeight()))
+        //By leewheel 2026-09-09: TC-Cata的IsInWater只接受5个参数(phaseShift, x, y, z, data)
+        if (map->IsInWater(bot->GetPhaseShift(), x, y, z))
         {
             //By leewheel 2026-08-01: 玩家可见文本中文化
             botAI->TellError("它在水中");

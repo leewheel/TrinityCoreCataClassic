@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
  * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
@@ -256,7 +256,7 @@ bool TotemicRecallTrigger::IsActive()
         uint32 currentSpell = 0;
         if (totem)
         {
-            currentSpell = totem->GetCreatedBySpell();
+            currentSpell = Creature_GetCreatedBySpell(totem);
         }
 
         for (size_t i = 0; i < MANA_TIDE_TOTEM_COUNT; ++i)
@@ -273,7 +273,7 @@ bool TotemicRecallTrigger::IsActive()
         uint32 currentSpell = 0;
         if (totem)
         {
-            currentSpell = totem->GetCreatedBySpell();
+            currentSpell = Creature_GetCreatedBySpell(totem);
         }
 
         for (size_t i = 0; i < FIRE_ELEMENTAL_TOTEM_COUNT; ++i)
@@ -326,7 +326,7 @@ bool NoEarthTotemTrigger::IsActive()
         totem = bot->GetMap()->GetCreature(guid);
         if (totem)
         {
-            currentSpell = totem->GetCreatedBySpell();
+            currentSpell = Creature_GetCreatedBySpell(totem);
         }
     }
 
@@ -367,7 +367,7 @@ bool NoFireTotemTrigger::IsActive()
         totem = bot->GetMap()->GetCreature(guid);
         if (totem)
         {
-            currentSpell = totem->GetCreatedBySpell();
+            currentSpell = Creature_GetCreatedBySpell(totem);
         }
     }
 
@@ -409,7 +409,7 @@ bool NoWaterTotemTrigger::IsActive()
         totem = bot->GetMap()->GetCreature(guid);
         if (totem)
         {
-            currentSpell = totem->GetCreatedBySpell();
+            currentSpell = Creature_GetCreatedBySpell(totem);
         }
     }
 
@@ -452,7 +452,7 @@ bool NoAirTotemTrigger::IsActive()
         totem = bot->GetMap()->GetCreature(guid);
         if (totem)
         {
-            currentSpell = totem->GetCreatedBySpell();
+            currentSpell = Creature_GetCreatedBySpell(totem);
         }
     }
 

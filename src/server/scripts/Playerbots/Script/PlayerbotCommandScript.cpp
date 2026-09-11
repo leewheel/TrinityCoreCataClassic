@@ -31,7 +31,8 @@ class playerbots_commandscript : public CommandScript
 public:
     playerbots_commandscript() : CommandScript("playerbots_commandscript") {}
 
-    ChatCommandTable GetCommands() const override
+    //By leewheel 2026-09-08: TC-Cata返回std::span而非ChatCommandTable(数组类型不能作为函数返回值)
+    std::span<ChatCommandBuilder const> GetCommands() const override
     {
 //By leewheel 2026-07-10: TC使用ChatCommandTable和RBAC权限，不使用SEC_*安全等级
         static ChatCommandTable playerbotsDebugCommandTable = {

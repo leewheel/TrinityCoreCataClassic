@@ -1,4 +1,4 @@
-/* 红玉圣殿 机器人策略 */
+﻿/* 红玉圣殿 机器人策略 */
 #include "NearestNpcsValue.h"
 #include "ObjectAccessor.h"
 #include "Playerbots.h"

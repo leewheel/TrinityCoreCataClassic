@@ -43,7 +43,7 @@ bool BGJoinAction::Execute(Event /*event*/)
         if (!pvpDiff)
             return false;
 
-        if (ArenaType type = ArenaType(BattlegroundMgr::BGArenaType(queueTypeId)))
+        if (ArenaType type = ArenaType(BattlegroundMgr_BGArenaType(queueTypeId)))
         {
             std::vector<BattlegroundQueueTypeId>::iterator i = find(ratedList.begin(), ratedList.end(), queueTypeId);
             if (i != ratedList.end())
@@ -67,7 +67,7 @@ bool BGJoinAction::Execute(Event /*event*/)
 
 bool BGJoinAction::gatherArenaTeam(ArenaType type)
 {
-    ArenaTeam* arenateam = sArenaTeamMgr->GetArenaTeamByCaptain(bot->GetGUID(), type);
+    ArenaTeam* arenateam = sArenaTeamMgr->GetArenaTeamByCaptain(bot->GetGUID());
 
     if (!arenateam)
         return false;
@@ -249,7 +249,7 @@ bool BGJoinAction::shouldJoinBg(BattlegroundQueueTypeId queueTypeId, Battlegroun
         return false;
 
     // Check if bots should join Arena
-    ArenaType type = ArenaType(BattlegroundMgr::BGArenaType(queueTypeId));
+    ArenaType type = ArenaType(BattlegroundMgr_BGArenaType(queueTypeId));
     if (type != ARENA_TYPE_NONE)
     {
         BracketSize = (uint32)(type * 2);
@@ -269,7 +269,7 @@ bool BGJoinAction::shouldJoinBg(BattlegroundQueueTypeId queueTypeId, Battlegroun
 
         if (isRated)
         {
-            if (sArenaTeamMgr->GetArenaTeamByCaptain(bot->GetGUID(), type))
+            if (sArenaTeamMgr->GetArenaTeamByCaptain(bot->GetGUID()))
             {
                 sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId].ratedArenaBotCount += TeamSize;
                 ratedList.push_back(queueTypeId);
@@ -448,7 +448,7 @@ bool BGJoinAction::JoinQueue(uint32 type)
     std::string _bgType;
 
     // check if arena
-    ArenaType arenaType = ArenaType(BattlegroundMgr::BGArenaType(queueTypeId));
+    ArenaType arenaType = ArenaType(BattlegroundMgr_BGArenaType(queueTypeId));
     if (arenaType != ARENA_TYPE_NONE)
         isArena = true;
 
@@ -561,7 +561,8 @@ bool BGJoinAction::JoinQueue(uint32 type)
     if (!isArena)
     {
         packet = new WorldPacket(CMSG_BATTLEMASTER_JOIN, 20);
-        *packet << bot->GetGUID() << bgTypeId_ << instanceId << joinAsGroup;
+        //By leewheel 2026-09-08: TC-Cata的ByteBuffer不支持<<bool,需转换为uint8
+        *packet << bot->GetGUID() << bgTypeId_ << instanceId << uint8(joinAsGroup);
     }
     else
     {
@@ -590,7 +591,7 @@ bool FreeBGJoinAction::shouldJoinBg(BattlegroundQueueTypeId queueTypeId, Battleg
         return false;
 
     // Check if bots should join Arena
-    ArenaType type = ArenaType(BattlegroundMgr::BGArenaType(queueTypeId));
+    ArenaType type = ArenaType(BattlegroundMgr_BGArenaType(queueTypeId));
     if (type != ARENA_TYPE_NONE)
     {
         BracketSize = (uint32)(type * 2);
@@ -610,7 +611,7 @@ bool FreeBGJoinAction::shouldJoinBg(BattlegroundQueueTypeId queueTypeId, Battleg
 
         if (isRated)
         {
-            if (sArenaTeamMgr->GetArenaTeamByCaptain(bot->GetGUID(), type))
+            if (sArenaTeamMgr->GetArenaTeamByCaptain(bot->GetGUID()))
             {
                 sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId].ratedArenaBotCount += TeamSize;
                 ratedList.push_back(queueTypeId);
@@ -681,7 +682,7 @@ bool BGLeaveAction::Execute(Event /*event*/)
     bool isArena = false;
     bool IsRandomBot = sRandomPlayerbotMgr.IsRandomBot(bot);
 
-    ArenaType arenaType = ArenaType(BattlegroundMgr::BGArenaType(queueTypeId));
+    ArenaType arenaType = ArenaType(BattlegroundMgr_BGArenaType(queueTypeId));
     if (arenaType)
     {
         isArena = true;
@@ -843,7 +844,7 @@ bool BGStatusAction::Execute(Event event)
     bool foundSlot = false;
     for (uint32 i = 0; i < PLAYER_MAX_BATTLEGROUND_QUEUES; ++i)
     {
-        if (bot->GetBattlegroundQueueTypeId(i))
+        if (bot->GetBattlegroundQueueTypeId(i).BattlemasterListId != 0)
         {
             QueueSlot = i;
             foundSlot = true;
@@ -880,8 +881,10 @@ bool BGStatusAction::Execute(Event event)
     bool IsRandomBot = sRandomPlayerbotMgr.IsRandomBot(bot);
     BattlegroundQueueTypeId queueTypeId = bot->GetBattlegroundQueueTypeId(QueueSlot);
     BattlegroundTypeId _bgTypeId = (BattlegroundTypeId)BattlegroundMgr::BGTemplateId(queueTypeId);
-    if (!queueTypeId)
+    //By leewheel 2026-09-09: Cata的BattlegroundQueueTypeId是struct不能用!运算符，检查BattlemasterListId是否为零
+    if (queueTypeId.BattlemasterListId == 0)
         return false;
+    //End By leewheel
 
     BattlegroundTemplate const* bg = sBattlegroundMgr->GetBattlegroundTemplate(_bgTypeId);
     //By leewheel 2026-08-30: 判空保护——模板缺失时直接返回，避免空指针解引用崩溃(5人小队排战场崩溃根因之一)
@@ -903,7 +906,7 @@ bool BGStatusAction::Execute(Event event)
     uint8 unk2 = 0x0;
     uint8 action = 0x1;
 
-    ArenaType arenaType = ArenaType(BattlegroundMgr::BGArenaType(queueTypeId));
+    ArenaType arenaType = ArenaType(BattlegroundMgr_BGArenaType(queueTypeId));
     if (arenaType)
     {
         isArena = true;

@@ -1,4 +1,4 @@
-//By leewheel 2026-07-06
+﻿//By leewheel 2026-07-06
 //By leewheel 2026-08-01: 日志清理——注释掉组队过程INFO/DEBUG日志，仅保留错误、异常处理与命令反馈
 //End By leewheel
 /*
@@ -501,7 +501,8 @@ void InitTalentsByTab(Player* player, uint8 specTab)
 
     // Reset all talents and ensure correct talent points
     player->ResetTalents(true);
-    player->InitTalentForLevel();
+    //By leewheel 2026-09-09: InitTalentsByTab是非成员函数，不能用this；TC用Player_InitTalentForLevel兼容函数
+    Player_InitTalentForLevel(player);
 
     uint32 classMask = player->GetClassMask();
 
@@ -618,7 +619,8 @@ void InitTalentsByTab(Player* player, uint8 specTab)
     // TC_LOG_INFO("playerbots", "InitTalentsByTab: bot={} done, remainingPoints={}",
     //     player->GetName(), player->GetFreeTalentPoints());
 
-    player->SendTalentsInfoData(false);
+    //By leewheel 2026-09-09: TC的SendTalentsInfoData无参数
+    player->SendTalentsInfoData();
 }
 
 
@@ -1419,11 +1421,12 @@ public:
                 //By leewheel 2026-07-20: TC大写ResetTalents
                 bot->ResetTalents(true);
                 //By leewheel 2026-07-22: TC的ResetTalents不正确恢复CharacterPoints
-                bot->InitTalentForLevel();
+                //By leewheel 2026-09-08: TC-Cata无InitTalentForLevel，用UpdateAvailableTalentPoints替代
+                bot->UpdateAvailableTalentPoints();
                 //End By leewheel
 
                 //By leewheel 2026-07-23: 诊断天赋点数是否正确
-                //InitTalentForLevel()应该已正确设置CharacterPoints
+                //Player_InitTalentForLevel(this)应该已正确设置CharacterPoints
                 {
                     uint32 expectedPoints = bot->GetLevel() < 10 ? 0 : bot->GetLevel() - 9;
                     if (bot->GetFreeTalentPoints() < expectedPoints)
@@ -1574,7 +1577,8 @@ public:
 
     //By leewheel 2026-07-20: TC的GetCommands返回ChatCommandTable(Trinity::ChatCommands命名空间)
     //By leewheel 2026-07-20: TC使用rbac::RBAC_PERM_COMMAND_PLAYER_BOT权限(非SEC_PLAYER)
-    ChatCommandTable GetCommands() const override
+    //By leewheel 2026-09-08: TC-Cata返回std::span而非ChatCommandTable(数组类型不能作为函数返回值)
+    std::span<ChatCommandBuilder const> GetCommands() const override
     {
         // By leewheel 20260713: 将权限改为SEC_PLAYER，使普通玩家也可使用快速组队命令
         static ChatCommandTable party5Table  = {{ "", HandleFastGroupParty5Command,  rbac::RBAC_PERM_COMMAND_PLAYER_BOT, Console::No }};

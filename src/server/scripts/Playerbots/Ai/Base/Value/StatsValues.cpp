@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
  * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
@@ -147,10 +147,13 @@ Unit* ComboPointsValue::GetTarget()
 uint8 ComboPointsValue::Calculate()
 {
     Unit* target = GetTarget();
-    if (!target || target->GetGUID() != bot->GetComboTargetGUID())
+    //By leewheel 2026-09-09: TC Cata连击点API兼容
+    // GetComboTargetGUID → GetComboTarget()
+    // Player_GetComboPoints → GetPower(POWER_COMBO_POINTS)（Cata中连击点作为能量类型存储）
+    if (!target || target->GetGUID() != bot->GetComboTarget())
         return 0;
 
-    return bot->GetComboPoints();
+    return static_cast<uint8>(bot->GetPower(POWER_COMBO_POINTS));
 }
 
 Unit* IsMountedValue::GetTarget()

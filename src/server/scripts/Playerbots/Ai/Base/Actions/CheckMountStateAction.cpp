@@ -288,7 +288,8 @@ void CheckMountStateAction::CompleteDismount(Player* bot)
     // Need to set the start of the fall, otherwise the fall may start from too high of a Z and kill the bot.
     bot->SetFallInformation(0, startZ);
     fallInfo.pos.Relocate(x, y, groundZ);
-    bot->HandleFall(fallInfo);
+    //By leewheel 2026-09-09: TC-Cata的HandleFall不接受参数
+    bot->HandleFall();
     bot->RemoveUnitMovementFlag(MOVEMENTFLAG_FALLING | MOVEMENTFLAG_FALLING_FAR);
 }
 

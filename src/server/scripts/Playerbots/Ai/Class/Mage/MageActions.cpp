@@ -66,13 +66,12 @@ bool UseManaAgateAction::isUseful()
 bool CastFrostNovaAction::isUseful()
 {
     Unit* target = AI_VALUE(Unit*, "current target");
-    if (!target || !target->IsInWorld() || target->isFrozen() ||
-        (target->ToCreature() &&
-         //By leewheel 2026-07-10: TC使用CreatureTemplate->MechanicImmuneMask替代HasMechanicTemplateImmunity
-         (target->ToCreature()->GetCreatureTemplate()->MechanicImmuneMask & (1ULL << (MECHANIC_FREEZE - 1)))))
+    if (!target || !target->IsInWorld() || target->isFrozen())
     {
         return false;
     }
+    //By leewheel 2026-09-09: TC-Cata无CreatureTemplate::MechanicImmuneMask
+    //移除机械免疫检查——若目标免疫，法术会自然失败，不影响功能
 
     return ServerFacade::instance().IsDistanceLessOrEqualThan(
         AI_VALUE2(float, "distance", GetTargetName()), 10.f);

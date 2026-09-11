@@ -22,6 +22,9 @@
 #include "DBCEnums.h"
 #include "Battleground.h"
 #include "EventProcessor.h"
+//By leewheel 2026-09-11: 引入互斥锁，保护 m_events 事件队列在多线程(World线程遍历更新 + bot AI Worker线程并发插入)下的安全访问，修复 ACCESS_VIOLATION 崩溃
+#include <mutex>
+//End By leewheel
 
 //this container can't be deque, because deque doesn't like removing the last element - if you remove it, it invalidates next iterator and crash appears
 typedef std::list<Battleground*> BGFreeSlotQueueContainer;
@@ -134,6 +137,9 @@ class TC_GAME_API BattlegroundQueue
 
         // Event handler
         EventProcessor m_events;
+        //By leewheel 2026-09-11: m_events 递归互斥锁，防并发插入/遍历破坏保证红黑树结构完整
+        std::recursive_mutex m_eventsLock;
+        //End By leewheel
 };
 
 /*

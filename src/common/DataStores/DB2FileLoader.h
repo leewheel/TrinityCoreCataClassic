@@ -1,4 +1,4 @@
-/*
+﻿/*
  * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -215,6 +215,26 @@ public:
     DB2SectionHeader const& GetSectionHeader(uint32 section) const;
     DB2Record GetRecord(uint32 recordNumber) const;
     DB2RecordCopy GetRecordCopy(uint32 copyNumber) const;
+
+    // By leewheel 2026-09-10:
+    // 通用 WDC5 解析支持：暴露文件自带的列元数据（压缩类型/位宽/附加数据大小），
+    // 使 db2dump 能在没有 TC loadInfo 的表上，通过 DB2Record 访问器逐字段读取，
+    // 从而实现 zhCN 全部 815 个 db2 文件不遗漏地导入 db2files 库。
+    TC_COMMON_API DB2FileLoadInfo const* GetLoadInfo() const;
+    TC_COMMON_API uint32 GetColumnMetaCount() const;
+    TC_COMMON_API void GetColumnMeta(uint32 field, uint16& bitOffset, uint16& bitSize, uint32& additionalDataSize, uint32& compressionType) const;
+    // By leewheel 2026-09-10:
+    // Sparse(catalog) 布局在无 loadInfo 时无法按列/按字段读取（字段偏移与类型全依赖
+    // loadInfo->Meta，而 sparse 文件本身不保存 columnMeta）。为保证 815 个 db2 文件
+    // 一个不少地导入 db2files，对这类表提供原始记录字节导出：每行 = {id, size, hex}，
+    // 数据原样保留，供后续反查，且不会因空指针崩溃。
+    bool IsRegular() const;   // false = Sparse(catalog) 布局
+    uint32 GetSparseRecordCount() const;
+    // 读取第 recordIndex 个 catalog 记录的 id 与原始字节；返回 true 表示成功（仅对稀疏可用）
+    bool ReadSparseRecord(uint32 recordIndex, uint32& id, uint8 const*& data, uint32& size) const;
+    // By leewheel 2026-09-10 诊断辅助：返回稀疏缓冲区大小（调试用）
+    TC_COMMON_API uint16 GetSparseBufferSize() const;
+    // End By leewheel
 
 private:
     DB2FileLoaderImpl* _impl;

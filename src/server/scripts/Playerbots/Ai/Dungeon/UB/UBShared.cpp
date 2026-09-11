@@ -49,8 +49,8 @@ float MaxEffectRadius(uint32 spellId, float fallback)
 
     float radius = 0.0f;
     for (uint8 i = 0; i < MAX_SPELL_EFFECTS; ++i)
-        //By leewheel 2026-09-06: 移植到TrinityCore-Cata，Effects改为GetEffects()
-        radius = std::max(radius, spellInfo->GetEffects()[i].CalcRadius());
+        //By leewheel 2026-09-09: TC-Cata的CalcRadius返回SpellRange结构体，取Max字段
+        radius = std::max(radius, spellInfo->GetEffects()[i].CalcRadius().Max);
 
     return radius > 0.0f ? radius : fallback;
 }

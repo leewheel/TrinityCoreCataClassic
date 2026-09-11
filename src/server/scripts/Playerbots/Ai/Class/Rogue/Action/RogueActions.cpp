@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
  * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
@@ -100,7 +100,7 @@ bool UseDeadlyPoisonAction::Execute(Event /*event*/)
     for (Item* const item : items)
     {
         // 名称子串匹配可能命中非消耗品(如“致命毒药手册”),需按类别过滤
-        if (item->GetTemplate()->Class != ITEM_CLASS_CONSUMABLE)
+        if (item->GetTemplate()->GetClass() != ITEM_CLASS_CONSUMABLE)
             continue;
 
         Item* const itemForSpell = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_OFFHAND);
@@ -116,7 +116,7 @@ bool UseInstantPoisonAction::Execute(Event /*event*/)
         AI_VALUE2(std::vector<Item*>, "inventory items", "Instant Poison");
     for (Item* const item : items)
     {
-        if (item->GetTemplate()->Class != ITEM_CLASS_CONSUMABLE)
+        if (item->GetTemplate()->GetClass() != ITEM_CLASS_CONSUMABLE)
             continue;
 
         Item* const itemForSpell = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_MAINHAND);
@@ -132,7 +132,7 @@ bool UseInstantPoisonOffHandAction::Execute(Event /*event*/)
         AI_VALUE2(std::vector<Item*>, "inventory items", "Instant Poison");
     for (Item* const item : items)
     {
-        if (item->GetTemplate()->Class != ITEM_CLASS_CONSUMABLE)
+        if (item->GetTemplate()->GetClass() != ITEM_CLASS_CONSUMABLE)
             continue;
 
         Item* const itemForSpell = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_OFFHAND);

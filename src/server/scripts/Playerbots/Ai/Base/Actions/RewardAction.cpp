@@ -71,7 +71,9 @@ bool RewardAction::Reward(uint32 itemId, Object* questGiver)
                     //End By leewheel
 
                     std::string const questTitle = pQuest->GetTitle();
-                    std::string const itemName = pRewardItem->Name1;
+                    //By leewheel 2026-09-09: TC-Cata的ItemTemplate::GetName需要locale参数
+                    std::string const itemName = pRewardItem->GetName(LOCALE_enUS);
+                    //End By leewheel
 
                     std::ostringstream out;
                     //By leewheel 2026-08-01: 玩家可见文本中文化

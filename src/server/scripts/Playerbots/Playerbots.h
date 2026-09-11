@@ -81,6 +81,11 @@
 #include "GridNotifiersImpl.h"
 #include "Chat/Channels/ChannelMgr.h"
 #include "Battlegrounds/BattlegroundMgr.h"
+//By leewheel 2026-09-08: ArenaTeam_GetMembers需要ArenaTeam完整定义
+#include "Battlegrounds/ArenaTeam.h"
+//By leewheel 2026-09-08: BattlegroundAB/EY stub classes for zone compat
+#include "Compat/BattlegroundZonesCompat.h"
+//End By leewheel
 #include "Entities/Item/ItemEnchantmentMgr.h"
 #include "DataStores/DB2Stores.h"
 //End By leewheel
@@ -446,21 +451,9 @@ inline constexpr SpellAuraInterruptFlags AURA_INTERRUPT_FLAG_CHANGE_MAP = SpellA
 
 // ========== TC缺失的AC生物精英类型常量 ==========
 // AC使用CreatureEliteType枚举，TC使用CreatureClassifications枚举类
-#ifndef CREATURE_ELITE_NORMAL
-#define CREATURE_ELITE_NORMAL 0
-#endif
-#ifndef CREATURE_ELITE_ELITE
-#define CREATURE_ELITE_ELITE 1
-#endif
-#ifndef CREATURE_ELITE_RAREELITE
-#define CREATURE_ELITE_RAREELITE 2
-#endif
-#ifndef CREATURE_ELITE_WORLDBOSS
-#define CREATURE_ELITE_WORLDBOSS 3
-#endif
-#ifndef CREATURE_ELITE_RARE
-#define CREATURE_ELITE_RARE 4
-#endif
+// 注意：已由下方第二批兼容宏(第2981行附近)提供正确的CreatureClassifications映射
+// 此处不再重复定义旧的整数常量，避免与enum class类型不匹配导致switch/case编译错误
+// CREATURE_UNKNOWN单独保留供特殊场景使用
 #ifndef CREATURE_UNKNOWN
 #define CREATURE_UNKNOWN 5
 #endif
@@ -476,31 +469,26 @@ inline constexpr SpellAuraInterruptFlags AURA_INTERRUPT_FLAG_CHANGE_MAP = SpellA
 #define TIME_TO_AUTOREMOVE 120000
 #endif
 
-// 战场队列常量
-#ifndef BATTLEGROUND_QUEUE_2v2
-#define BATTLEGROUND_QUEUE_2v2 BATTLEGROUND_QUEUE_2v2
-#endif
-#ifndef BATTLEGROUND_QUEUE_3v3
-#define BATTLEGROUND_QUEUE_3v3 BATTLEGROUND_QUEUE_3v3
-#endif
-#ifndef BATTLEGROUND_QUEUE_5v5
-#define BATTLEGROUND_QUEUE_5v5 BATTLEGROUND_QUEUE_5v5
-#endif
-#ifndef BATTLEGROUND_QUEUE_IC
-#define BATTLEGROUND_QUEUE_IC BATTLEGROUND_QUEUE_IC
-#endif
-#ifndef BATTLEGROUND_QUEUE_EY
-#define BATTLEGROUND_QUEUE_EY BATTLEGROUND_QUEUE_EY
-#endif
+// 战场队列常量 (TC-Cata: 普通BG用BattlemasterListId作为队列ID, Type=Battleground=0)
+//By leewheel 2026-09-09: 修复自引用宏定义，使用实际BattlemasterListId
 #ifndef BATTLEGROUND_QUEUE_AV
-#define BATTLEGROUND_QUEUE_AV BATTLEGROUND_QUEUE_AV
-#endif
-#ifndef BATTLEGROUND_QUEUE_AB
-#define BATTLEGROUND_QUEUE_AB BATTLEGROUND_QUEUE_AB
+#define BATTLEGROUND_QUEUE_AV BATTLEGROUND_AV
 #endif
 #ifndef BATTLEGROUND_QUEUE_WS
-#define BATTLEGROUND_QUEUE_WS BATTLEGROUND_QUEUE_WS
+#define BATTLEGROUND_QUEUE_WS BATTLEGROUND_WS
 #endif
+#ifndef BATTLEGROUND_QUEUE_AB
+#define BATTLEGROUND_QUEUE_AB BATTLEGROUND_AB
+#endif
+#ifndef BATTLEGROUND_QUEUE_EY
+#define BATTLEGROUND_QUEUE_EY BATTLEGROUND_EY
+#endif
+#ifndef BATTLEGROUND_QUEUE_IC
+#define BATTLEGROUND_QUEUE_IC BATTLEGROUND_IC
+#endif
+// 竞技场队列 (用于BattlegroundData map键，需完整BattlegroundQueueTypeId结构体)
+//By leewheel 2026-09-09: TC-Cata竞技场队列是结构体，在代码中用BattlegroundMgr::BGQueueTypeId构造
+//End By leewheel
 
 // AV战场BOSS位置常量
 #ifndef AV_CPLACE_A_BOSS
@@ -561,17 +549,38 @@ inline constexpr SpellAuraInterruptFlags AURA_INTERRUPT_FLAG_CHANGE_MAP = SpellA
 #ifndef BG_AB_NODE_STATE_NEUTRAL
 #define BG_AB_NODE_STATE_NEUTRAL 0
 #endif
+
 #ifndef BG_AB_NODE_STATE_ALLY_CONTESTED
 #define BG_AB_NODE_STATE_ALLY_CONTESTED 1
 #endif
+
 #ifndef BG_AB_NODE_STATE_HORDE_CONTESTED
 #define BG_AB_NODE_STATE_HORDE_CONTESTED 2
 #endif
+
 #ifndef BG_AB_NODE_STATE_ALLY_OCCUPIED
 #define BG_AB_NODE_STATE_ALLY_OCCUPIED 3
 #endif
+
 #ifndef BG_AB_NODE_STATE_HORDE_OCCUPIED
 #define BG_AB_NODE_STATE_HORDE_OCCUPIED 4
+#endif
+
+//By leewheel 2026-09-08: AB节点ID(WotLK与Cata一致)
+#ifndef BG_AB_NODE_STABLES
+#define BG_AB_NODE_STABLES 0
+#endif
+#ifndef BG_AB_NODE_BLACKSMITH
+#define BG_AB_NODE_BLACKSMITH 1
+#endif
+#ifndef BG_AB_NODE_FARM
+#define BG_AB_NODE_FARM 2
+#endif
+#ifndef BG_AB_NODE_LUMBER_MILL
+#define BG_AB_NODE_LUMBER_MILL 3
+#endif
+#ifndef BG_AB_NODE_GOLD_MINE
+#define BG_AB_NODE_GOLD_MINE 4
 #endif
 
 // ========== TC缺失的AC Opcode常量 ==========
@@ -2791,6 +2800,119 @@ inline uint32 ItemTemplate_GetBuyCount(const ItemTemplate* proto)
 }
 //End By leewheel 2026-07-10
 
+// ========== ItemTemplate::GetArmor 兼容 ==========
+// AC的ItemTemplate有GetArmor()方法，TC的armor在BasicData->Resistances[SPELL_SCHOOL_NORMAL]
+// By leewheel 2026-09-09
+inline int32 ItemTemplate_GetArmor(const ItemTemplate* proto)
+{
+    return proto->BasicData->Resistances[SPELL_SCHOOL_NORMAL];
+}
+//End By leewheel
+
+// ========== ItemTemplate::GetShieldBlockValue 兼容 ==========
+// AC有此方法，TC Cata中移除了盾牌格挡值属性
+// By leewheel 2026-09-09
+inline int32 ItemTemplate_GetShieldBlockValue(const ItemTemplate* /*proto*/, uint32 /*itemLevel*/)
+{
+    return 0;
+}
+//End By leewheel
+
+// ========== MAX_ITEM_PROTO_DAMAGES 兼容 ==========
+// AC有此常量，TC Cata中伤害数组大小为5
+// By leewheel 2026-09-09
+#ifndef MAX_ITEM_PROTO_DAMAGES
+#define MAX_ITEM_PROTO_DAMAGES 5
+#endif
+//End By leewheel
+
+// ========== SKILL_THROWN 兼容 ==========
+// AC有投掷武器技能，TC Cata中移除了投掷武器
+// By leewheel 2026-09-09
+#ifndef SKILL_THROWN
+#define SKILL_THROWN SKILL_NONE
+#endif
+//End By leewheel
+
+// ========== SPELL_AURA_MOD_INCREASES_SPELL_PCT_TO_HIT 兼容 ==========
+// AC有此光环类型，TC Cata中已重命名为SPELL_AURA_199且未使用
+// By leewheel 2026-09-09
+#ifndef SPELL_AURA_MOD_INCREASES_SPELL_PCT_TO_HIT
+#define SPELL_AURA_MOD_INCREASES_SPELL_PCT_TO_HIT SPELL_AURA_199
+#endif
+//End By leewheel
+
+// ========== Player::GetArenaPoints 兼容 ==========
+// AC有竞技场点数，TC Cata中移除了竞技场点数
+// By leewheel 2026-09-09
+inline uint32 Player_GetArenaPoints(const Player* /*player*/)
+{
+    return 0;
+}
+//End By leewheel
+
+// ========== ItemTemplate::DisenchantID 兼容 ==========
+// AC有DisenchantID成员，TC Cata中通过ItemDisenchantLoot DB2表查询
+// By leewheel 2026-09-09
+inline uint32 ItemTemplate_GetDisenchantID(const ItemTemplate* proto)
+{
+    ItemDisenchantLootEntry const* disenchant = Item::GetDisenchantLoot(proto, proto->GetQuality(), proto->GetItemLevel());
+    return disenchant ? disenchant->ID : 0;
+}
+//End By leewheel
+
+// ========== ItemSetEffect 结构定义兼容 ==========
+// TC的ItemSetEffect定义在Item.cpp中，Player.h只有前向声明
+// StatsWeightCalculator.cpp需要完整定义才能访问成员
+// By leewheel 2026-09-09
+struct ItemSetEffect
+{
+    uint32 ItemSetID;
+    std::unordered_set<Item const*> EquippedItems;
+    std::unordered_set<ItemSetSpellEntry const*> SetBonuses;
+};
+//End By leewheel
+
+// ========== CreatureTemplate 拾取字段兼容 (绕过GetDifficulty宏) ==========
+// AC使用creatureTemplate->pickpocketLootId/SkinLootId
+// TC的字段在CreatureDifficulty中，但GetDifficulty()被宏拦截
+// 使用difficultyStore直接访问以避免宏冲突
+// By leewheel 2026-09-09
+inline CreatureDifficulty const* CreatureTemplate_GetDifficultyEntry(const CreatureTemplate* entry, Difficulty diff)
+{
+    auto it = entry->difficultyStore.find(diff);
+    if (it != entry->difficultyStore.end())
+        return &it->second;
+    return nullptr;
+}
+
+inline uint32 CreatureTemplate_GetPickPocketLootID(const CreatureTemplate* entry)
+{
+    auto diff = CreatureTemplate_GetDifficultyEntry(entry, DIFFICULTY_NORMAL);
+    return diff ? diff->PickPocketLootID : 0;
+}
+
+inline uint32 CreatureTemplate_GetSkinLootID(const CreatureTemplate* entry)
+{
+    auto diff = CreatureTemplate_GetDifficultyEntry(entry, DIFFICULTY_NORMAL);
+    return diff ? diff->SkinLootID : 0;
+}
+
+// CreatureTemplate兼容: AC mingold/maxgold → TC CreatureDifficulty::GoldMin/GoldMax
+//By leewheel 2026-09-09: TC-Cata的金币字段在CreatureDifficulty中
+inline uint32 CreatureTemplate_GetGoldMin(const CreatureTemplate* entry)
+{
+    auto diff = CreatureTemplate_GetDifficultyEntry(entry, DIFFICULTY_NORMAL);
+    return diff ? diff->GoldMin : 0;
+}
+
+inline uint32 CreatureTemplate_GetGoldMax(const CreatureTemplate* entry)
+{
+    auto diff = CreatureTemplate_GetDifficultyEntry(entry, DIFFICULTY_NORMAL);
+    return diff ? diff->GoldMax : 0;
+}
+//End By leewheel
+
 // ========== SpellItemEnchantmentEntry::slot 兼容 ==========
 // AC的SpellItemEnchantmentEntry有slot成员，TC没有
 // By leewheel 2026-07-10
@@ -2982,5 +3104,422 @@ inline int32 Item_GenerateItemRandomPropertyId(uint32 itemEntry)
 #define AREA_FLAG_NO_FLY_ZONE 0
 #endif
 //End By leewheel
+
+// ========== 第二批API兼容宏（2026-09-08 编译错误修复） ==========
+//By leewheel 2026-09-08: 移植mod-playerbots到TC-Cata，补充缺失的API兼容宏和辅助函数
+
+// AC使用小写方法名，TC使用大写开头
+#ifndef isFrozen
+#define isFrozen() IsFrozen()
+#endif
+#ifndef IsLevitating
+#define IsLevitating() HasFeatherFallAura()
+#endif
+#ifndef getStandState
+#define getStandState() GetStandState()
+#endif
+
+// Map方法兼容: AC GetDifficulty() → TC GetDifficultyID()
+#ifndef GetDifficulty
+#define GetDifficulty() GetDifficultyID()
+#endif
+
+// Quest方法兼容: AC GetTitle() → TC GetLogTitle()
+#ifndef GetTitle
+#define GetTitle() GetLogTitle()
+#endif
+
+// TalentEntry方法兼容: AC GetTalentID() → TC直接访问ID成员
+#ifndef GetTalentID
+#define GetTalentID() ID
+#endif
+
+// AreaTableEntry成员兼容: AC area_name → TC AreaName (LocalizedString)
+// area_name是AC专用字段名，不会与C++通用标识符冲突
+#define area_name AreaName
+
+// TalentTabEntry成员兼容: AC PetTalentMask → TC没有宠物天赋树
+#ifndef PetTalentMask
+#define PetTalentMask 0
+#endif
+
+// CreatureTemplate辅助函数: maxlevel → CreatureDifficulty::MaxLevel
+//By leewheel 2026-09-08: TC-Cata的CreatureTemplate没有MinLevel字段,GetDifficulty被宏拦截,直接用difficultyStore
+inline uint8 CreatureTemplate_GetMaxLevel(const CreatureTemplate* entry)
+{
+    auto it = entry->difficultyStore.find(DIFFICULTY_NORMAL);
+    if (it != entry->difficultyStore.end())
+        return it->second.MaxLevel;
+    if (!entry->difficultyStore.empty())
+        return entry->difficultyStore.begin()->second.MaxLevel;
+    return 0;
+}
+// MinLevel版本
+inline uint8 CreatureTemplate_GetMinLevel(const CreatureTemplate* entry)
+{
+    auto it = entry->difficultyStore.find(DIFFICULTY_NORMAL);
+    if (it != entry->difficultyStore.end())
+        return it->second.MinLevel;
+    if (!entry->difficultyStore.empty())
+        return entry->difficultyStore.begin()->second.MinLevel;
+    return 0;
+}
+//End By leewheel
+
+// CreatureTemplate辅助函数: rank → CreatureDifficulty中的分类
+//By leewheel 2026-09-08: TC-Cata的Classification是enum class CreatureClassifications,需static_cast
+inline uint32 CreatureTemplate_GetRank(const CreatureTemplate* entry)
+{
+    return static_cast<uint32>(entry->Classification);
+}
+//End By leewheel
+
+// CreatureTemplate辅助函数: IsExotic/IsTameable → 需要CreatureDifficulty参数
+//By leewheel 2026-09-09: TC-Cata的IsExotic/IsTameable需要CreatureDifficulty指针参数
+inline bool CreatureTemplate_IsExotic(CreatureTemplate const* creature)
+{
+    auto it = creature->difficultyStore.find(DIFFICULTY_NORMAL);
+    if (it != creature->difficultyStore.end())
+        return (it->second.TypeFlags & CREATURE_TYPE_FLAG_TAMEABLE_EXOTIC) != 0;
+    return false;
+}
+inline bool CreatureTemplate_IsExotic(CreatureTemplate const& creature)
+{
+    return CreatureTemplate_IsExotic(&creature);
+}
+inline bool CreatureTemplate_IsTameable(CreatureTemplate const* creature, bool canTameExotic)
+{
+    auto it = creature->difficultyStore.find(DIFFICULTY_NORMAL);
+    if (it == creature->difficultyStore.end())
+        return false;
+    CreatureDifficulty const* diff = &it->second;
+    if (creature->type != CREATURE_TYPE_BEAST || creature->family == CREATURE_FAMILY_NONE
+        || (diff->TypeFlags & CREATURE_TYPE_FLAG_TAMEABLE) == 0)
+        return false;
+    return canTameExotic || !(diff->TypeFlags & CREATURE_TYPE_FLAG_TAMEABLE_EXOTIC);
+}
+inline bool CreatureTemplate_IsTameable(CreatureTemplate const& creature, bool canTameExotic)
+{
+    return CreatureTemplate_IsTameable(&creature, canTameExotic);
+}
+//End By leewheel
+
+// Creature辅助函数: loot → m_loot(unique_ptr<Loot>)
+inline Loot* Creature_GetLoot(Creature* creature)
+{
+    return creature->m_loot.get();
+}
+inline Loot const* Creature_GetLoot(Creature const* creature)
+{
+    return creature->m_loot.get();
+}
+
+// Creature辅助函数: GetCreatedBySpell → TC的Unit有SetCreatedBySpell但没有getter
+inline uint32 Creature_GetCreatedBySpell(Creature const* creature)
+{
+    return *creature->m_unitData->CreatedBySpell;
+}
+
+// TaxiNodesEntry辅助函数: AC map_id/x/y/z → TC ContinentID/Pos
+inline uint32 TaxiNodesEntry_GetMapId(const TaxiNodesEntry* entry)
+{
+    return entry->ContinentID;
+}
+inline float TaxiNodesEntry_GetX(const TaxiNodesEntry* entry)
+{
+    return entry->Pos.X;
+}
+inline float TaxiNodesEntry_GetY(const TaxiNodesEntry* entry)
+{
+    return entry->Pos.Y;
+}
+inline float TaxiNodesEntry_GetZ(const TaxiNodesEntry* entry)
+{
+    return entry->Pos.Z;
+}
+
+// TaxiPathNodeEntry辅助函数: AC mapid/x/y/z → TC ContinentID/Loc
+inline uint32 TaxiPathNodeEntry_GetMapId(const TaxiPathNodeEntry* entry)
+{
+    return entry->ContinentID;
+}
+inline float TaxiPathNodeEntry_GetX(const TaxiPathNodeEntry* entry)
+{
+    return entry->Loc.X;
+}
+inline float TaxiPathNodeEntry_GetY(const TaxiPathNodeEntry* entry)
+{
+    return entry->Loc.Y;
+}
+inline float TaxiPathNodeEntry_GetZ(const TaxiPathNodeEntry* entry)
+{
+    return entry->Loc.Z;
+}
+
+// ItemTemplate辅助函数: AC Class → TC GetClass()
+inline uint32 ItemTemplate_GetClass(const ItemTemplate* proto)
+{
+    return proto->GetClass();
+}
+
+// Quest方法兼容: AC IsAutoComplete() → TC检查标志位
+inline bool Quest_IsAutoComplete(Quest const* quest)
+{
+    return quest->GetFlags() & QUEST_FLAGS_AUTO_COMPLETE;
+}
+
+// Quest方法兼容: AC GetRequiredClasses() → TC GetAllowableClasses()
+//By leewheel 2026-09-09: TC-Cata的Quest用GetAllowableClasses而非GetRequiredClasses
+inline uint32 Quest_GetRequiredClasses(Quest const* quest)
+{
+    return quest->GetAllowableClasses();
+}
+//End By leewheel
+
+// Player兼容: AC InitTalentForLevel() → TC UpdateAvailableTalentPoints()
+//By leewheel 2026-09-09: TC-Cata用UpdateAvailableTalentPoints替代InitTalentForLevel
+inline void Player_InitTalentForLevel(Player* player)
+{
+    player->UpdateAvailableTalentPoints();
+}
+//End By leewheel
+
+// SpellMgr兼容: AC GetSpellInfoStoreSize() → TC没有此方法
+inline uint32 SpellMgr_GetSpellInfoStoreSize()
+{
+    return 0;
+}
+#define GetSpellInfoStoreSize() SpellMgr_GetSpellInfoStoreSize()
+
+// BattlegroundMgr兼容: AC BGArenaType → TC通过BattlegroundQueueTypeId.TeamSize获取
+//By leewheel 2026-09-08: TC-Cata的BattlegroundQueueTypeId无GetArenaType方法,用TeamSize字段替代
+inline uint8 BattlegroundMgr_BGArenaType(BattlegroundQueueTypeId queueId)
+{
+    return queueId.TeamSize;
+}
+//End By leewheel
+
+// ArenaTeam兼容: AC GetMembers() → TC使用m_membersBegin/m_membersEnd
+// 返回一个可迭代的范围
+//By leewheel 2026-09-08: TC-Cata的m_membersBegin/m_membersEnd是非const方法,需非const指针
+inline auto ArenaTeam_GetMembers(ArenaTeam* team)
+{
+    return Trinity::IteratorPair(team->m_membersBegin(), team->m_membersEnd());
+}
+//End By leewheel
+
+// ArenaTeamMgr兼容: AC GetPersonalArenaTeams → TC没有此概念
+inline ArenaTeam const* ArenaTeamMgr_GetPersonalArenaTeam(ObjectGuid /*guid*/)
+{
+    return nullptr;
+}
+
+// Player兼容: AC GetComboPoints() → TC通过Power系统获取
+//By leewheel 2026-09-08: TC-Cata无GetComboPoints方法,用GetPower(POWER_COMBO_POINTS)替代
+inline uint8 Player_GetComboPoints(Player const* player)
+{
+    return uint8(player->GetPower(POWER_COMBO_POINTS));
+}
+//End By leewheel
+
+// Player兼容: AC GetDivider/SetDivider → TC没有此成员，返回空ObjectGuid
+//By leewheel 2026-09-08: 移除宏定义(宏无法处理obj->方法()语法),改为在源文件中直接调用自由函数
+inline ObjectGuid Player_GetDivider(Player const* /*player*/)
+{
+    return ObjectGuid::Empty;
+}
+inline void Player_SetDivider(Player* /*player*/, ObjectGuid /*guid*/)
+{
+}
+//End By leewheel
+
+// Player兼容: AC InitTalentForLevel() → TC使用UpdateAvailableTalentPoints
+// 注意：不能用宏因为调用对象可能不是this，需要在源文件中逐个修改
+
+// QuestStatusData兼容: AC CreatureOrGOCount → TC使用QuestObjective系统
+inline uint32 QuestStatusData_GetCreatureOrGOCount(QuestStatusData const* /*data*/, uint32 /*questId*/, uint32 /*creatureOrGOEntry*/)
+{
+    // TODO: 按Cata的QuestObjective系统重新实现
+    return 0;
+}
+
+// NotNormalLootItem兼容: AC index → TC字段名不同
+//By leewheel 2026-09-08: TC-Cata的NotNormalLootItem用LootListId而非Index
+inline uint8 NotNormalLootItem_GetIndex(NotNormalLootItem const* item)
+{
+    return item->LootListId;
+}
+//End By leewheel
+
+// CreatureData兼容: AC mapid → TC MapID
+inline uint32 CreatureData_GetMapId(CreatureData const* data)
+{
+    return data->mapId;
+}
+
+// Trainer兼容: AC GetSpells/GetTrainerType → TC使用不同API
+// 需要在源文件中适配
+//By leewheel 2026-09-09: TC-Cata的Trainer::Trainer API不同，添加兼容辅助函数
+inline bool Trainer_IsTrainerValidForPlayer(Trainer::Trainer const* /*trainer*/, Player const* /*player*/)
+{
+    // TC中没有直接对应的IsTrainerValidForPlayer方法
+    // 简化处理：总是返回true，由后续的CanTeachSpell逐个法术检查过滤
+    return true;
+}
+//End By leewheel
+
+// ItemTemplate兼容: AC GetName()无参 → TC GetName(locale)需locale参数
+//By leewheel 2026-09-09: TC-Cata的ItemTemplate::GetName需要LocaleConstant参数
+inline char const* ItemTemplate_GetName(ItemTemplate const* proto)
+{
+    return proto->GetName(sWorld->GetDefaultDbcLocale());
+}
+//End By leewheel
+
+// CreatureTemplate兼容: AC Class → TC unit_class
+//By leewheel 2026-09-09: TC-Cata的CreatureTemplate用unit_class而非Class
+inline uint32 CreatureTemplate_GetClass(CreatureTemplate const* proto)
+{
+    return proto->unit_class;
+}
+//End By leewheel
+
+// Creature兼容: AC lootid → TC GetLootId()
+//By leewheel 2026-09-09: TC-Cata用GetLootId()方法而非lootid成员
+inline uint32 Creature_GetLootId(Creature const* creature)
+{
+    return creature->GetLootId();
+}
+//End By leewheel
+
+// ObjectGuid兼容: AC WriteAsPacked(buf) → TC buf << guid
+//By leewheel 2026-09-09: TC-Cata通过operator<<写入packed guid
+inline void ObjectGuid_WriteAsPacked(ObjectGuid const& guid, ByteBuffer& buf)
+{
+    buf << guid;
+}
+//End By leewheel
+
+// Guild兼容: AC GetMemberRankRights公开 → TC私有,改用HasAnyRankRight
+//By leewheel 2026-09-09: TC-Cata的GetMemberRankRights/GetRankInfo都是private,只能用HasAnyRankRight
+inline bool Guild_HasRankRight(Guild const* guild, ObjectGuid const& guid, uint32 right)
+{
+    Guild::Member const* member = guild->GetMember(guid);
+    if (!member)
+        return false;
+    return guild->HasAnyRankRight(member->GetRankId(), GuildRankRights(right));
+}
+// Guild银行标签权限兼容(TODO:需通过其他方式实现,当前用stub)
+inline bool Guild_MemberHasTabRights(Guild const* /*guild*/, ObjectGuid const& /*guid*/, uint8 /*tabId*/, int32 /*rights*/)
+{
+    // TODO: TC-Cata无公开API可查rank bank tab rights,暂时返回true避免功能完全失效
+    return true;
+}
+//End By leewheel
+
+// CombatRating兼容: AC CR_* 整数宏 → TC CombatRating枚举
+//By leewheel 2026-09-09: TC-Cata的CombatRating枚举中已移除CR_HIT_TAKEN_*和CR_CRIT_TAKEN_*，
+// 这些等级在Cata中不存在，使用MAX_COMBAT_RATING作为安全占位值（位掩码中无实际效果）
+#ifndef CR_HIT_TAKEN_MELEE
+#define CR_HIT_TAKEN_MELEE    MAX_COMBAT_RATING
+#endif
+#ifndef CR_HIT_TAKEN_RANGED
+#define CR_HIT_TAKEN_RANGED   MAX_COMBAT_RATING
+#endif
+#ifndef CR_HIT_TAKEN_SPELL
+#define CR_HIT_TAKEN_SPELL    MAX_COMBAT_RATING
+#endif
+#ifndef CR_CRIT_TAKEN_MELEE
+#define CR_CRIT_TAKEN_MELEE   MAX_COMBAT_RATING
+#endif
+#ifndef CR_CRIT_TAKEN_RANGED
+#define CR_CRIT_TAKEN_RANGED  MAX_COMBAT_RATING
+#endif
+#ifndef CR_CRIT_TAKEN_SPELL
+#define CR_CRIT_TAKEN_SPELL   MAX_COMBAT_RATING
+#endif
+//By leewheel 2026-09-09: TC-Cata已移除CR_WEAPON_SKILL(原WotLK中=0)，
+//StatsCollector中循环遍历战斗评级从0开始，使用CR_UNUSED_0(=0)兼容
+#ifndef CR_WEAPON_SKILL
+#define CR_WEAPON_SKILL       0
+#endif
+//End By leewheel
+
+// BattlegroundWS stub (TC-Cata无此类)
+//By leewheel 2026-09-09: 添加BattlegroundWS存根类
+class BattlegroundWS : public Battleground
+{
+public:
+    ObjectGuid GetFlagPickerGUID(TeamId /*teamId*/) const { return ObjectGuid::Empty; }
+};
+//End By leewheel
+
+// ========== TC-Cata 新增兼容层 (2026-09-09) ==========
+
+// DEFAULT_FOLLOW_ANGLE → TC使用PET_FOLLOW_ANGLE
+#ifndef DEFAULT_FOLLOW_ANGLE
+#define DEFAULT_FOLLOW_ANGLE PET_FOLLOW_ANGLE
+#endif
+
+// GetPhaseMask → TC使用GetPhaseShift (PhaseShift而非uint32 phasemask)
+// Map::GetAreaId/GetZoneId 需要PhaseShift const&参数
+#define GetPhaseMask() GetPhaseShift()
+
+// StopMovingOnCurrentPos → TC使用StopMoving
+#define StopMovingOnCurrentPos() StopMoving()
+
+// ScalingStatDistributionEntry: AC用MaxLevel，TC用Maxlevel(小写l)
+// 由于是结构体成员，不能用宏全局替换，在使用处手动修改
+
+// BuildChatPacket兼容: AC的ChatHandler::BuildChatPacket → TC的WorldPackets::Chat::Chat
+// 需要包含ChatPackets.h
+#include "Server/Packets/ChatPackets.h"
+
+// 兼容函数1: BuildChatPacket(data, chatType, language, sender, receiver, message)
+inline void BuildChatPacket(WorldPacket& data, ChatMsg chatType, Language language, WorldObject const* sender,
+    WorldObject const* receiver, std::string_view message)
+{
+    WorldPackets::Chat::Chat packet;
+    packet.Initialize(chatType, language, sender, receiver, message);
+    data = *packet.Write();
+}
+
+// 兼容函数2: BuildChatPacket(data, chatType, message, language, chatFlags, senderGuid, senderName)
+// AC版本带有chat tag/guid/name参数，TC通过Initialize自动设置
+inline void BuildChatPacket(WorldPacket& data, ChatMsg chatType, const char* message, Language language,
+    uint16 /*chatFlags*/, ObjectGuid senderGuid, const char* senderName)
+{
+    WorldPackets::Chat::Chat packet;
+    packet.SlashCmd = chatType;
+    packet._Language = language;
+    packet.SenderGUID = senderGuid;
+    packet.SenderName = senderName ? senderName : "";
+    packet.ChatText = message ? message : "";
+    data = *packet.Write();
+}
+
+// CharmInfo兼容: SetForcedSpell/SetForcedTargetGUID 在TC-Cata中不存在
+// 提供空实现的存根函数（通过宏替换为no-op，避免影响运行时行为）
+// 注意：这些是CharmInfo的成员函数，无法直接扩展，使用宏在调用处替换为空
+// 由于CharmInfo类定义在核心中不可修改，这里提供全局存根
+// 实际调用处需要注释掉或改为空操作
+
+// Creature loot兼容: AC的creature->loot.isLooted() → TC的creature->m_loot.get() && creature->m_loot.get()->isLooted()
+// TC的Creature没有GetLoot()方法，m_loot是unique_ptr<Loot>，使用已有的Creature_GetLoot兼容函数
+inline bool Creature_IsLooted(Creature const* creature)
+{
+    Loot const* loot = Creature_GetLoot(creature);
+    return loot && loot->isLooted();
+}
+
+// IsImmunedToSpell兼容: AC用(spellInfo, caster) → TC用(spellInfo, effectMask, caster)
+inline bool Unit_IsImmunedToSpell(Unit const* unit, SpellInfo const* spellInfo, WorldObject const* caster)
+{
+    return unit->IsImmunedToSpell(spellInfo, MAX_EFFECT_MASK, caster);
+}
+
+//End By leewheel 2026-09-09
+
+//End By leewheel 2026-09-08
 
 #endif // PLAYERBOTS_PLAYERBOTS_H

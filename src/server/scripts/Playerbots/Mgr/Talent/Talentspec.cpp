@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
  * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
@@ -69,13 +69,13 @@ TalentSpec::TalentSpec(TalentSpec* base, std::string const link)
 
 TalentSpec::TalentSpec(Player* bot)
 {
-    GetTalents(bot->getClassMask());
+    GetTalents(bot->GetClassMask());
     ReadTalents(bot);
 }
 
 TalentSpec::TalentSpec(Player* bot, std::string const link)
 {
-    GetTalents(bot->getClassMask());
+    GetTalents(bot->GetClassMask());
     ReadTalents(link);
 }
 

@@ -256,8 +256,10 @@ public:
         Player* bot = botAI->GetBot();
         if (level == 10)
         {
-            Unit* combo_unit = bot->GetComboTarget();
-            if (new_unit == combo_unit)
+            //By leewheel 2026-09-09: TC-Cata的GetComboTarget返回ObjectGuid，需转换为Unit*
+            ObjectGuid comboGuid = bot->GetComboTarget();
+            Unit* combo_unit = comboGuid ? ObjectAccessor::GetUnit(*bot, comboGuid) : nullptr;
+            if (combo_unit && new_unit == combo_unit)
                 return true;
 
             return new_time < old_time;

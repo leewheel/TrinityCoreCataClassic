@@ -1282,6 +1282,16 @@ class TC_GAME_API Player final : public Unit, public GridObject<Player>
                     break;
             }
         }
+
+        // 雕文访问兼容: AC GetGlyph(slot) / GetGlyphSlot(slot)
+        uint32 GetGlyph(uint8 slot) const
+        {
+            return m_activePlayerData->Glyphs[slot];
+        }
+        uint32 GetGlyphSlot(uint8 slot) const
+        {
+            return m_activePlayerData->GlyphSlots[slot];
+        }
         //End By leewheel
 
         void InitStatsForLevel(bool reapplyMods = false);
@@ -2390,6 +2400,8 @@ class TC_GAME_API Player final : public Unit, public GridObject<Player>
         uint32 GetFreeTalentPoints() const { return uint32(m_activePlayerData->CharacterPoints); }
         // AC兼容: GetSpentTalentPointsCount() → 当前天赋方案已用点数(实现在Player.cpp，需TalentGroupInfo完整类型)
         uint32 GetSpentTalentPointsCount() const;
+        // AC兼容: GetPlayerTalentMap(group) → 指定天赋方案的天赋映射(实现在Player.cpp，需TalentGroupInfo完整类型)
+        std::unordered_map<uint32, uint8> const& GetPlayerTalentMap(uint8 group) const;
         // AC兼容: GetHonorPoints() → 当前荣誉点数
         uint32 GetHonorPoints() const { return uint32(m_activePlayerData->Honor); }
         //End By leewheel

@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
  * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
@@ -508,8 +508,10 @@ uint32 RandomItemMgr::CalculateStatWeight(ItemTemplate const* proto, uint8 playe
     }
 
     // check armor & block
-    statWeight += CalculateSingleStatWeight(playerclass, spec, "armor", proto->GetArmor());
-    statWeight += CalculateSingleStatWeight(playerclass, spec, "block", proto->GetShieldBlockValue(proto->GetItemLevel()));
+    //By leewheel 2026-09-09: TC-Cata的ItemTemplate没有GetArmor/GetShieldBlockValue，使用兼容函数
+    statWeight += CalculateSingleStatWeight(playerclass, spec, "armor", ItemTemplate_GetArmor(proto));
+    statWeight += CalculateSingleStatWeight(playerclass, spec, "block", ItemTemplate_GetShieldBlockValue(proto, proto->GetItemLevel()));
+    //End By leewheel
 
     // check weapon dps
     if (proto->IsWeapon())
@@ -892,8 +894,10 @@ uint32 RandomItemMgr::GetLiveStatWeight(Player* player, uint32 itemId)
     // skip pvp items
     if (itr->second.source == ITEM_SOURCE_PVP)
     {
-        if (!player->GetHonorPoints() && !player->GetArenaPoints())
+        //By leewheel 2026-09-09: TC-Cata移除了竞技场点数，使用兼容函数
+        if (!player->GetHonorPoints() && !Player_GetArenaPoints(player))
             return 0;
+        //End By leewheel
     }
 
     // skip no stats trinkets
@@ -1350,16 +1354,16 @@ uint32 RandomItemMgr::GetQuestIdForItem(uint32 itemId) const
 {
     for (auto const& [id, quest] : sObjectMgr->GetQuestTemplates())
     {
-        for (uint32 i = 0; i < quest.GetRewItemsCount(); ++i)
+        for (uint32 i = 0; i < quest->GetRewItemsCount(); ++i)
         {
-            if (quest.RewardItemId[i] == itemId)
-                return quest.GetQuestId();
+            if (quest->RewardItemId[i] == itemId)
+                return quest->GetQuestId();
         }
 
-        for (uint32 i = 0; i < quest.GetRewChoiceItemsCount(); ++i)
+        for (uint32 i = 0; i < quest->GetRewChoiceItemsCount(); ++i)
         {
-            if (quest.RewardChoiceItemId[i] == itemId)
-                return quest.GetQuestId();
+            if (quest->RewardChoiceItemId[i] == itemId)
+                return quest->GetQuestId();
         }
     }
 
@@ -1372,21 +1376,21 @@ std::vector<uint32> RandomItemMgr::GetQuestIdsForItem(uint32 itemId) const
 
     for (auto const& [id, quest] : sObjectMgr->GetQuestTemplates())
     {
-        for (uint32 i = 0; i < quest.GetRewItemsCount(); ++i)
+        for (uint32 i = 0; i < quest->GetRewItemsCount(); ++i)
         {
-            if (quest.RewardItemId[i] == itemId)
+            if (quest->RewardItemId[i] == itemId)
             {
-                questIds.push_back(quest.GetQuestId());
+                questIds.push_back(quest->GetQuestId());
                 break;
             }
         }
 
-        for (uint32 i = 0; i < quest.GetRewChoiceItemsCount(); ++i)
+        for (uint32 i = 0; i < quest->GetRewChoiceItemsCount(); ++i)
         {
             //By leewheel 2026-07-11: TC中quest是值引用不是指针, 用.而不是->
-            if (quest.RewardChoiceItemId[i] == itemId)
+            if (quest->RewardChoiceItemId[i] == itemId)
             {
-                questIds.push_back(quest.GetQuestId());
+                questIds.push_back(quest->GetQuestId());
                 break;
             }
             //End By leewheel 2026-07-11
@@ -1405,7 +1409,7 @@ bool RandomItemMgr::IsInternalItem(ItemTemplate const* proto)
         return true;
 
     //By leewheel 2026-07-11: TC的GetName()返回const char*, 不需要.c_str()
-    char const* name = proto->GetName();
+    char const* name = ItemTemplate_GetName(proto);
     //End By leewheel 2026-07-11
     return strstr(name, "NPC ")        ||  // 4859
            strstr(name, "怪物 ")        ||  // 574
@@ -1455,9 +1459,9 @@ bool RandomItemMgr::IsValidItem(ItemTemplate const* proto)
         (1 << (RACE_DRAENEI - 1));
 
     // check race-restricted items
-    //By leewheel 2026-07-11: TC的AllowableRace是函数不是成员, 需要加()
-    if ((proto->AllowableRace() & RACEMASK_ALL_PLAYABLE) == 0)
-    //End By leewheel 2026-07-11
+    //By leewheel 2026-09-09: TC-Cata使用GetAllowableRace()，返回RaceMask<int64>，通过RawValue访问原始值
+    if ((proto->GetAllowableRace().RawValue & RACEMASK_ALL_PLAYABLE) == 0)
+    //End By leewheel
         return false;
 
     // check test/internal items
@@ -2061,25 +2065,25 @@ void RandomItemMgr::BuildCacheEquipNew()
     {
         // skip repeatable quests
         //By leewheel 2026-07-11: TC中quest是值引用不是指针
-        if (quest.IsRepeatable())
+        if (quest->IsRepeatable())
             continue;
 
         // skip quests with invalid or out-of-range level
-        int32 const questLevel = quest.GetQuestLevel();
+        int32 const questLevel = quest->GetQuestLevel();
         if (questLevel <= 0 || static_cast<uint32>(questLevel) > DEFAULT_MAX_LEVEL)
             continue;
 
         // skip class-restricted quests
-        if (quest.GetRequiredClasses())
+        if (Quest_GetRequiredClasses(quest.get()))
             continue;
         //End By leewheel 2026-07-11
 
         //By leewheel 2026-07-11: TC中quest是值引用不是指针, 用.而不是->
-        for (uint32 i = 0; i < quest.GetRewItemsCount(); ++i)
-            processQuestItem(quest.RewardItemId[i], questLevel);
+        for (uint32 i = 0; i < quest->GetRewItemsCount(); ++i)
+            processQuestItem(quest->RewardItemId[i], questLevel);
 
-        for (uint32 i = 0; i < quest.GetRewChoiceItemsCount(); ++i)
-            processQuestItem(quest.RewardChoiceItemId[i], questLevel);
+        for (uint32 i = 0; i < quest->GetRewChoiceItemsCount(); ++i)
+            processQuestItem(quest->RewardChoiceItemId[i], questLevel);
         //End By leewheel 2026-07-11
     }
 
@@ -2307,7 +2311,7 @@ void RandomItemMgr::BuildCacheItemInfo()
 
         //         // check possible armor for spec
         //         if (m_weightScales)
-        //         if (proto->Class == ITEM_CLASS_ARMOR && (
+        //         if (CreatureTemplate_GetClass(proto) == ITEM_CLASS_ARMOR && (
         //             slot == EQUIPMENT_SLOT_HEAD ||
         //             slot == EQUIPMENT_SLOT_SHOULDERS ||
         //             slot == EQUIPMENT_SLOT_CHEST ||
@@ -2320,7 +2324,7 @@ void RandomItemMgr::BuildCacheItemInfo()
         //             continue;
 
         //         // check possible weapon for spec
-        //         if ((proto->Class == ITEM_CLASS_WEAPON || (proto->SubClass == ITEM_SUBCLASS_ARMOR_SHIELD ||
+        //         if ((CreatureTemplate_GetClass(proto) == ITEM_CLASS_WEAPON || (proto->SubClass == ITEM_SUBCLASS_ARMOR_SHIELD ||
         //         (proto->SubClass == ITEM_SUBCLASS_ARMOR_MISC && proto->InventoryType == INVTYPE_HOLDABLE))) &&
         //             !ShouldEquipWeaponForSpec(clazz, spec, proto))
         //             continue;

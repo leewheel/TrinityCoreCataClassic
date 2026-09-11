@@ -856,6 +856,12 @@ class TC_GAME_API Guild
         std::unordered_map<ObjectGuid, Member> const& GetMembers() const { return m_members; }
         uint64 GetMemberAvailableMoneyForRepairItems(ObjectGuid guid) const;
         std::vector<Player*> GetMembersTrackingCriteria(uint32 criteriaId) const;
+        //By leewheel 2026-09-06: 移植mod-playerbots，AC兼容：按玩家GUID查询其公会权限位
+        uint32 GetMemberRankRights(ObjectGuid const& guid) const;
+        //End By leewheel
+        //By leewheel 2026-09-09: AC兼容：检查玩家是否有指定银行标签的权限
+        bool MemberHasTabRights(ObjectGuid const& guid, uint8 tabId, int32 rights) const;
+        //End By leewheel
 
         // Bank
         void SwapItems(Player* player, uint8 tabId, uint8 slotId, uint8 destTabId, uint8 destSlotId, uint32 splitedAmount);
@@ -944,15 +950,6 @@ class TC_GAME_API Guild
 
             return nullptr;
         }
-
-        //By leewheel 2026-09-06: 移植mod-playerbots，AC兼容：按玩家GUID查询其公会权限位
-        uint32 GetMemberRankRights(ObjectGuid const& guid) const
-        {
-            if (Member const* member = GetMember(guid))
-                return _GetRankRights(member->GetRankId());
-            return 0;
-        }
-        //End By leewheel
 
         static void _DeleteMemberFromDB(CharacterDatabaseTransaction trans, ObjectGuid::LowType lowguid);
 

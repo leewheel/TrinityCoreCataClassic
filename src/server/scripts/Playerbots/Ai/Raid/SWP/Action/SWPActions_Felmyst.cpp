@@ -1,4 +1,4 @@
-/* 太阳之井高地 机器人策略 */
+﻿/* 太阳之井高地 机器人策略 */
 #include "SWPActions.h"
 #include "EncounterHelpers.h"
 #include "Playerbots.h"

@@ -123,7 +123,9 @@ bool QuestAction::CompleteQuest(Player* player, uint32 entry)
             if (CreatureTemplate const* cInfo = sObjectMgr->GetCreatureTemplate(creature))
                 for (uint16 z = 0; z < creaturecount; ++z)
                 {
-                    player->KilledMonster(cInfo, ObjectGuid::Empty);
+                    //By leewheel 2026-09-09: TC-Cata的KilledMonster只接受Creature const*参数
+                    //使用KilledMonsterCredit来给予击杀信用
+                    player->KilledMonsterCredit(cInfo->Entry);
                 }
         }
         else if (creature < 0)

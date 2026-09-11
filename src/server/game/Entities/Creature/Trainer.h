@@ -70,9 +70,12 @@ namespace Trainer
         void SendSpells(Creature const* npc, Player* player, LocaleConstant locale) const;
         void TeachSpell(Creature const* npc, Player* player, uint32 spellId) const;
 
-    private:
+        Type GetType() const { return _type; }
+        std::vector<Spell> const& GetSpells() const { return _spells; }
         Spell const* GetSpell(uint32 spellId) const;
         bool CanTeachSpell(Player const* player, Spell const* trainerSpell) const;
+
+    private:
         SpellState GetSpellState(Player const* player, Spell const* trainerSpell) const;
         void SendTeachFailure(Creature const* npc, Player const* player, uint32 spellId, FailReason reason) const;
         std::string const& GetGreeting(LocaleConstant locale) const;

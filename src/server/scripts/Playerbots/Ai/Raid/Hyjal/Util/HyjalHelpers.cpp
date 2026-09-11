@@ -1,4 +1,4 @@
-/* 海加尔山 机器人策略 */
+﻿/* 海加尔山 机器人策略 */
 /*By leewheel 2026-08-18: 对齐 brighton-chi the-lab HEAD(e92a52db)——
   移植 5f34b67d(缓存危害位置: 死亡凋零/火雨/地狱火尾迹全部走 "hyjal xxx" 值缓存)、
   8df2134e/ab50f6a1(Archimonde 体系: HasProtectionOfElune/IsNearDoomfire/

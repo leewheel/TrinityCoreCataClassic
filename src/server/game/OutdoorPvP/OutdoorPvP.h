@@ -194,6 +194,10 @@ class TC_GAME_API OutdoorPvP : public ZoneScript
 
         Map* GetMap() const { return m_map; }
 
+        //By leewheel 2026-09-09: 为mod-playerbots提供夺旗点访问接口(AC兼容)
+        OPvPCapturePointMap const& GetCapturePoints() const { return m_capturePoints; }
+        //End By leewheel
+
         void ProcessEvent([[maybe_unused]] WorldObject* target, [[maybe_unused]] uint32 eventId, [[maybe_unused]] WorldObject* invoker) override;
 
     protected:

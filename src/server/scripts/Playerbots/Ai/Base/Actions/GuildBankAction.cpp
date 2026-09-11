@@ -69,6 +69,7 @@ bool GuildBankAction::MoveFromCharToBank(Item* item, GameObject* /*bank*/)
     // guild->SwapItems(bot, 0, playerSlot, 0, INVENTORY_SLOT_BAG_0, 0);
 
     // check source pos rights (item moved to bank)
+    //By leewheel 2026-09-09: TC-Cata无Guild_MemberHasTabRights全局函数，使用guild->MemberHasTabRights
     if (!guild->MemberHasTabRights(bot->GetGUID(), 0, GUILD_BANK_RIGHT_DEPOSIT_ITEM))
         //By leewheel 2026-08-01: 玩家可见文本中文化
         out << "我无法把 " << chat->FormatItem(item->GetTemplate())

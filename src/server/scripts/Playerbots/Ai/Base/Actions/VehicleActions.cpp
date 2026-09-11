@@ -6,6 +6,8 @@
 #include "VehicleActions.h"
 
 //By leewheel 2026-09-06: 移植到TrinityCore-Cata，移除Cata已不存在的BattlegroundIC.h(本文件未使用IC类)
+//By leewheel 2026-09-09: NPC_KEEP_CANNON/NPC_CATAPULT定义在此头文件
+#include "Battlegrounds/IsleOfConquest/isle_of_conquest.h"
 #include "ItemVisitors.h"
 #include "ObjectDefines.h"
 #include "Playerbots.h"

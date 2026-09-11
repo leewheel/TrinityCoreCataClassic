@@ -12,8 +12,8 @@ class PlayerbotAI;
 
 struct ItemTemplate;
 
-//By leewheel 2026-07-11: TC的RollVote没有基类型声明
-enum RollVote;
+//By leewheel 2026-09-08: TC的RollVote是enum class( scoped enum)，前向声明必须匹配
+enum class RollVote;
 //End By leewheel
 
 class LootRollAction : public QueryItemUsageAction

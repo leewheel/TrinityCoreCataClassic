@@ -22,7 +22,8 @@ bool SpellCastUsefulValue::Calculate()
         (spellInfo->Attributes & SPELL_ATTR0_ON_NEXT_SWING) != 0)
     {
         if (Spell* spell = bot->GetCurrentSpell(CURRENT_MELEE_SPELL))
-            if (spell->m_spellInfo->Id == spellid && spell->IsNextMeleeSwingSpell() &&
+            //By leewheel 2026-09-09: TC-Cata的IsNextMeleeSwingSpell在SpellInfo上，不在Spell上
+            if (spell->m_spellInfo->Id == spellid && spell->m_spellInfo->IsNextMeleeSwingSpell() &&
                 bot->HasUnitState(UNIT_STATE_MELEE_ATTACKING))
                 return false;
     }

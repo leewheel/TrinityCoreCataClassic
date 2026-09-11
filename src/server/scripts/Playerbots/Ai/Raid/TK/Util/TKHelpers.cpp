@@ -26,10 +26,12 @@ std::pair<Unit*, Unit*> GetTargetUnitPair(PlayerbotAI* botAI, uint32 entry)
         Unit* unit = botAI->GetUnit(targetGuid);
         if (unit && unit->GetEntry() == entry)
         {
-            if (!lowest || unit->GetGUID().GetRawValue() < lowest->GetGUID().GetRawValue())
+            //By leewheel 2026-09-09: TC的ObjectGuid::GetRawValue返回std::span不支持比较运算符
+            //改用ObjectGuid直接比较（TC已实现operator<）
+            if (!lowest || unit->GetGUID() < lowest->GetGUID())
                 lowest = unit;
 
-            if (!highest || unit->GetGUID().GetRawValue() > highest->GetGUID().GetRawValue())
+            if (!highest || unit->GetGUID() > highest->GetGUID())
                 highest = unit;
         }
     }

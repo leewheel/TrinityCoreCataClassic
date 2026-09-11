@@ -261,10 +261,8 @@ bool PlayerbotSecurity::CheckLevelFor(PlayerbotSecurityLevel level, bool silent,
                     out << "你得走近点才能邀请我进队。我现在在 ";
                     //End By leewheel
                     if (AreaTableEntry const* entry = sAreaTableStore.LookupEntry(bot->GetAreaId()))
-                        //By leewheel 2025-01-16
-                    // TC中LocalizedString的operator[]需要LocaleConstant枚举类型
-                    out << " |cffffffff(|cffff0000" << entry->area_name()[LOCALE_enUS] << "|cffffffff)";
-                    //End By leewheel 2025-01-16
+                        //By leewheel 2026-09-09: TC-Cata中AreaTableEntry字段名是AreaName，类型是LocalizedString
+                    out << " |cffffffff(|cffff0000" << entry->AreaName[LOCALE_enUS] << "|cffffffff)";
                     break;
                 }
                 case PLAYERBOT_DENY_FULL_GROUP:

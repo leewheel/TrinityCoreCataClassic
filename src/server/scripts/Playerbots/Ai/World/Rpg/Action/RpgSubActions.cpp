@@ -292,7 +292,19 @@ bool RpgTrainAction::isPossible()
     if (!trainer)
         return false;
 
-    if (!trainer->IsTrainerValidForPlayer(bot))
+    //By leewheel 2026-09-09: TC-Cata的Trainer无IsTrainerValidForPlayer方法
+    //改为遍历至少一个可学习法术来判断训练师是否对玩家有效
+    bool hasValidSpell = false;
+    for (auto& spell : trainer->GetSpells())
+    {
+        Trainer::Spell const* trainerSpell = trainer->GetSpell(spell.SpellId);
+        if (trainerSpell && trainer->CanTeachSpell(bot, trainerSpell))
+        {
+            hasValidSpell = true;
+            break;
+        }
+    }
+    if (!hasValidSpell)
         return false;
 
     FactionTemplateEntry const* factionTemplate = sFactionTemplateStore.LookupEntry(cinfo->faction);

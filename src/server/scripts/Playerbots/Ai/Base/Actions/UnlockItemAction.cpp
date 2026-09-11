@@ -30,7 +30,8 @@ void UnlockItemAction::UnlockItem(Item* item)
     if (botAI->CastSpell(PICK_LOCK_SPELL_ID, bot, item))
     {
         std::ostringstream out;
-        out << "对 " << item->GetTemplate()->GetName() << " 使用了开锁";
+        //By leewheel 2026-09-09: TC使用GetName(locale)方法，ItemTemplate_GetName是AC函数
+        out << "对 " << item->GetTemplate()->GetName(LOCALE_enUS) << " 使用了开锁";
         botAI->TellMaster(out.str());
     }
     else

@@ -1,4 +1,4 @@
-/* 海加尔山 机器人策略 */
+﻿/* 海加尔山 机器人策略 */
 /*By leewheel 2026-08-18: 对齐 brighton-chi the-lab HEAD(e92a52db)——
   移植 8df2134e/33f67223/0a3a0367/7f293f95/ab50f6a1/fdefbb16/47abcff2/fde72295/5f34b67d:
   - 误导/主坦站位收敛为通用 HyjalMisdirectBossToMainTankAction/HyjalMainTankPositionBossAction(压缩)

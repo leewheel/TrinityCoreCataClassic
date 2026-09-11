@@ -50,6 +50,8 @@ BattlegroundQueue::BattlegroundQueue(BattlegroundQueueTypeId queueId) : m_queueI
 
 BattlegroundQueue::~BattlegroundQueue()
 {
+    //By leewheel 2026-09-11: 析构时锁定事件队列，避免并发写入者破坏红黑树
+    std::lock_guard<std::recursive_mutex> guard(m_eventsLock);
     m_events.KillAllEvents(false);
 
     for (int i = 0; i < MAX_BATTLEGROUND_BRACKETS; ++i)
@@ -425,6 +427,8 @@ uint32 BattlegroundQueue::GetPlayersInQueue(TeamId id)
 
 bool BattlegroundQueue::InviteGroupToBG(GroupQueueInfo* ginfo, Battleground* bg, Team side)
 {
+    //By leewheel 2026-09-11: 锁定事件队列，保护本函数内 m_events.AddEvent 并发插入(递归锁，World/Worker 线程可重入不互相阻塞死锁)
+    std::lock_guard<std::recursive_mutex> guard(m_eventsLock);
     // set side if needed
     if (side)
         ginfo->Team = side;
@@ -755,6 +759,8 @@ bool BattlegroundQueue::CheckSkirmishForSameFaction(BattlegroundBracketId bracke
 
 void BattlegroundQueue::UpdateEvents(uint32 diff)
 {
+    //By leewheel 2026-09-11: 锁定事件队列后遍历更新，与 Worker 线程 AddEvent 串行化，从根上消除红黑树并发读删损坏
+    std::lock_guard<std::recursive_mutex> guard(m_eventsLock);
     m_events.Update(diff);
 }
 

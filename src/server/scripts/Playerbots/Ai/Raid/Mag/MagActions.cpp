@@ -1,4 +1,4 @@
-/* 玛瑟里顿的巢穴 机器人策略 */
+﻿/* 玛瑟里顿的巢穴 机器人策略 */
 #include "MagActions.h"
 #include "Creature.h"
 #include "EncounterHelpers.h"

@@ -126,9 +126,10 @@ bool CreateSoulShardAction::Execute(Event /*event*/)
     if (bot->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, ITEM_SOUL_SHARD, count) == EQUIP_ERR_OK)
     {
         //By leewheel 2025-07-10
-        // TC使用sItemEnchantmentMgr->GenerateRandomProperties，AC使用Item::GenerateItemRandomPropertyId
-        ItemRandomProperties randomProps = sItemEnchantmentMgr->GenerateRandomProperties(ITEM_SOUL_SHARD);
-        bot->StoreNewItem(dest, ITEM_SOUL_SHARD, true, randomProps);
+        // TC-Cata使用自由函数GenerateItemRandomPropertiesId，返回ItemRandomPropertiesId
+        // StoreNewItem第4参数是randomBonusListId，第5参数才是randomEnchantmentId
+        ItemRandomPropertiesId randomProps = GenerateItemRandomPropertiesId(ITEM_SOUL_SHARD);
+        bot->StoreNewItem(dest, ITEM_SOUL_SHARD, true, 0, randomProps);
         //End By leewheel
         SQLTransaction<CharacterDatabaseConnection> trans = CharacterDatabase.BeginTransaction();
         bot->SaveInventoryAndGoldToDB(trans);

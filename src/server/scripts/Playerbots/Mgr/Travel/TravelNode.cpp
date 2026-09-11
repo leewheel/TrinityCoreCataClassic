@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
  * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
@@ -76,12 +76,13 @@ void TravelNodePath::calculateCost(bool distanceOnly)
                             factionEntry, factionEntry->IsFriendlyTo(sFactionTemplateStore.LookupEntry(2))));
                     hFriend = hReact.find(factionEntry)->second;
 
-                    if (maxLevelCreature[0] < cInfo->maxlevel && !aFriend && !hFriend)
-                        maxLevelCreature[0] = cInfo->maxlevel;
-                    if (maxLevelCreature[1] < cInfo->maxlevel && aFriend && !hFriend)
-                        maxLevelCreature[1] = cInfo->maxlevel;
-                    if (maxLevelCreature[2] < cInfo->maxlevel && !aFriend && hFriend)
-                        maxLevelCreature[2] = cInfo->maxlevel;
+                    uint8 cMaxLevel = CreatureTemplate_GetMaxLevel(cInfo);
+                    if (maxLevelCreature[0] < cMaxLevel && !aFriend && !hFriend)
+                        maxLevelCreature[0] = cMaxLevel;
+                    if (maxLevelCreature[1] < cMaxLevel && aFriend && !hFriend)
+                        maxLevelCreature[1] = cMaxLevel;
+                    if (maxLevelCreature[2] < cMaxLevel && !aFriend && hFriend)
+                        maxLevelCreature[2] = cMaxLevel;
                 }
             }
         }
@@ -122,7 +123,7 @@ float TravelNodePath::getCost(Player* bot, uint32 cGold)
             if (!taxiPath)
                 return -1;
 
-            if (!bot->isTaxiCheater() && taxiPath->price() > cGold)
+            if (!bot->isTaxiCheater() && taxiPath->Cost > cGold)
                 return -1;
 
             if (!bot->isTaxiCheater() && !bot->m_taxi.IsTaximaskNodeKnown(taxiPath->to()))
@@ -187,8 +188,8 @@ uint32 TravelNodePath::getPrice()
     if (!taxiPath)
         return 0;
 
-    //By leewheel 2026-07-09: TC的TaxiPathEntry使用price()方法而非直接成员
-    return taxiPath->price();
+    //By leewheel 2026-07-09: TC的TaxiPathEntry使用Cost字段而非price()方法
+    return taxiPath->Cost;
 }
 
 // Creates or appends the path from one node to another. Returns if the path.
@@ -1598,9 +1599,10 @@ void TravelNodeMap::generateNpcNodes()
 
     for (auto& creatureData : WorldPosition().getCreaturesNear())
     {
-        //By leewheel 2026-07-11: TC的SpawnData使用方法调用mapid()/posX()/posY()/posZ()/orientation()
-        WorldPosition guidP(creatureData->mapid(), creatureData->posX(), creatureData->posY(), creatureData->posZ(),
-                            creatureData->orientation());
+        //By leewheel 2026-09-09: TC-Cata的CreatureData继承自SpawnData，使用mapId成员和spawnPoint(Position)访问坐标
+        WorldPosition guidP(creatureData->mapId, creatureData->spawnPoint.GetPositionX(),
+                            creatureData->spawnPoint.GetPositionY(), creatureData->spawnPoint.GetPositionZ(),
+                            creatureData->spawnPoint.GetOrientation());
         //End By leewheel
 
         CreatureTemplate const* cInfo = sObjectMgr->GetCreatureTemplate(creatureData->id);
@@ -1625,13 +1627,13 @@ void TravelNodeMap::generateNpcNodes()
 
             /*TravelNode* node = */ TravelNodeMap::instance().addNode(guidP, nodeName, true, true); //node not used, fragment marked for removal.
         }
-        else if (cInfo->rank == 3)
+        else if (CreatureTemplate_GetRank(cInfo) == 3)
         {
             std::string const nodeName = cInfo->Name;
 
             TravelNodeMap::instance().addNode(guidP, nodeName, true, true);
         }
-        else if (cInfo->rank == 1 && !guidP.isOverworld())
+        else if (CreatureTemplate_GetRank(cInfo) == 1 && !guidP.isOverworld())
         {
             if (bossMap.find(cInfo->Entry) == bossMap.end())
                 bossMap[cInfo->Entry] = std::make_pair(cInfo, guidP);
@@ -1692,19 +1694,17 @@ void TravelNodeMap::generateAreaTriggerNodes()
 {
     // Entrance nodes
 
-    for (auto const& itr : sObjectMgr->GetAllAreaTriggerTeleports())
+    //By leewheel 2026-09-09: TC-Cata没有GetAllAreaTriggerTeleports方法，改用遍历AreaTrigger DBC + GetAreaTrigger查找
+    for (AreaTriggerEntry const* at : sAreaTriggerStore)
     {
-        AreaTriggerTeleport const& atEntry = itr.second;
-
-        //By leewheel 2026-07-09: TC修改 - 使用AreaTriggerEntry获取源位置
-        AreaTriggerEntry const* at = sAreaTriggerStore.LookupEntry(itr.first);
-        //End By leewheel
-        if (!at)
+        AreaTriggerTeleport const* atEntry = sObjectMgr->GetAreaTrigger(at->ID);
+        if (!atEntry)
             continue;
 
-        WorldPosition inPos = WorldPosition(at->map(), at->x(), at->y(), at->z(), at->orientation());
-        WorldPosition outPos = WorldPosition(atEntry.target_mapId, atEntry.target_X, atEntry.target_Y, atEntry.target_Z,
-                                             atEntry.target_Orientation);
+        WorldPosition inPos = WorldPosition(at->ContinentID, at->Pos.X, at->Pos.Y, at->Pos.Z, 0.0f);
+        WorldPosition outPos = WorldPosition(atEntry->Loc.GetMapId(), atEntry->Loc.GetPositionX(),
+                                             atEntry->Loc.GetPositionY(), atEntry->Loc.GetPositionZ(),
+                                             atEntry->Loc.GetOrientation());
 
         std::string nodeName;
 
@@ -1720,19 +1720,16 @@ void TravelNodeMap::generateAreaTriggerNodes()
 
     // Exit nodes
 
-    for (auto const& itr : sObjectMgr->GetAllAreaTriggerTeleports())
+    for (AreaTriggerEntry const* at : sAreaTriggerStore)
     {
-        AreaTriggerTeleport const& atEntry = itr.second;
-
-        //By leewheel 2026-07-09: TC修改 - 使用AreaTriggerEntry获取源位置
-        AreaTriggerEntry const* at = sAreaTriggerStore.LookupEntry(itr.first);
-        //End By leewheel
-        if (!at)
+        AreaTriggerTeleport const* atEntry = sObjectMgr->GetAreaTrigger(at->ID);
+        if (!atEntry)
             continue;
 
-        WorldPosition inPos = WorldPosition(at->map(), at->x(), at->y(), at->z(), at->orientation());
-        WorldPosition outPos = WorldPosition(atEntry.target_mapId, atEntry.target_X, atEntry.target_Y, atEntry.target_Z,
-                                             atEntry.target_Orientation);
+        WorldPosition inPos = WorldPosition(at->ContinentID, at->Pos.X, at->Pos.Y, at->Pos.Z, 0.0f);
+        WorldPosition outPos = WorldPosition(atEntry->Loc.GetMapId(), atEntry->Loc.GetPositionX(),
+                                             atEntry->Loc.GetPositionY(), atEntry->Loc.GetPositionZ(),
+                                             atEntry->Loc.GetOrientation());
 
         std::string nodeName;
 
@@ -1752,7 +1749,7 @@ void TravelNodeMap::generateAreaTriggerNodes()
         // Portal link from area trigger to area trigger destination.
         if (outNode && inNode)
         {
-            TravelNodePath travelPath(0.1f, 3.0f, (uint8)TravelNodePathType::portal, itr.first, true);
+            TravelNodePath travelPath(0.1f, 3.0f, (uint8)TravelNodePathType::portal, at->ID, true);
             travelPath.setPath({*inNode->getPosition(), *outNode->getPosition()});
             inNode->setPathTo(outNode, travelPath);
         }
@@ -1784,12 +1781,14 @@ void TravelNodeMap::generateTransportNodes()
         // Loop over the path and connect stop locations.
         for (auto& p : path)
         {
-            WorldPosition pos = WorldPosition(p->mapid(), p->x(), p->y(), p->z(), 0);
+            //By leewheel 2026-09-08: TC-Cata的TaxiPathNodeEntry字段名变更
+            WorldPosition pos = WorldPosition(p->ContinentID, p->Loc.X, p->Loc.Y, p->Loc.Z, 0);
+            //End By leewheel
 
             if (prevNode)
                 ppath.push_back(pos);
 
-            if (p->delay() > 0)
+            if (p->Delay > 0)
             {
                 TravelNode* node = TravelNodeMap::instance().addNode(pos, data->name, true, true, true, itr.first);
 
@@ -1816,10 +1815,12 @@ void TravelNodeMap::generateTransportNodes()
         // Continue from start until first stop and connect to end.
         for (auto& p : path)
         {
-            WorldPosition pos = WorldPosition(p->mapid(), p->x(), p->y(), p->z(), 0);
+            //By leewheel 2026-09-08: TC-Cata的TaxiPathNodeEntry字段名变更
+            WorldPosition pos = WorldPosition(p->ContinentID, p->Loc.X, p->Loc.Y, p->Loc.Z, 0);
+            //End By leewheel
             ppath.push_back(pos);
 
-            if (p->delay() > 0)
+            if (p->Delay > 0)
             {
                 TravelNode* node = TravelNodeMap::instance().getNode(pos, nullptr, 5.0f);
 
@@ -1934,8 +1935,10 @@ void TravelNodeMap::generateTaxiPaths()
         if (nodes.empty())
             continue;
 
-        WorldPosition startPos(startTaxiNode->map_id(), startTaxiNode->x(), startTaxiNode->y(), startTaxiNode->z());
-        WorldPosition endPos(endTaxiNode->map_id(), endTaxiNode->x(), endTaxiNode->y(), endTaxiNode->z());
+        //By leewheel 2026-09-08: TC-Cata的TaxiNodesEntry字段名变更: map_id→ContinentID, x/y/z→Pos.X/Y/Z
+        WorldPosition startPos(startTaxiNode->ContinentID, startTaxiNode->Pos.X, startTaxiNode->Pos.Y, startTaxiNode->Pos.Z);
+        WorldPosition endPos(endTaxiNode->ContinentID, endTaxiNode->Pos.X, endTaxiNode->Pos.Y, endTaxiNode->Pos.Z);
+        //End By leewheel
 
         TravelNode* startNode = TravelNodeMap::instance().getNode(startPos, nullptr, 15.0f);
         TravelNode* endNode = TravelNodeMap::instance().getNode(endPos, nullptr, 15.0f);
@@ -1945,8 +1948,10 @@ void TravelNodeMap::generateTaxiPaths()
 
         std::vector<WorldPosition> ppath;
 
+        //By leewheel 2026-09-08: TC-Cata的TaxiPathNodeEntry字段名变更: mapid→ContinentID, x/y/z→Loc.X/Y/Z
         for (auto& n : nodes)
-            ppath.push_back(WorldPosition(n->mapid(), n->x(), n->y(), n->z(), 0.0));
+            ppath.push_back(WorldPosition(n->ContinentID, n->Loc.X, n->Loc.Y, n->Loc.Z, 0.0f));
+        //End By leewheel
 
         float totalTime = startPos.getPathLength(ppath) / (450 * 8.0f);
 

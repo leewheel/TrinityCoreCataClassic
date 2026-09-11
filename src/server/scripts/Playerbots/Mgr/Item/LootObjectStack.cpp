@@ -78,31 +78,25 @@ void LootObject::Refresh(Player* bot, ObjectGuid lootGUID)
             //或金币已取、物品全部is_looted——此时每个机器人反复摸尸只会浪费AI节拍。
             //仅当存在未拾取且非roll等待的物品(且非他人FFA独占)时才标记。
             bool hasPickableLoot = false;
-            Loot& loot = creature->loot;
-            for (LootItem const& lootItem : loot.items)
+            Loot* loot = Creature_GetLoot(creature);
+            if (loot)
             {
-                if (lootItem.is_looted || lootItem.is_blocked)
-                    continue;
-                if (lootItem.is_underthreshold || lootItem.follow_loot_rules)
-                    continue;
-                if (lootItem.freeforall && !lootItem.AllowedForPlayer(bot))
-                    continue;
-                hasPickableLoot = true;
-                break;
+                for (LootItem const& lootItem : loot->items)
+                {
+                    if (lootItem.is_looted || lootItem.is_blocked)
+                        continue;
+                    if (lootItem.is_underthreshold || lootItem.follow_loot_rules)
+                        continue;
+                    if (lootItem.freeforall && !lootItem.AllowedForPlayer(bot, loot))
+                        continue;
+                    hasPickableLoot = true;
+                    break;
+                }
+                //By leewheel 2026-09-09: TC-Cata的Loot没有独立quest_items向量，任务物品在items中带needs_quest标记
+                //因此无需单独遍历quest_items，上面的items循环已覆盖所有物品(含任务物品)
+                if (hasPickableLoot || loot->gold > 0)
+                    guid = lootGUID;
             }
-            for (LootItem const& lootItem : loot.quest_items)
-            {
-                if (lootItem.is_looted || lootItem.is_blocked)
-                    continue;
-                if (lootItem.is_underthreshold || lootItem.follow_loot_rules)
-                    continue;
-                if (lootItem.freeforall && !lootItem.AllowedForPlayer(bot))
-                    continue;
-                hasPickableLoot = true;
-                break;
-            }
-            if (hasPickableLoot || loot.gold > 0)
-                guid = lootGUID;
             //End By leewheel
         }
 
@@ -112,7 +106,8 @@ void LootObject::Refresh(Player* bot, ObjectGuid lootGUID)
         if (creature->HasUnitFlag(UNIT_FLAG_SKINNABLE) &&
             (creature->IsCritter() || !creature->HasDynamicFlag(UNIT_DYNFLAG_LOOTABLE)))
         {
-            skillId = creature->GetCreatureTemplate()->GetRequiredLootSkill();
+            //By leewheel 2026-09-09: TC-Cata的GetRequiredLootSkill在CreatureDifficulty而非CreatureTemplate上
+            skillId = creature->GetCreatureDifficulty()->GetRequiredLootSkill();
             uint32 targetLevel = creature->GetLevel();
             reqSkillValue = targetLevel < 10 ? 1 : targetLevel < 20 ? (targetLevel - 10) * 10 : targetLevel * 5;
             if (botAI->HasSkill((SkillType)skillId) && bot->GetSkillValue(skillId) >= reqSkillValue)
@@ -172,8 +167,8 @@ void LootObject::Refresh(Player* bot, ObjectGuid lootGUID)
         // Check the main loot template
         if (const LootTemplate* lootTemplate = LootTemplates_Gameobject.GetLootFor(lootEntry))
         {
-            //By leewheel 2026-07-10: TC的Process签名是(Loot&, bool, uint16, uint8)，不同于AC
-            Loot loot;
+            //By leewheel 2026-09-09: TC-Cata的Loot没有默认构造函数，需传参构造
+            Loot loot(go->GetMap(), go->GetGUID(), LOOT_CHEST, bot->GetGroup());
             lootTemplate->Process(loot, false, 1, 0);
             //End By leewheel
 
@@ -196,8 +191,8 @@ void LootObject::Refresh(Player* bot, ObjectGuid lootGUID)
                 // If this item references another loot table, process it
                 if (const LootTemplate* refLootTemplate = LootTemplates_Reference.GetLootFor(itemId))
                 {
-                    //By leewheel 2026-07-10: TC的Process签名是(Loot&, bool, uint16, uint8)
-                    Loot refLoot;
+                    //By leewheel 2026-09-09: TC-Cata的Loot没有默认构造函数，需传参构造
+                    Loot refLoot(go->GetMap(), go->GetGUID(), LOOT_CHEST, bot->GetGroup());
                     refLootTemplate->Process(refLoot, false, 1, 0);
                     //End By leewheel
 

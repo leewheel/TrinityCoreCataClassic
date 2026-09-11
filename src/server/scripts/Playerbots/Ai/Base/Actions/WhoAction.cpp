@@ -46,7 +46,7 @@ bool WhoAction::Execute(Event event)
         if (AreaTableEntry const* areaEntry = sAreaTableStore.LookupEntry(bot->GetAreaId()))
         {
             //By leewheel 2026-07-10: TC中LocalizedString的operator[]需要LocaleConstant而非int
-            out << ", (|cffb04040" << areaEntry->area_name()[DEFAULT_LOCALE] << "|r)";
+            out << ", (|cffb04040" << areaEntry->AreaName[DEFAULT_LOCALE] << "|r)";
             //End By leewheel
         }
     }

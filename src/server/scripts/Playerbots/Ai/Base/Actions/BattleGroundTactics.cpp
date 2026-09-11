@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
  * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
@@ -1301,9 +1301,9 @@ static std::unordered_map<uint32, Position> EY_NodePositions = {
 //By leewheel 2026-09-06: 移植到TrinityCore-Cata
 //第二列由WotLK的BgObjects槽位索引改为横幅游戏对象entry(IoCCompat命名空间)
 static std::pair<uint32, uint32> IC_AttackObjectives[] = {
-    {NODE_TYPE_WORKSHOP, IoCCompat::GO_WORKSHOP_BANNER},
-    {NODE_TYPE_DOCKS, IoCCompat::GO_DOCKS_BANNER},
-    {NODE_TYPE_HANGAR, IoCCompat::GO_HANGAR_BANNER},
+    {NODE_TYPE_WORKSHOP, GO_WORKSHOP_BANNER},
+    {NODE_TYPE_DOCKS, GO_DOCKS_BANNER},
+    {NODE_TYPE_HANGAR, GO_HANGAR_BANNER},
 };
 
 // useful commands for fixing BG bugs and checking waypoints/paths
@@ -2177,8 +2177,9 @@ bool BGTactics::selectObjective(bool reset)
                 else
                 {
                     // 坐标目标(矿洞/雪落/队长/首领等)：posMap中已写入目标点，做小幅随机偏移
-                    Position const& objPos = posMap["bg objective"];
-                    bot->GetRandomPoint(objPos, frand(-2.0f, 2.0f), rx, ry, rz);
+                    //By leewheel 2026-09-08: PositionInfo不是Position的子类,需显式构造Position
+                    PositionInfo const& objInfo = posMap["bg objective"];
+                    bot->GetRandomPoint(Position(objInfo.x, objInfo.y, objInfo.z), frand(-2.0f, 2.0f), rx, ry, rz);
                 }
 
                 if (Map* map = bot->GetMap())
@@ -2716,7 +2717,8 @@ bool BGTactics::selectObjective(bool reset)
                 // 1. Chase enemy flag carrier
                 if (Unit* enemyFC = AI_VALUE(Unit*, "enemy flag carrier"))
                 {
-                    if (bot->CanSeeOrDetect(enemyFC, false, false, true) && enemyFC->IsAlive())
+                    //By leewheel 2026-09-08: TC-Cata的CanSeeOrDetect使用CanSeeOrDetectExtraArgs结构体
+                    if (bot->CanSeeOrDetect(enemyFC, { .ImplicitDetection = true }) && enemyFC->IsAlive())
                     {
                         pos.Set(enemyFC->GetPositionX(), enemyFC->GetPositionY(), enemyFC->GetPositionZ(), bot->GetMapId());
                         foundObjective = true;
@@ -2955,7 +2957,7 @@ bool BGTactics::selectObjective(bool reset)
                 }
                 //End By leewheel
                 if (gateOpen && !controlsVehicle &&
-                    ICNodeState(NODE_TYPE_GRAVEYARD_A, NODE_STATE_CONTROLLED_H))  // target enemy boss
+                    [&]{ uint8 s = NODE_STATE_CONTROLLED_H; return ICNodeState(NODE_TYPE_GRAVEYARD_A, s); }())  // target enemy boss
                 {
                     //By leewheel 2026-09-06: 移植到TrinityCore-Cata，按entry就近查找敌方首领
                     if (Creature* enemyBoss = bot->FindNearestCreature(NPC_HIGH_COMMANDER_HALFORD_WYRMBANE, 250.0f))
@@ -3133,7 +3135,7 @@ bool BGTactics::selectObjective(bool reset)
                 //End By leewheel
 
                 if (gateOpen && !controlsVehicle &&
-                    ICNodeState(NODE_TYPE_GRAVEYARD_H, NODE_STATE_CONTROLLED_A))  // target enemy boss
+                    [&]{ uint8 s = NODE_STATE_CONTROLLED_A; return ICNodeState(NODE_TYPE_GRAVEYARD_H, s); }())  // target enemy boss
                 {
                     //By leewheel 2026-09-06: 移植到TrinityCore-Cata，按entry就近查找敌方首领
                     if (Creature* enemyBoss = bot->FindNearestCreature(NPC_OVERLORD_AGMAR, 250.0f))
@@ -3969,7 +3971,9 @@ bool BGTactics::atFlag(std::vector<BattleBotPath*> const& vPaths, std::vector<ui
                 // Prevent capturing from inside flag pole
                 if (dist == 0.0f)
                 {
-                    float const moveDist = bot->GetObjectSize() + go->GetObjectSize() + 0.1f;
+                //By leewheel 2026-09-09: TC用GetCombatReach()/GetGOInfo()->size替代GetObjectSize()
+                    float const moveDist = bot->GetCombatReach() + go->GetGOInfo()->size + 0.1f;
+                //End By leewheel
                     return MoveTo(bot->GetMapId(), go->GetPositionX() + (urand(0, 1) ? -moveDist : moveDist),
                                   go->GetPositionY() + (urand(0, 1) ? -moveDist : moveDist), go->GetPositionZ());
                 }
@@ -4127,7 +4131,9 @@ bool BGTactics::flagTaken()
     if (!bg)
         return false;
 
-    return !bg->GetFlagPickerGUID(bg->GetOtherTeam(bot->GetTeam())).IsEmpty();
+    //By leewheel 2026-09-09: GetOtherTeam是全局函数，不是BattlegroundWS成员
+    return !bg->GetFlagPickerGUID(GetOtherTeam(bot->GetTeamId())).IsEmpty();
+    //End By leewheel
 }
 
 bool BGTactics::teamFlagTaken()
@@ -4656,8 +4662,10 @@ bool BgEnsurePvpGearAction::Execute(Event /*event*/)
             continue;
         bot->EquipNewItem(dest, itemId, ItemContext::NONE, true);
         //End By leewheel
+        //By leewheel 2026-09-09: TC的ItemTemplate::GetName需要locale参数，用兼容函数
         TC_LOG_INFO("playerbots", "Bot {} <{}> 战场入场已强制装备解控饰品 {} ({})",
-                    bot->GetGUID().ToString().c_str(), bot->GetName(), itemId, proto->GetName());
+                    bot->GetGUID().ToString().c_str(), bot->GetName(), itemId, ItemTemplate_GetName(proto));
+        //End By leewheel
         return true;
     }
 

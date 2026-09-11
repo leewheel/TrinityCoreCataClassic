@@ -33,9 +33,11 @@ void StatsCollector::CollectItemStats(ItemTemplate const* proto)
         float val = (proto->GetMinDamage(0) + proto->GetMaxDamage(0)) * 1000.0f / 2.0f / proto->GetDelay();
         stats[STATS_TYPE_MELEE_DPS] += val;
     }
-    stats[STATS_TYPE_ARMOR] += proto->GetArmor();
-    stats[STATS_TYPE_BLOCK_VALUE] += proto->GetShieldBlockValue(proto->GetItemLevel());
-    for (uint32 i = 0; i < proto->StatsCount; i++)
+    //By leewheel 2026-09-09: 移植到TrinityCore-Cata，ItemTemplate API兼容
+    stats[STATS_TYPE_ARMOR] += ItemTemplate_GetArmor(proto);
+    stats[STATS_TYPE_BLOCK_VALUE] += ItemTemplate_GetShieldBlockValue(proto, proto->GetItemLevel());
+    for (uint32 i = 0; i < MAX_ITEM_PROTO_STATS; i++)
+    //End By leewheel
     {
         int32 statType = proto->GetStatModifierBonusStat(i);
         int32 val = proto->GetStatModifierBonusAmount(i);

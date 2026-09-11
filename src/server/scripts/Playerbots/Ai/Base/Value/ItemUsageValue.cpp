@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
  * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
@@ -134,7 +134,9 @@ ItemUsage ItemUsageValue::Calculate()
         uint32 enchantingSkill = bot->GetSkillValue(SKILL_ENCHANTING);
 
         // Only disenchant if skilled enough and binding allows it
-        if (enchantingSkill >= proto->RequiredDisenchantSkill &&
+        //By leewheel 2026-09-09: TC-Cata无RequiredDisenchantSkill字段，通过Item::GetDisenchantLoot获取所需技能
+        ItemDisenchantLootEntry const* disenchantLoot = Item::GetDisenchantLoot(proto, proto->GetQuality(), proto->GetBaseItemLevel());
+        if (disenchantLoot && enchantingSkill >= disenchantLoot->SkillRequired &&
             (proto->GetBonding() == BIND_WHEN_PICKED_UP || (proto->GetBonding() == BIND_WHEN_EQUIPPED && isSoulbound)))
             return ITEM_USAGE_DISENCHANT;
     }
@@ -633,29 +635,29 @@ bool ItemUsageValue::IsItemUsefulForSkill(ItemTemplate const* proto)
                 return true;
             if (botAI->HasSkill(SKILL_ENGINEERING) && RandomItemMgr::IsUsedBySkill(proto, SKILL_ENGINEERING))
                 return true;
-            if (botAI->HasSkill(SKILL_BLACKSMITHING) && RandomItemMgr::IsUsedBySkill(proto, SKILL_BLACKSMITHING))
+            if (botAI->HasSkill(SkillType(SKILL_BLACKSMITHING)) && RandomItemMgr::IsUsedBySkill(proto, SKILL_BLACKSMITHING))
                 return true;
-            if (botAI->HasSkill(SKILL_ALCHEMY) && RandomItemMgr::IsUsedBySkill(proto, SKILL_ALCHEMY))
+            if (botAI->HasSkill(SkillType(SKILL_ALCHEMY)) && RandomItemMgr::IsUsedBySkill(proto, SKILL_ALCHEMY))
                 return true;
-            if (botAI->HasSkill(SKILL_ENCHANTING) && RandomItemMgr::IsUsedBySkill(proto, SKILL_ENCHANTING))
+            if (botAI->HasSkill(SkillType(SKILL_ENCHANTING)) && RandomItemMgr::IsUsedBySkill(proto, SKILL_ENCHANTING))
                 return true;
-            if (botAI->HasSkill(SKILL_FISHING) && RandomItemMgr::IsUsedBySkill(proto, SKILL_FISHING))
+            if (botAI->HasSkill(SkillType(SKILL_FISHING)) && RandomItemMgr::IsUsedBySkill(proto, SKILL_FISHING))
                 return true;
-            if (botAI->HasSkill(SKILL_FIRST_AID) && RandomItemMgr::IsUsedBySkill(proto, SKILL_FIRST_AID))
+            if (botAI->HasSkill(SkillType(SKILL_FIRST_AID)) && RandomItemMgr::IsUsedBySkill(proto, SKILL_FIRST_AID))
                 return true;
-            if (botAI->HasSkill(SKILL_COOKING) && RandomItemMgr::IsUsedBySkill(proto, SKILL_COOKING))
+            if (botAI->HasSkill(SkillType(SKILL_COOKING)) && RandomItemMgr::IsUsedBySkill(proto, SKILL_COOKING))
                 return true;
-            if (botAI->HasSkill(SKILL_JEWELCRAFTING) && RandomItemMgr::IsUsedBySkill(proto, SKILL_JEWELCRAFTING))
+            if (botAI->HasSkill(SkillType(SKILL_JEWELCRAFTING)) && RandomItemMgr::IsUsedBySkill(proto, SKILL_JEWELCRAFTING))
                 return true;
-            if (botAI->HasSkill(SKILL_MINING) && (RandomItemMgr::IsUsedBySkill(proto, SKILL_MINING) ||
+            if (botAI->HasSkill(SkillType(SKILL_MINING)) && (RandomItemMgr::IsUsedBySkill(proto, SKILL_MINING) ||
                                                   RandomItemMgr::IsUsedBySkill(proto, SKILL_BLACKSMITHING) ||
                                                   RandomItemMgr::IsUsedBySkill(proto, SKILL_JEWELCRAFTING) ||
                                                   RandomItemMgr::IsUsedBySkill(proto, SKILL_ENGINEERING)))
                 return true;
-            if (botAI->HasSkill(SKILL_SKINNING) && (RandomItemMgr::IsUsedBySkill(proto, SKILL_SKINNING) ||
+            if (botAI->HasSkill(SkillType(SKILL_SKINNING)) && (RandomItemMgr::IsUsedBySkill(proto, SKILL_SKINNING) ||
                                                     RandomItemMgr::IsUsedBySkill(proto, SKILL_LEATHERWORKING)))
                 return true;
-            if (botAI->HasSkill(SKILL_HERBALISM) && (RandomItemMgr::IsUsedBySkill(proto, SKILL_HERBALISM) ||
+            if (botAI->HasSkill(SkillType(SKILL_HERBALISM)) && (RandomItemMgr::IsUsedBySkill(proto, SKILL_HERBALISM) ||
                                                      RandomItemMgr::IsUsedBySkill(proto, SKILL_ALCHEMY)))
                 return true;
 
@@ -669,23 +671,23 @@ bool ItemUsageValue::IsItemUsefulForSkill(ItemTemplate const* proto)
             switch (proto->GetSubClass())
             {
                 case ITEM_SUBCLASS_LEATHERWORKING_PATTERN:
-                    return botAI->HasSkill(SKILL_LEATHERWORKING);
+                    return botAI->HasSkill(SkillType(SKILL_LEATHERWORKING));
                 case ITEM_SUBCLASS_TAILORING_PATTERN:
-                    return botAI->HasSkill(SKILL_TAILORING);
+                    return botAI->HasSkill(SkillType(SKILL_TAILORING));
                 case ITEM_SUBCLASS_ENGINEERING_SCHEMATIC:
-                    return botAI->HasSkill(SKILL_ENGINEERING);
+                    return botAI->HasSkill(SkillType(SKILL_ENGINEERING));
                 case ITEM_SUBCLASS_BLACKSMITHING:
-                    return botAI->HasSkill(SKILL_BLACKSMITHING);
+                    return botAI->HasSkill(SkillType(SKILL_BLACKSMITHING));
                 case ITEM_SUBCLASS_COOKING_RECIPE:
-                    return botAI->HasSkill(SKILL_COOKING);
+                    return botAI->HasSkill(SkillType(SKILL_COOKING));
                 case ITEM_SUBCLASS_ALCHEMY_RECIPE:
-                    return botAI->HasSkill(SKILL_ALCHEMY);
+                    return botAI->HasSkill(SkillType(SKILL_ALCHEMY));
                 case ITEM_SUBCLASS_FIRST_AID_MANUAL:
-                    return botAI->HasSkill(SKILL_FIRST_AID);
+                    return botAI->HasSkill(SkillType(SKILL_FIRST_AID));
                 case ITEM_SUBCLASS_ENCHANTING_FORMULA:
-                    return botAI->HasSkill(SKILL_ENCHANTING);
+                    return botAI->HasSkill(SkillType(SKILL_ENCHANTING));
                 case ITEM_SUBCLASS_FISHING_MANUAL:
-                    return botAI->HasSkill(SKILL_FISHING);
+                    return botAI->HasSkill(SkillType(SKILL_FISHING));
             }
         }
     }
@@ -739,7 +741,7 @@ bool ItemUsageValue::HasItemsNeededForSpell(uint32 spellId, ItemTemplate const* 
 
             ItemTemplate const* reqProto = sObjectMgr->GetItemTemplate(spellInfo->Reagent[i]);
 
-            uint32 count = AI_VALUE2(uint32, "item count", reqProto->GetName());
+            uint32 count = AI_VALUE2(uint32, "item count", ItemTemplate_GetName(reqProto));
 
             //By leewheel 2026-09-03 修复C4018警告：ReagentCount为uint8提升int与uint32 count比较，显式转换
             if (count < static_cast<uint32>(spellInfo->ReagentCount[i]))

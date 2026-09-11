@@ -2,9 +2,8 @@
 #include "PlayerbotAI.h"
 #include "TradeData.h"
 #include "SpellInfo.h"
-//By leewheel 2026-07-10: 需要包含Item.h以使用Item类型
 #include "Item.h"
-//End By leewheel
+#include "Playerbots.h"
 
 inline constexpr uint32_t PICK_LOCK_SPELL_ID = 1804;
 
@@ -49,7 +48,9 @@ bool UnlockTradedItemAction::CanUnlockItem(Item* item)
         return false;
 
     // Ensure the bot is a rogue and has Lockpicking skill
-    if (bot->getClass() != CLASS_ROGUE || !botAI->HasSkill(SKILL_LOCKPICKING))
+    //By leewheel 2026-09-09: TC-Cata无SKILL_LOCKPICKING技能常量，盗贼自动获得开锁能力
+    if (bot->getClass() != CLASS_ROGUE)
+    //End By leewheel
         return false;
 
     // Ensure the item is actually locked
@@ -66,10 +67,14 @@ bool UnlockTradedItemAction::CanUnlockItem(Item* item)
     if (!lockInfo)
         return false;
 
-    uint32 botSkill = bot->GetSkillValue(SKILL_LOCKPICKING);
+    //By leewheel 2026-09-09: TC-Cata无SKILL_LOCKPICKING技能，盗贼开锁等级=等级*5
+    uint32 botSkill = bot->GetLevel() * 5;
+    //End By leewheel
     for (uint8 j = 0; j < 8; ++j)
     {
-        if (lockInfo->Type[j] == LOCK_KEY_SKILL && SkillByLockType(LockType(lockInfo->Index[j])) == SKILL_LOCKPICKING)
+        //By leewheel 2026-09-09: TC-Cata用LOCKTYPE_LOCKPICKING直接判断，而非SkillByLockType
+        if (lockInfo->Type[j] == LOCK_KEY_SKILL && lockInfo->Index[j] == LOCKTYPE_LOCKPICKING)
+        //End By leewheel
         {
             uint32 requiredSkill = lockInfo->Skill[j];
             if (botSkill >= requiredSkill)
@@ -78,7 +83,7 @@ bool UnlockTradedItemAction::CanUnlockItem(Item* item)
             {
                 std::ostringstream out;
                 out << "开锁技能不足 (" << botSkill << "/" << requiredSkill << ") 无法解锁: "
-                    << item->GetTemplate()->GetName();
+                    << ItemTemplate_GetName(item->GetTemplate());
                 botAI->TellMaster(out.str());
             }
         }
@@ -101,7 +106,7 @@ void UnlockTradedItemAction::UnlockItem(Item* item)
     if (botAI->CastSpell(PICK_LOCK_SPELL_ID, bot->GetTrader(), item)) // Unit target is trader
     {
         std::ostringstream out;
-        out << "正在解锁交易物品: " << item->GetTemplate()->GetName();
+        out << "正在解锁交易物品: " << ItemTemplate_GetName(item->GetTemplate());
         botAI->TellMaster(out.str());
     }
     else

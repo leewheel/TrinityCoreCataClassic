@@ -180,7 +180,7 @@ bool UseItemAction::UseItem(Item* item, ObjectGuid goGuid, Item* itemTarget, Uni
         targetSelected = true;
     }
 
-    if (uint32 questid = item->GetTemplate()->StartQuest()) //By leewheel 2026-07-10: TC中StartQuest是方法
+    if (uint32 questid = item->GetTemplate()->GetStartQuest()) //By leewheel 2026-09-09: TC中方法名为GetStartQuest()
     {
         if (Quest const* qInfo = sObjectMgr->GetQuestTemplate(questid))
         {
@@ -394,7 +394,7 @@ void UseItemAction::TellConsumableUse(Item* item, std::string const action, floa
     std::ostringstream out;
     out << action << " " << chat->FormatItem(item->GetTemplate());
 
-    if (item->GetTemplate()->Stackable() > 1) //By leewheel 2026-07-10: TC中Stackable是方法
+    if (item->GetTemplate()->GetMaxStackSize() > 1) //By leewheel 2026-09-09: TC中用GetMaxStackSize()
         out << "/x" << item->GetCount();
 
     out << " (" << round(percent) << "%)";
@@ -414,7 +414,8 @@ bool UseItemAction::SocketItem(Item* item, Item* gem, bool replace)
         uint8 SocketColor = item->GetTemplate()->GetSocketColor(static_cast<uint8>(enchant_slot - SOCK_ENCHANTMENT_SLOT));
         //End By leewheel
         GemPropertiesEntry const* gemProperty = sGemPropertiesStore.LookupEntry(gem->GetTemplate()->GetGemProperties());
-        if (gemProperty && (gemProperty->color() & SocketColor))
+        if (gemProperty && (gemProperty->Type & SocketColor))
+        //By leewheel 2026-09-09: TC中GemPropertiesEntry用Type字段表示宝石颜色类型，非color()方法
         //End By leewheel
         {
             if (fits)
@@ -432,15 +433,15 @@ bool UseItemAction::SocketItem(Item* item, Item* gem, bool replace)
             }
 
             SpellItemEnchantmentEntry const* enchantEntry = sSpellItemEnchantmentStore.LookupEntry(enchant_id);
-        //By leewheel 2026-07-11: TC的GemID和GemProperties是方法
-        if (!enchantEntry || !enchantEntry->GemID())
+        //By leewheel 2026-09-09: TC的SpellItemEnchantmentEntry用GemItemID字段，非GemID()方法
+        if (!enchantEntry || !enchantEntry->GemItemID)
         {
             packet << gem->GetGUID();
             fits = true;
             continue;
         }
 
-        if (replace && enchantEntry->GemID() != gem->GetTemplate()->GetId())
+        if (replace && enchantEntry->GemItemID != gem->GetTemplate()->GetId())
         {
             packet << gem->GetGUID();
             fits = true;
@@ -508,7 +509,7 @@ bool UseRandomRecipe::Execute(Event /*event*/)
 
     for (auto& recipe : recipes)
     {
-        recipeName = recipe->GetTemplate()->GetName();
+        recipeName = ItemTemplate_GetName(recipe->GetTemplate());
     }
 
     if (recipeName.empty())

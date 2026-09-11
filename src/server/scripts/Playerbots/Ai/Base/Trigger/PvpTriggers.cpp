@@ -10,6 +10,9 @@
 //旗帜携带状态在Cata以玩家光环标记(BG_WS_SPELL_WARSONG_FLAG等)，常量取自Compat/BattlegroundAVCompat.h
 //End By leewheel
 #include "BattlegroundMgr.h"
+//By leewheel 2026-09-09: AV节点状态查询兼容接口(Cata的AV战场脚本注册表)，用于替代BattlegroundAV::GetAVNodeInfo
+#include "alterac_valley_state_compat.h"
+//End By leewheel
 #include "Playerbots.h"
 #include "ServerFacade.h"
 
@@ -307,13 +310,14 @@ bool AllianceNoSnowfallGY::IsActive()
     if (bot->GetBattlegroundTypeId() != BATTLEGROUND_AV)
         return false;
 
-    if (BattlegroundAV* av = dynamic_cast<BattlegroundAV*>(bg))
+    //By leewheel 2026-09-09: 移植到TrinityCore-Cata，Cata无BattlegroundAV类，改用AVCompatQueryNode查询节点归属
+    uint8 snowState = 0;
+    uint32 snowOwner = 0;
+    bool snowTower = false;
+    if (bg && AVCompatQueryNode(bg->GetInstanceID(), BG_AV_NODES_SNOWFALL_GRAVE, snowState, snowOwner, snowTower))
     {
-        const BG_AV_NodeInfo& snowfall = av->GetAVNodeInfo(BG_AV_NODES_SNOWFALL_GRAVE);
-        //By leewheel 2026-07-11: TC的BG_AV_NodeInfo使用Owner字段(Team类型)，不是OwnerId
-        //By leewheel 2026-09-03 修复C5054警告：Team枚举(阵营471/469)与TeamId枚举(0/1)类型不同，比较前显式转换
-        return snowfall.Owner != Team(TEAM_ALLIANCE);
-        //End By leewheel
+        //雪落墓地不归联盟所有时触发(中立或部落控制均激活)
+        return snowOwner != uint32(ALLIANCE);
     }
 
     return false;

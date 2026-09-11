@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
  * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
@@ -23,17 +23,10 @@ using namespace lfg;
 
 namespace
 {
-//By leewheel 2026-08-26: 查询LFG提案中的真实玩家(在线且非机器人)
-static Player* GetRealPlayerInProposal(uint32 proposalId)
+//By leewheel 2026-09-09: TC-Cata的LFGMgr无GetProposalMembers公开方法
+//暂返回nullptr：bot战斗中仍会延迟应答提案，仅缺少"传送到真人身边待命"的优化
+static Player* GetRealPlayerInProposal(uint32 /*proposalId*/)
 {
-    GuidList const members = sLFGMgr->GetProposalMembers(proposalId);
-    for (ObjectGuid const& memberGuid : members)
-    {
-        Player* member = ObjectAccessor::FindConnectedPlayer(memberGuid);
-        if (member && IsRealPlayer(member))
-            return member;
-    }
-
     return nullptr;
 }
 //End By leewheel

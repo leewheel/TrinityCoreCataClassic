@@ -1324,8 +1324,13 @@ SpellInfo::SpellInfo(SpellNameEntry const* spellName, ::Difficulty difficulty, S
     //WotLK的SpellInfo::Effects为固定3槽(空槽为默认空效果)，Cata的_effects按实际效果条数存储；
     //为兼容机器人模块Effects[0..2]式访问(空槽.Effect==SPELL_EFFECT_NONE与WotLK一致)，
     //不足3槽时用默认空效果补齐(默认构造即SPELL_EFFECT_NONE)
+    //By leewheel 2026-09-10: 补位后必须将空槽的_spellInfo指向本SpellInfo，
+    //否则官方ApplySpellEffectFix等会误改空槽字段，且_isPositiveEffectImpl访问空槽ScalesWithCreatureLevel时
+    //解引用_spellInfo(NULL)导致崩溃(如71074 Buttermilk Delight)
     if (_effects.size() < MAX_SPELL_EFFECTS)
         Trinity::Containers::EnsureWritableVectorIndex(_effects, MAX_SPELL_EFFECTS - 1) = SpellEffectInfo();
+    for (SpellEffectInfo& eff : _effects)
+        eff._spellInfo = this;
 
     _effects.shrink_to_fit();
 
@@ -1529,6 +1534,9 @@ SpellInfo::SpellInfo(SpellNameEntry const* spellName, ::Difficulty difficulty, s
     //By leewheel 2026-09-06: 移植mod-playerbots，补齐效果槽到WotLK定长语义(同上，第二处构造)
     if (_effects.size() < MAX_SPELL_EFFECTS)
         Trinity::Containers::EnsureWritableVectorIndex(_effects, MAX_SPELL_EFFECTS - 1) = SpellEffectInfo();
+    //By leewheel 2026-09-10: 同上，补位后同步空槽_spellInfo指向本SpellInfo，避免空指针崩溃
+    for (SpellEffectInfo& eff : _effects)
+        eff._spellInfo = this;
 
     _effects.shrink_to_fit();
 }

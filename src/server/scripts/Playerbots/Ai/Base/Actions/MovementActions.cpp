@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
  * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
@@ -77,7 +77,9 @@ bool MovementAction::JumpTo(uint32 mapId, float x, float y, float z, MovementPri
     float speed = bot->GetSpeed(MOVE_RUN);
     MotionMaster& mm = *bot->GetMotionMaster();
     mm.Clear();
-    mm.MoveJump(x, y, z, speed, speed, 1);
+    //By leewheel 2026-09-09: TC的MoveJump签名: MoveJump(id, Position, speedOrTime, ...)
+    mm.MoveJump(1, Position(x, y, z), speed);
+    //End By leewheel
     AI_VALUE(LastMovement&, "last movement").Set(mapId, x, y, z, bot->GetOrientation(), 1000, priority);
     return true;
 }
@@ -818,7 +820,9 @@ bool MovementAction::ReachCombatTo(Unit* target, float distance)
     //End By leewheel
     if (target->HasUnitMovementFlag(MOVEMENTFLAG_FORWARD) && behind)
     {
-        float predictDis = std::min(3.0f, target->GetObjectSize() * 2);
+        //By leewheel 2026-09-09: TC无GetObjectSize，使用GetCombatReach()替代
+        float predictDis = std::min(3.0f, target->GetCombatReach() * 2);
+        //End By leewheel
         tx += cos(target->GetOrientation()) * predictDis;
         ty += sin(target->GetOrientation()) * predictDis;
         if (!target->GetMap()->CheckCollisionAndGetValidCoords(target, target->GetPositionX(), target->GetPositionY(),
@@ -1237,7 +1241,8 @@ bool MovementAction::Follow(Unit* target, float distance, float angle)
                         {
                             auto tEnd = tMap.back();
                             if (tEnd)
-                                return MoveTo(tEnd->mapid(), tEnd->x(), tEnd->y(), tEnd->z());
+                                //By leewheel 2026-09-08: TC-Cata的TaxiPathNodeEntry字段名变更
+                                return MoveTo(tEnd->ContinentID, tEnd->Loc.X, tEnd->Loc.Y, tEnd->Loc.Z);
                         }
                     }
                     //End By leewheel
@@ -2083,7 +2088,9 @@ bool AvoidAoeAction::AvoidUnitWithDamageAura()
                 {
                     if (triggerSpellInfo->GetEffects()[j].Effect == SPELL_EFFECT_SCHOOL_DAMAGE)
                     {
-                        float radius = triggerSpellInfo->GetEffects()[j].CalcRadius();
+                        //By leewheel 2026-09-09: TC的CalcRadius返回SpellRange结构体(含Min/Max)，取Max作为半径
+                        float radius = triggerSpellInfo->GetEffects()[j].CalcRadius().Max;
+                        //End By leewheel
                         if (bot->GetDistance(unit) > radius)
                         {
                             break;
@@ -2593,8 +2600,15 @@ bool RearFlankAction::Execute(Event /*event*/)
     Position leftFlank = target->GetPosition();
     Position rightFlank = target->GetPosition();
     Position* destination = nullptr;
-    leftFlank.RelocatePolarOffset(angle, baseDistance + distance);
-    rightFlank.RelocatePolarOffset(-angle, baseDistance + distance);
+    //By leewheel 2026-09-09: TC的Position无RelocatePolarOffset方法，手动计算极坐标偏移
+    float offsetDist = baseDistance + distance;
+    leftFlank.Relocate(leftFlank.GetPositionX() + cos(angle) * offsetDist,
+                       leftFlank.GetPositionY() + sin(angle) * offsetDist,
+                       leftFlank.GetPositionZ(), leftFlank.GetOrientation());
+    rightFlank.Relocate(rightFlank.GetPositionX() + cos(-angle) * offsetDist,
+                        rightFlank.GetPositionY() + sin(-angle) * offsetDist,
+                        rightFlank.GetPositionZ(), rightFlank.GetOrientation());
+    //End By leewheel
 
     if (bot->GetExactDist2d(leftFlank) < bot->GetExactDist2d(rightFlank))
     {
@@ -2859,7 +2873,9 @@ bool MoveRandomAction::Execute(Event /*event*/)
         if (!bot->GetMap()->CheckCollisionAndGetValidCoords(bot, bot->GetPositionX(), bot->GetPositionY(),
                                                             bot->GetPositionZ(), x, y, z))
             continue;
-        if (map->IsInWater(bot->GetPhaseShift(), x, y, z, nullptr, bot->GetCollisionHeight()))
+        //By leewheel 2026-09-09: TC的Map::IsInWater只接受5个参数(PhaseShift, x, y, z, LiquidData*)
+        if (map->IsInWater(bot->GetPhaseShift(), x, y, z))
+        //End By leewheel
             continue;
 
         bool moved = MoveTo(bot->GetMapId(), x, y, z, false, false, false, true);

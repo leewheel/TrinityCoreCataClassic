@@ -1,4 +1,4 @@
-/*
+﻿/*
  * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
  * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
  * or (at your option) any later version.
@@ -132,15 +132,11 @@ bool OpenLootAction::DoLoot(LootObject& lootObject)
 
     if (creature && creature->HasDynamicFlag(UNIT_DYNFLAG_LOOTABLE))
     {
-        //By leewheel 2026-07-20: 直接调用SendLoot+StoreLootItem绕过包流程
-        //原包流程有两个BUG:
-        //1) StoreLootAction用itemIndex(0-based)作LootListID，但TC期望1-based，
-        //   导致lootSlot=itemIndex-1=-1，LootItemInSlot返回nullptr→EQUIP_ERR_LOOT_GONE("Already looted")
-        //2) CMSG_LOOT_UNIT→SMSG_LOOT_RESPONSE→CMSG_LOOT_ITEM需多轮AI tick，玩家先拾取
-        //改为直接调用SendLoot设置loot状态+StoreLootItem即时拾取
-        bot->SendLoot(lootObject.guid, LOOT_CORPSE);
-
-        Loot* loot = &creature->loot;
+        //By leewheel 2026-09-09: TC-Cata的SendLoot接受Loot&而非guid+type
+        Loot* loot = creature->GetLootForPlayer(bot);
+        if (!loot)
+            return false;
+        bot->SendLoot(*loot);
 
         // 拾取金币
         if (loot->gold > 0)
@@ -157,7 +153,7 @@ bool OpenLootAction::DoLoot(LootObject& lootObject)
             if (lootItem.is_looted || lootItem.is_blocked)
                 continue;
 
-            if (!lootItem.AllowedForPlayer(bot))
+            if (!lootItem.AllowedForPlayer(bot, loot))
                 continue;
 
             if (!StoreLootAction::IsLootAllowed(lootItem.itemid, botAI))
@@ -173,44 +169,8 @@ bool OpenLootAction::DoLoot(LootObject& lootObject)
             BroadcastHelper::BroadcastLootingItem(botAI, bot, proto);
         }
 
-        //By leewheel 2026-08-15: 修复——TC把needs_quest掉落放入独立quest_items向量(按玩家独立索引)，
-        //原循环只遍历items导致任务物品从未被拾取(收集X个物品类任务无法完成)。
-        //quest槽位用items.size()+questIndex，LootItemInSlot对>=items.size()的槽自动走quest分支
-        //By leewheel 2026-08-15: PlayerQuestItems是Loot私有成员，经公开访问器GetPlayerQuestItems()读取
-        NotNormalLootItemMap const& playerQuestItems = loot->GetPlayerQuestItems();
-        NotNormalLootItemMap::const_iterator pq = playerQuestItems.find(bot->GetGUID());
-        if (pq != playerQuestItems.end() && pq->second)
-        {
-            for (uint8 questIndex = 0; questIndex < pq->second->size(); ++questIndex)
-            {
-                NotNormalLootItem const& qitem = (*pq->second)[questIndex];
-                if (qitem.is_looted)
-                    continue;
-                if (qitem.index >= loot->quest_items.size())
-                    continue;
-
-                LootItem& qLootItem = loot->quest_items[qitem.index];
-                if (qLootItem.is_looted || qLootItem.is_blocked)
-                    continue;
-
-                if (!qLootItem.AllowedForPlayer(bot))
-                    continue;
-
-                if (!StoreLootAction::IsLootAllowed(qLootItem.itemid, botAI))
-                    continue;
-
-                ItemTemplate const* proto = sObjectMgr->GetItemTemplate(qLootItem.itemid);
-                if (!proto)
-                    continue;
-
-                bot->StoreLootItem(lootObject.guid, uint8(loot->items.size() + questIndex), loot);
-                BroadcastHelper::BroadcastLootingItem(botAI, bot, proto);
-            }
-        }
-        //End By leewheel
-
         // 释放loot
-        bot->GetSession()->DoLootRelease(lootObject.guid);
+        bot->GetSession()->DoLootRelease(loot);
 
         botAI->SetNextCheckDelay(sPlayerbotAIConfig.lootPickupDelay); //By leewheel 2026-08-07: 拾取完成改用短延迟，提速捡尸
         //End By leewheel
@@ -229,9 +189,8 @@ bool OpenLootAction::DoLoot(LootObject& lootObject)
 
     if (creature)
     {
-        //By leewheel 2025-07-10
-        // TC中GetRequiredLootSkill()的AC兼容包装返回uint32，不是SkillType
-        uint32 skill = creature->GetCreatureTemplate()->GetRequiredLootSkill();
+        //By leewheel 2026-09-09: TC-Cata的CreatureTemplate无GetRequiredLootSkill()，使用lootObject.skillId
+        uint32 skill = lootObject.skillId;
         //End By leewheel
         if (!CanOpenLock(skill, lootObject.reqSkillValue))
             return false;
@@ -319,7 +278,7 @@ uint32 OpenLootAction::GetOpeningSpell(LootObject& lootObject, GameObject* go)
             return spellId;
     }
 
-    for (uint32 spellId = 0; spellId < sSpellMgr->GetSpellInfoStoreSize(); spellId++)
+    for (uint32 spellId = 0; spellId < SpellMgr_GetSpellInfoStoreSize(); spellId++)
     {
         if (spellId == MINING || spellId == HERB_GATHERING)
             continue;
@@ -519,13 +478,13 @@ bool StoreLootAction::Execute(Event event)
     //By leewheel 2026-07-20: 用owner(生物GUID)查找WorldObject，而非lootObjGuid(LootObject GUID)
     // 尝试从 Creature 获取 loot
     if (Creature* creature = ObjectAccessor::GetCreature(*bot, owner))
-        loot = &creature->loot;
+        loot = creature->GetLootForPlayer(bot);
     // 尝试从 GameObject 获取 loot
     else if (GameObject* go = ObjectAccessor::GetGameObject(*bot, owner))
-        loot = &go->loot;
-    // 尝试从 Item 获取 loot (容器)，Item的loot是值类型，需要取地址
+        loot = go->GetLootForPlayer(bot);
+    // 尝试从 Item 获取 loot (容器)
     else if (Item* item = bot->GetItemByGuid(owner))
-        loot = &item->loot;
+        loot = item->GetLootForPlayer(bot);
     //End By leewheel
 
     if (!loot)
@@ -562,12 +521,12 @@ bool StoreLootAction::Execute(Event event)
             continue;
         //End By leewheel
 
-        if (!lootItem.AllowedForPlayer(bot))
+        if (!lootItem.AllowedForPlayer(bot, loot))
             continue;
 
         uint32 itemid = lootItem.itemid;
         uint32 itemcount = lootItem.count;
-        uint8 itemindex = lootItem.itemIndex;
+        uint8 itemindex = lootItem.LootListId;
 
         if (!IsLootAllowed(itemid, botAI))
             continue;
@@ -638,55 +597,13 @@ bool StoreLootAction::Execute(Event event)
 
         //By leewheel 2026-07-20: 每次loot后重新获取Loot对象指针，用owner(生物GUID)查找
         if (Creature* creature = ObjectAccessor::GetCreature(*bot, owner))
-            loot = &creature->loot;
+            loot = creature->GetLootForPlayer(bot);
         else if (GameObject* go = ObjectAccessor::GetGameObject(*bot, owner))
-            loot = &go->loot;
+            loot = go->GetLootForPlayer(bot);
         else
             break;
         //End By leewheel
     }
-
-    //By leewheel 2026-08-15: 修复——任务物品(quest_items)从未组包，导致GO/宝箱路径任务物品丢失。
-    //quest槽位LootListID = items.size()+questIndex+1 (1-based)，LootItemInSlot对>=items.size()的槽走quest分支
-    NotNormalLootItemMap const& playerQuestItems = loot->GetPlayerQuestItems();
-    NotNormalLootItemMap::const_iterator pq = playerQuestItems.find(bot->GetGUID());
-    if (pq != playerQuestItems.end() && pq->second)
-    {
-        for (uint8 questIndex = 0; questIndex < pq->second->size(); ++questIndex)
-        {
-            NotNormalLootItem const& qitem = (*pq->second)[questIndex];
-            if (qitem.is_looted)
-                continue;
-            if (qitem.index >= loot->quest_items.size())
-                continue;
-
-            LootItem& qLootItem = loot->quest_items[qitem.index];
-            if (qLootItem.is_looted || qLootItem.is_blocked)
-                continue;
-
-            if (!qLootItem.AllowedForPlayer(bot))
-                continue;
-
-            if (!IsLootAllowed(qLootItem.itemid, botAI))
-                continue;
-
-            ItemTemplate const* proto = sObjectMgr->GetItemTemplate(qLootItem.itemid);
-            if (!proto)
-                continue;
-
-            WorldPacket* packet = new WorldPacket(CMSG_LOOT_ITEM);
-            *packet << uint32(1);
-            *packet << lootObjGuid;
-            *packet << uint8(loot->items.size() + questIndex + 1);
-            packet->WriteBit(false);
-            packet->FlushBits();
-            bot->GetSession()->QueuePacket(packet);
-            botAI->SetNextCheckDelay(sPlayerbotAIConfig.lootPickupDelay);
-            lootSlotCount++;
-            BroadcastHelper::BroadcastLootingItem(botAI, bot, proto);
-        }
-    }
-    //End By leewheel
 
     if (lootSlotCount == 0)
         AI_VALUE(LootObjectStack*, "available loot")->Remove(owner);
@@ -745,7 +662,7 @@ bool StoreLootAction::IsLootAllowed(uint32 itemid, PlayerbotAI* botAI)
 
     // if (proto->GetBonding() == BIND_QUEST_ITEM ||  //Still testing if it works ok without these lines.
     //     proto->GetBonding() == BIND_QUEST_ITEM1 || //Eventually this has to be removed.
-    //     proto->Class == ITEM_CLASS_QUEST)
+    //     CreatureTemplate_GetClass(proto) == ITEM_CLASS_QUEST)
     //{
 
     bool canLoot = lootStrategy->CanLoot(proto, context);

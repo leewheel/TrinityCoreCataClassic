@@ -1,4 +1,4 @@
-
+﻿
 #include "Playerbots.h"
 #include "BroadcastHelper.h"
 #include "ServerFacade.h"
@@ -492,9 +492,11 @@ bool BroadcastHelper::BroadcastKill(PlayerbotAI* ai, Player* bot, Creature *crea
     }
     else
     {
-        switch (creature->GetCreatureTemplate()->rank)
+        //By leewheel 2026-09-09: TC-Cata使用GetCreatureClassification()获取精英类型，转为uint32以匹配CREATURE_ELITE_*常量
+        //By leewheel 2026-09-09: TC-Cata的CreatureClassifications是enum class，case标签需显式转uint32
+        switch (static_cast<uint32>(creature->GetCreatureClassification()))
         {
-            case CREATURE_ELITE_NORMAL:
+            case static_cast<uint32>(CREATURE_ELITE_NORMAL):
                 if (urand(1, sPlayerbotAIConfig.broadcastChanceMaxValue) <= sPlayerbotAIConfig.broadcastChanceKillNormal)
                 {
                     return BroadcastToChannelWithGlobalChance(
@@ -504,7 +506,7 @@ bool BroadcastHelper::BroadcastKill(PlayerbotAI* ai, Player* bot, Creature *crea
                     );
                 }
                 break;
-            case CREATURE_ELITE_ELITE:
+            case static_cast<uint32>(CREATURE_ELITE_ELITE):
                 if (urand(1, sPlayerbotAIConfig.broadcastChanceMaxValue) <= sPlayerbotAIConfig.broadcastChanceKillElite)
                 {
                     return BroadcastToChannelWithGlobalChance(
@@ -514,7 +516,7 @@ bool BroadcastHelper::BroadcastKill(PlayerbotAI* ai, Player* bot, Creature *crea
                     );
                 }
                 break;
-            case CREATURE_ELITE_RAREELITE:
+            case static_cast<uint32>(CREATURE_ELITE_RAREELITE):
                 if (urand(1, sPlayerbotAIConfig.broadcastChanceMaxValue) <= sPlayerbotAIConfig.broadcastChanceKillRareelite)
                 {
                     return BroadcastToChannelWithGlobalChance(
@@ -524,7 +526,7 @@ bool BroadcastHelper::BroadcastKill(PlayerbotAI* ai, Player* bot, Creature *crea
                     );
                 }
                 break;
-            case CREATURE_ELITE_WORLDBOSS:
+            case static_cast<uint32>(CREATURE_ELITE_WORLDBOSS):
                 if (urand(1, sPlayerbotAIConfig.broadcastChanceMaxValue) <= sPlayerbotAIConfig.broadcastChanceKillWorldboss)
                 {
                     return BroadcastToChannelWithGlobalChance(
@@ -534,7 +536,7 @@ bool BroadcastHelper::BroadcastKill(PlayerbotAI* ai, Player* bot, Creature *crea
                     );
                 }
                 break;
-            case CREATURE_ELITE_RARE:
+            case static_cast<uint32>(CREATURE_ELITE_RARE):
                 if (urand(1, sPlayerbotAIConfig.broadcastChanceMaxValue) <= sPlayerbotAIConfig.broadcastChanceKillRare)
                 {
                     return BroadcastToChannelWithGlobalChance(
@@ -544,7 +546,7 @@ bool BroadcastHelper::BroadcastKill(PlayerbotAI* ai, Player* bot, Creature *crea
                     );
                 }
                 break;
-            case CREATURE_UNKNOWN:
+            case static_cast<uint32>(CREATURE_UNKNOWN):
                 if (urand(1, sPlayerbotAIConfig.broadcastChanceMaxValue) <= sPlayerbotAIConfig.broadcastChanceKillUnknown)
                 {
                     return BroadcastToChannelWithGlobalChance(

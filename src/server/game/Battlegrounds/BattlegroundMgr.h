@@ -24,6 +24,9 @@
 #include "BattlegroundQueue.h"
 #include "UniqueTrackablePtr.h"
 #include <unordered_map>
+//By leewheel 2026-09-11: 引入递归互斥锁，保护 m_BattlegroundQueues 容器在多线程(World线程Update遍历 + bot AI Worker线程GetBattlegroundQueue并发emplace)下的安全访问，修复堆损坏崩溃
+#include <mutex>
+//End By leewheel
 
 class Battleground;
 struct BattlemasterListEntry;
@@ -122,7 +125,13 @@ class TC_GAME_API BattlegroundMgr
 
         /* Battleground queues */
         static bool IsValidQueueId(BattlegroundQueueTypeId bgQueueTypeId);
-        BattlegroundQueue& GetBattlegroundQueue(BattlegroundQueueTypeId bgQueueTypeId) { return m_BattlegroundQueues.emplace(bgQueueTypeId, bgQueueTypeId).first->second; }
+        //By leewheel 2026-09-11: GetBattlegroundQueue 改为线程安全版——加锁保护 m_BattlegroundQueues 的 emplace，防止 bot AI Worker线程与 World线程并发破坏 map 红黑树(修复堆损坏崩溃)
+        BattlegroundQueue& GetBattlegroundQueue(BattlegroundQueueTypeId bgQueueTypeId)
+        {
+            std::lock_guard<std::recursive_mutex> guard(m_BattlegroundQueuesLock);
+            return m_BattlegroundQueues.emplace(bgQueueTypeId, bgQueueTypeId).first->second;
+        }
+        //End By leewheel
         void ScheduleQueueUpdate(uint32 arenaMatchmakerRating, BattlegroundQueueTypeId bgQueueTypeId, BattlegroundBracketId bracket_id);
         uint32 GetPrematureFinishTime() const;
 
@@ -190,6 +199,9 @@ class TC_GAME_API BattlegroundMgr
 
         std::map<BattlegroundQueueTypeId, BattlegroundQueue> m_BattlegroundQueues;
         std::map<uint32 /*mapId*/, BGFreeSlotQueueContainer> m_BGFreeSlotQueue;
+        //By leewheel 2026-09-11: m_BattlegroundQueues 递归互斥锁，保护并发 emplace/遍历
+        std::recursive_mutex m_BattlegroundQueuesLock;
+        //End By leewheel
 
         struct ScheduledQueueUpdate
         {

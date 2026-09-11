@@ -47,7 +47,8 @@ uint32 QueryItemUsageAction::GetCount(ItemTemplate const* item)
 {
     uint32 total = 0;
 
-    std::vector<Item*> items = InventoryAction::parseItems(item->Name1);
+    //By leewheel 2026-09-09: TC使用GetName(locale)方法而非Name1成员
+    std::vector<Item*> items = InventoryAction::parseItems(item->GetName(LOCALE_enUS));
     if (!items.empty())
     {
         for (std::vector<Item*>::iterator i = items.begin(); i != items.end(); ++i)
@@ -128,7 +129,8 @@ std::string const QueryItemUsageAction::QueryItemPrice(ItemTemplate const* item)
         return "";
 
     std::ostringstream msg;
-    std::vector<Item*> items = InventoryAction::parseItems(item->Name1);
+    //By leewheel 2026-09-09: TC使用GetName(locale)方法而非Name1成员
+    std::vector<Item*> items = InventoryAction::parseItems(item->GetName(LOCALE_enUS));
     int32 sellPrice = 0;
     if (!items.empty())
     {

@@ -3041,6 +3041,22 @@ uint64 Guild::GetMemberAvailableMoneyForRepairItems(ObjectGuid guid) const
     return std::min(m_bankMoney, static_cast<uint64>(_GetMemberRemainingMoney(*member)));
 }
 
+//By leewheel 2026-09-09: 移植mod-playerbots，AC兼容：按玩家GUID查询其公会权限位
+uint32 Guild::GetMemberRankRights(ObjectGuid const& guid) const
+{
+    if (Member const* member = GetMember(guid))
+        return _GetRankRights(member->GetRankId());
+    return 0;
+}
+//End By leewheel
+
+//By leewheel 2026-09-09: AC兼容：检查玩家是否有指定银行标签的权限
+bool Guild::MemberHasTabRights(ObjectGuid const& guid, uint8 tabId, int32 rights) const
+{
+    return _MemberHasTabRights(guid, tabId, rights);
+}
+//End By leewheel
+
 // Bank (items move)
 void Guild::SwapItems(Player* player, uint8 tabId, uint8 slotId, uint8 destTabId, uint8 destSlotId, uint32 splitedAmount)
 {

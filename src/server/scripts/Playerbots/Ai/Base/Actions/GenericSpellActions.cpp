@@ -109,17 +109,16 @@ namespace
         if (effectInfo.Effect != SPELL_EFFECT_APPLY_AURA)
             return false;
 
+        //By leewheel 2026-09-09: TC-Cata移除了CR_HIT_TAKEN_*和CR_CRIT_TAKEN_*战斗等级，
+        // 命中/暴击减免由精通、韧性等属性替代，此处仅保留Cata中仍存在的坦克相关等级
         uint32 const tankRatingsMask =
             (1u << CR_DEFENSE_SKILL) |
             (1u << CR_DODGE) |
             (1u << CR_PARRY) |
             (1u << CR_BLOCK) |
-            (1u << CR_HIT_TAKEN_MELEE) |
-            (1u << CR_HIT_TAKEN_RANGED) |
-            (1u << CR_HIT_TAKEN_SPELL) |
-            (1u << CR_CRIT_TAKEN_MELEE) |
-            (1u << CR_CRIT_TAKEN_RANGED) |
-            (1u << CR_CRIT_TAKEN_SPELL);
+            (1u << CR_RESILIENCE_CRIT_TAKEN) |
+            (1u << CR_AVOIDANCE) |
+            (1u << CR_STURDINESS);
 
         switch (effectInfo.ApplyAuraName)
         {

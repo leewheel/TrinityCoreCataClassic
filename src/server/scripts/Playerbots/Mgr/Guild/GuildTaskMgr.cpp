@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
  * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
@@ -223,7 +223,8 @@ bool GuildTaskMgr::CreateKillTask(Player* player, uint32 guildId)
     if (!player)
         return false;
 
-    uint32 rank = !urand(0, 2) ? CREATURE_ELITE_RAREELITE : CREATURE_ELITE_RARE;
+    //By leewheel 2026-09-09: TC-Cata的CreatureClassifications是enum class，需显式转uint32
+    uint32 rank = !urand(0, 2) ? static_cast<uint32>(CREATURE_ELITE_RAREELITE) : static_cast<uint32>(CREATURE_ELITE_RARE);
 
     std::vector<uint32> ids;
 
@@ -434,7 +435,7 @@ bool GuildTaskMgr::SendKillAdvertisement(CharacterDatabaseTransaction& trans, ui
 
         //By leewheel 2025-07-10
         // TC中LocalizedString的operator[]需要LocaleConstant枚举
-        location = entry->area_name()[LOCALE_enUS];
+        location = entry->area_name[LOCALE_enUS];
         //End By leewheel
         break;
     } while (result->NextRow());
@@ -458,8 +459,9 @@ bool GuildTaskMgr::SendKillAdvertisement(CharacterDatabaseTransaction& trans, ui
     //By leewheel 2026-08-01: 玩家可见文本中文化
     subject << "公会任务: ";
     //By leewheel 2026-09-06: 移植到TrinityCore-Cata，rank字段更名为Classification
-    if (proto->Classification == CREATURE_ELITE_ELITE || proto->Classification == CREATURE_ELITE_RAREELITE ||
-        proto->Classification == CREATURE_ELITE_WORLDBOSS)
+    //By leewheel 2026-09-09: TC-Cata的CreatureClassifications是enum class，比较时需显式转uint32
+    if (CreatureTemplate_GetRank(proto) == static_cast<uint32>(CREATURE_ELITE_ELITE) || CreatureTemplate_GetRank(proto) == static_cast<uint32>(CREATURE_ELITE_RAREELITE) ||
+        CreatureTemplate_GetRank(proto) == static_cast<uint32>(CREATURE_ELITE_WORLDBOSS))
     //End By leewheel
         subject << "(精英) ";
     subject << proto->Name;
@@ -525,7 +527,7 @@ uint32 GuildTaskMgr::GetMaxItemTaskCount(uint32 itemId)
     if (!proto)
         return 0;
 
-    if (!proto->Stackable() || proto->GetMaxStackSize() == 1) //By leewheel 2026-07-10: TC中Stackable是方法
+    if (proto->GetMaxStackSize() <= 1) //By leewheel 2026-09-09: TC-Cata中Stackable不是ItemTemplate成员,用GetMaxStackSize判断
         return 1;
 
     if (proto->GetQuality() == ITEM_QUALITY_NORMAL)
@@ -779,14 +781,14 @@ bool GuildTaskMgr::HandleConsoleCommand(ChatHandler* /* handler */, char const* 
                     {
                         name << " (" << proto->Name << ",";
 
-                        //By leewheel 2026-09-06: 移植到TrinityCore-Cata，rank字段更名为Classification
-                        switch (proto->Classification)
+                        //By leewheel 2026-09-09: TC-Cata的CreatureClassifications是enum class，case标签需显式转uint32
+                        switch (CreatureTemplate_GetRank(proto))
                         //End By leewheel
                         {
-                            case CREATURE_ELITE_RARE:
+                            case static_cast<uint32>(CREATURE_ELITE_RARE):
                                 name << "rare";
                                 break;
-                            case CREATURE_ELITE_RAREELITE:
+                            case static_cast<uint32>(CREATURE_ELITE_RAREELITE):
                                 name << "rare elite";
                                 break;
                         }
@@ -1025,8 +1027,8 @@ bool GuildTaskMgr::Reward(CharacterDatabaseTransaction& trans, uint32 owner, uin
         body << guild->GetName() << "\n";
         body << leader->GetName() << "\n";
         //End By leewheel
-        //By leewheel 2026-09-06: 移植到TrinityCore-Cata，rank字段更名为Classification
-        rewardType = proto->Classification == CREATURE_ELITE_RARE ? RANDOM_ITEM_GUILD_TASK_REWARD_TRADE
+        //By leewheel 2026-09-09: TC-Cata的CreatureClassifications是enum class，比较时需显式转uint32
+        rewardType = CreatureTemplate_GetRank(proto) == static_cast<uint32>(CREATURE_ELITE_RARE) ? RANDOM_ITEM_GUILD_TASK_REWARD_TRADE
                                                         : RANDOM_ITEM_GUILD_TASK_REWARD_TRADE_RARE;
         itemId = sRandomItemMgr.GetRandomItem(player->GetLevel(), rewardType);
         if (itemId)
@@ -1037,7 +1039,7 @@ bool GuildTaskMgr::Reward(CharacterDatabaseTransaction& trans, uint32 owner, uin
                 if (itemProto->GetQuality() == ITEM_QUALITY_NORMAL)
                     itemCount = itemProto->GetMaxStackSize();
 
-                if (proto->Classification != CREATURE_ELITE_RARE && itemProto->GetQuality() > ITEM_QUALITY_NORMAL)
+                if (CreatureTemplate_GetRank(proto) != static_cast<uint32>(CREATURE_ELITE_RARE) && itemProto->GetQuality() > ITEM_QUALITY_NORMAL)
                     itemCount = urand(1, itemProto->GetMaxStackSize());
             }
         }
@@ -1332,3 +1334,4 @@ bool GuildTaskMgr::CheckTaskTransfer(std::string const text, Player* ownerPlayer
 
     return true;
 }
+

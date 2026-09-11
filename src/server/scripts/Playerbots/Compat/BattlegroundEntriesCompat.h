@@ -74,7 +74,17 @@ enum BG_IC_ObjectEntriesCompat
     GO_ALLIANCE_BANNER_REFINERY         = 195339, // 联盟精炼厂横幅
     GO_ALLIANCE_BANNER_REFINERY_CONT    = 195340, // 联盟精炼厂受击横幅
     GO_HORDE_BANNER_REFINERY            = 195341, // 部落精炼厂横幅
-    GO_HORDE_BANNER_REFINERY_CONT       = 195342  // 部落精炼厂受击横幅
+    GO_HORDE_BANNER_REFINERY_CONT       = 195342, // 部落精炼厂受击横幅
+
+    //By leewheel 2026-09-08: IoC墓地横幅(WotLK与Cata一致)
+    GO_ALLIANCE_BANNER_GRAVEYARD_A      = 195699, // 联盟墓地(联盟侧)横幅
+    GO_ALLIANCE_BANNER_GRAVEYARD_A_CONT = 195700, // 联盟墓地(联盟侧)受击横幅
+    GO_HORDE_BANNER_GRAVEYARD_A         = 195701, // 部落墓地(联盟侧)横幅
+    GO_HORDE_BANNER_GRAVEYARD_A_CONT    = 195702, // 部落墓地(联盟侧)受击横幅
+    GO_ALLIANCE_BANNER_GRAVEYARD_H      = 195703, // 联盟墓地(部落侧)横幅
+    GO_ALLIANCE_BANNER_GRAVEYARD_H_CONT = 195704, // 联盟墓地(部落侧)受击横幅
+    GO_HORDE_BANNER_GRAVEYARD_H         = 195705, // 部落墓地(部落侧)横幅
+    GO_HORDE_BANNER_GRAVEYARD_H_CONT    = 195706  // 部落墓地(部落侧)受击横幅
 };
 
 #endif

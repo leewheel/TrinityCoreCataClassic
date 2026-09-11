@@ -373,7 +373,8 @@ bool EoEDrakeAttackAction::DrakeDpsAction(Unit* target)
     Unit* vehicleBase = bot->GetVehicleBase();
     if (!vehicleBase) { return false; }
 
-    uint8 comboPoints = vehicleBase->GetComboPoints(target);
+    //By leewheel 2026-09-09: TC Cata中连击点作为POWER_COMBO_POINTS能量存储，Unit无GetComboPoints方法
+    uint8 comboPoints = static_cast<uint8>(vehicleBase->GetPower(POWER_COMBO_POINTS));
     if (comboPoints >= 2)
     {
         return CastDrakeSpellAction(target, SPELL_ENGULF_IN_FLAMES, 0);
@@ -392,7 +393,8 @@ bool EoEDrakeAttackAction::DrakeHealAction()
         return false;
     }
 
-    uint8 comboPoints = vehicleBase->GetComboPoints(vehicleBase);
+    //By leewheel 2026-09-09: TC Cata中连击点作为POWER_COMBO_POINTS能量存储，Unit无GetComboPoints方法
+    uint8 comboPoints = static_cast<uint8>(vehicleBase->GetPower(POWER_COMBO_POINTS));
     if (comboPoints >= 5)
     {
         return CastDrakeSpellAction(vehicleBase, SPELL_LIFE_BURST, 0);

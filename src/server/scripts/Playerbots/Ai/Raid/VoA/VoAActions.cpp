@@ -1,4 +1,4 @@
-#include "VoAActions.h"
+﻿#include "VoAActions.h"
 #include "VoATriggers.h"
 #include "Define.h"
 #include "Event.h"

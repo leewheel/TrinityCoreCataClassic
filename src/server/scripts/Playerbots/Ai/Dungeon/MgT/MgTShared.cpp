@@ -1,4 +1,4 @@
-/*
+﻿/*
  * 魔导师平台 机器人策略
  */
 //By leewheel 2026-09-05: 移植来源 AC mod-playerbots MgTShared.cpp 移植适配 TC 框架(上游 feat tbc-mgt #2663)

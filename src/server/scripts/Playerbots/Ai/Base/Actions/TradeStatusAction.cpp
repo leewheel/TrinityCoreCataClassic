@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
  * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
@@ -503,7 +503,7 @@ static Item* CreateConjuredItem(Player* mage, uint32 itemId)
         return nullptr;
 
     // 魔法水/面包通常可堆叠20个
-    uint32 count = proto->Stackable() > 1 ? 20 : 1;
+    uint32 count = proto->GetMaxStackSize() > 1 ? 20 : 1;
 
     ItemPosCountVec dest;
     InventoryResult msg = mage->CanStoreItem(NULL_BAG, NULL_SLOT, dest, itemId, count);
@@ -551,7 +551,8 @@ void TradeStatusAction::TryGiveConjuredItems(Player* trader)
             continue;
         if (myTrade->HasItem(item->GetGUID()))
             continue;
-        uint32 reqLevel = item->GetTemplate()->RequiredLevel();
+        //By leewheel 2026-09-09: TC-Cata的ItemTemplate用GetBaseRequiredLevel()而非RequiredLevel()
+        uint32 reqLevel = item->GetTemplate()->GetBaseRequiredLevel();
         if (reqLevel >= bestFoodLevel)
         {
             bestFoodLevel = reqLevel;
@@ -580,7 +581,8 @@ void TradeStatusAction::TryGiveConjuredItems(Player* trader)
                 continue;
             if (myTrade->HasItem(item->GetGUID()))
                 continue;
-            uint32 reqLevel = item->GetTemplate()->RequiredLevel();
+            //By leewheel 2026-09-09: TC-Cata的ItemTemplate用GetBaseRequiredLevel()而非RequiredLevel()
+            uint32 reqLevel = item->GetTemplate()->GetBaseRequiredLevel();
             if (reqLevel >= bestWaterLevel)
             {
                 bestWaterLevel = reqLevel;

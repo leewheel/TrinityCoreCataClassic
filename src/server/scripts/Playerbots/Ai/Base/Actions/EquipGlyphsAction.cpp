@@ -87,7 +87,7 @@ bool EquipGlyphsAction::CollectGlyphs(std::vector<uint32> const& itemIds,
             return false;
 
         // check class by AllowableClass
-        if ((info->proto->GetAllowableClass() & bot->getClassMask()) == 0)
+        if ((info->proto->GetAllowableClass() & bot->GetClassMask()) == 0)
             return false;
 
         out.push_back(info);

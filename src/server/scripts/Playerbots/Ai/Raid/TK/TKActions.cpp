@@ -1,4 +1,4 @@
-/* 风暴要塞 机器人策略 */
+﻿/* 风暴要塞 机器人策略 */
 //By leewheel 2026-08-18: 移植 brighton-chi the-lab 482c26fb(SWP正确打断)/9d6cc00b(格鲁尔正确打断)系列——
 //全文件 13 处 botAI->InterruptSpell() 统一改为 bot->CastStop()(只中断法术,不影响移动)
 //End By leewheel
@@ -1749,8 +1749,9 @@ bool KaelthasSunstriderLootLegendaryWeaponsAction::EquipLegendaryWeapon(uint32 i
             if (bot->CanUseItem(itemProto) != EQUIP_ERR_OK)
                 continue;
 
+            //By leewheel 2026-09-09: TC使用GetId()而非ItemId成员
             float const score = calculator.CalculateItem(
-                itemProto->ItemId, item->GetItemRandomPropertyId());
+                itemProto->GetId(), item->GetItemRandomPropertyId());
             if (score > bestScore)
             {
                 bestScore = score;

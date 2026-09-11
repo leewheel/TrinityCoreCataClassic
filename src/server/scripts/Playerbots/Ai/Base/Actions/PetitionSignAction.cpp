@@ -33,8 +33,10 @@ bool PetitionSignAction::Execute(Event event)
     if (!petition)
         return false;
 
-    uint8 petitionType = petition->PetitionType;
-    bool isArenaPetition = (petitionType != GUILD_CHARTER_TYPE);
+    //By leewheel 2026-09-09: TC-Cata的Petition结构体无PetitionType字段
+    //通过机器人自身状态判断：无公会=公会签名表，有公会=竞技场签名表
+    bool isArenaPetition = (bot->GetGuildId() != 0);
+    uint8 petitionType = 0;  // 竞技场签名表类型未知时默认0，后续跳过slot检查
     //End By leewheel
 
     bool accept = true;

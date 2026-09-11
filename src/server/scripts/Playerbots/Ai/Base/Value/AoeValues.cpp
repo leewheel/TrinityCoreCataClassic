@@ -103,7 +103,8 @@ bool HasAreaDebuffValue::Calculate()
             if (!proto)
                 continue;
 
-            uint32 trigger_spell_id = proto->Effects[aurEff->GetEffIndex()].TriggerSpell;
+            //By leewheel 2026-09-09: TC-Cata的SpellInfo用GetEffects()而非Effects成员
+            uint32 trigger_spell_id = proto->GetEffects()[aurEff->GetEffIndex()].TriggerSpell;
             if (trigger_spell_id == 29767)  // Overload
             {
                 return true;

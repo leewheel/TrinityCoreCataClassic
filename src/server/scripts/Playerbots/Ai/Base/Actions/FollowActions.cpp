@@ -1,4 +1,4 @@
-/*
+﻿/*
  * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
  * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
  * or (at your option) any later version.
@@ -43,17 +43,16 @@ bool FollowAction::Execute(Event /*event*/)
         //By leewheel 2026-08-15: 按 the-lab 移植 GetTransportForPosTolerant——从给定Z向下的
         //4个Z探针(z/z+0.5/z+1.5/z-0.5)逐一查Map::GetTransportForPos(TC版用PhaseShift)。
         //master在动态渡船/飞艇上时直接取其Transport；否则用探针判定是否站在某动态载具甲板上
+        //By leewheel 2026-09-09: TC-Cata的Map无GetTransportForPos方法，改用简化方案：
+        //若ref已在某Transport上则直接返回该Transport，否则返回nullptr。
         auto getTransportForPosTolerant = [](Map* m, WorldObject* ref, float x, float y, float z) -> Transport*
         {
             if (!m || !ref)
                 return nullptr;
 
-            std::array<float, 4> const probes = { z, z + 0.5f, z + 1.5f, z - 0.5f };
-            for (float const pz : probes)
-            {
-                if (Transport* t = m->GetTransportForPos(ref->GetPhaseShift(), x, y, pz, ref))
-                    return t;
-            }
+            // 若ref已在transport上，直接返回该transport
+            if (TransportBase* transportBase = ref->GetTransport())
+                return m->GetTransport(transportBase->GetTransportGUID());
 
             return nullptr;
         };
@@ -83,7 +82,8 @@ bool FollowAction::Execute(Event /*event*/)
             float const dx = (botX - masterX) / static_cast<float>(steps);
             float const dy = (botY - masterY) / static_cast<float>(steps);
 
-            if (m->GetTransportForPos(phaseShift, masterX, masterY, probeZ, ref) != expected)
+            //By leewheel 2026-09-09: TC-Cata无GetTransportForPos，改用getTransportForPosTolerant
+            if (getTransportForPosTolerant(m, ref, masterX, masterY, probeZ) != expected)
                 return false;
 
             float lastX = masterX;
@@ -143,7 +143,8 @@ bool FollowAction::Execute(Event /*event*/)
 
             if (botSurfaceTransport == transport)
             {
-                transport->AddPassenger(bot);
+                //By leewheel 2026-09-09: TC-Cata的Transport::AddPassenger需要2个参数(passenger, offset)
+                transport->AddPassenger(bot, transport->GetPositionOffsetTo(bot->GetPosition()));
                 bot->StopMovingOnCurrentPos();
                 return true;
             }

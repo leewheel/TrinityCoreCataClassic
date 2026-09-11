@@ -1,4 +1,4 @@
-#include "NewRpgBaseAction.h"
+﻿#include "NewRpgBaseAction.h"
 
 #include "BroadcastHelper.h"
 #include "ChatHelper.h"
@@ -271,7 +271,7 @@ bool NewRpgBaseAction::MoveRandomNear(float moveStep, MovementPriority priority,
             continue;
         //End By leewheel
 
-        if (map->IsInWater(bot->GetPhaseShift(), dx, dy, dz, nullptr, bot->GetCollisionHeight()))
+        if (map->IsInWater(bot->GetPhaseShift(), dx, dy, dz, nullptr))
             continue;
 
         bool moved = MoveTo(bot->GetMapId(), dx, dy, dz, false, false, false, true, priority);
@@ -597,7 +597,7 @@ bool NewRpgBaseAction::IsQuestCapableDoing(Quest const* quest)
         return false;
 
     // Elite quest and dungeon quest etc
-    if (quest->GetType() != 0)
+    if (quest->GetQuestType() != 0)
         return false;
 
     // now we only capable of doing solo quests
@@ -953,7 +953,8 @@ bool NewRpgBaseAction::GetQuestPOIPosAndObjectiveIdx(uint32 questId, std::vector
             int8 storageIdx = obj.StorageIndex;
             if (storageIdx >= 0 && storageIdx < QUEST_OBJECTIVES_COUNT)
             {
-                if (q_status.CreatureOrGOCount[storageIdx] < static_cast<uint32>(obj.Amount))
+                //By leewheel 2026-09-09: TC-Cata无CreatureOrGOCount数组，改用bot->GetQuestObjectiveData
+                if (bot->GetQuestObjectiveData(obj) < obj.Amount)
                     incompleteObjectiveIdx.push_back(objIdx);
             }
         }

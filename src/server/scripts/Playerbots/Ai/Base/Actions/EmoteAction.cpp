@@ -715,17 +715,18 @@ bool EmoteAction::Execute(Event event)
                     if (!em)
                         continue;
 
-                    //By leewheel 2026-07-10: TC中textid()是方法, ID是大写
-                    if (em->textid() == static_cast<uint16>(EMOTE_ONESHOT_TALK))
+                    //By leewheel 2026-09-09: 移植到TrinityCore-Cata，EmotesTextEntry兼容——
+                    //Cata的EmotesTextEntry无textid()方法，用EmoteID字段(经EmotesTextEntry_GetTextId兼容函数)
+                    if (EmotesTextEntry_GetTextId(em) == static_cast<uint16>(EMOTE_ONESHOT_TALK))
                         continue;
 
-                    if (em->textid() == static_cast<uint16>(EMOTE_ONESHOT_QUESTION))
+                    if (EmotesTextEntry_GetTextId(em) == static_cast<uint16>(EMOTE_ONESHOT_QUESTION))
                         continue;
 
-                    if (em->textid() == static_cast<uint16>(EMOTE_ONESHOT_EXCLAMATION))
+                    if (EmotesTextEntry_GetTextId(em) == static_cast<uint16>(EMOTE_ONESHOT_EXCLAMATION))
                         continue;
 
-                    if (em->textid() == emoteId)
+                    if (EmotesTextEntry_GetTextId(em) == emoteId)
                     {
                         types.push_back(em->ID);
                     }

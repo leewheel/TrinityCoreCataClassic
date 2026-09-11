@@ -23,7 +23,8 @@ public:
     PlayerbotsSelfBotAfkServerScript()
         : ServerScript("PlayerbotsSelfBotAfkServerScript") {}
 
-    bool CanPacketReceive(WorldSession* session, WorldPacket const& packet) override
+    //By leewheel 2026-09-08: TC-Cata的ServerScript无CanPacketReceive虚函数，移除override关键字
+    bool CanPacketReceive(WorldSession* session, WorldPacket const& packet)
     {
         if (packet.GetOpcode() != CMSG_LOGOUT_REQUEST)
             return true;

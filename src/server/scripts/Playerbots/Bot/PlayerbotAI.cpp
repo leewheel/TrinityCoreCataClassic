@@ -1,4 +1,4 @@
-//By leewheel 2026-07-11
+﻿//By leewheel 2026-07-11
 // �?AzerothCore mod-playerbots 移植�?TrinityCore
 //End By leewheel
 
@@ -400,24 +400,18 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
     if (!nextTransportCheck)
     {
         nextTransportCheck = 1000;
-        //By leewheel 2026-08-15: 恢复渡船/飞艇搭乘检测——TC 3.4.3原无GetTransportForPos，
-        //已在Map类移植该API(见Map::GetTransportForPos)。发现不同载具时换乘并停走，
-        //机器人可实际登船/飞艇跨海跨洲移动
-        Transport* newTransport = bot->GetMap()->GetTransportForPos(
-            bot->GetPhaseShift(), bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ(), bot);
-
-        if (newTransport != bot->GetTransport())
-        {
-            // LOG_DEBUG("playerbots", "Bot {} is on a transport", bot->GetName());
-
-            if (bot->GetTransport())
-                bot->GetTransport()->RemovePassenger(bot);
-
-            if (newTransport)
-                newTransport->AddPassenger(bot);
-
-            bot->StopMovingOnCurrentPos();
-        }
+        //By leewheel 2026-09-09: TC-Cata的Map类无GetTransportForPos，Transport::AddPassenger需要2个参数
+        //暂时禁用渡船/飞艇搭乘检测功能，TODO: 后续移植Transport相关API
+        // Transport* newTransport = bot->GetMap()->GetTransportForPos(
+        //     bot->GetPhaseShift(), bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ(), bot);
+        // if (newTransport != bot->GetTransport())
+        // {
+        //     if (bot->GetTransport())
+        //         bot->GetTransport()->RemovePassenger(bot);
+        //     if (newTransport)
+        //         newTransport->AddPassenger(bot, Position());
+        //     bot->StopMoving();
+        // }
         //End By leewheel
     }
 
@@ -915,7 +909,7 @@ void PlayerbotAI::HandleCommand(uint32 type, std::string const text, Player* fro
     {
         std::string const response = HandleRemoteCommand(filtered.substr(6));
         WorldPacket data;
-        ChatHandler::BuildChatPacket(data, (ChatMsg)type, type == CHAT_MSG_ADDON ? LANG_ADDON : LANG_UNIVERSAL, bot,
+        BuildChatPacket(data, (ChatMsg)type, type == CHAT_MSG_ADDON ? LANG_ADDON : LANG_UNIVERSAL, bot,
                                      nullptr, response.c_str());
         fromPlayer->SendDirectMessage(&data);
         return;
@@ -2790,7 +2784,7 @@ Unit* PlayerbotAI::GetUnit(CreatureData const* creatureData)
         return nullptr;
 
     //By leewheel 2026-07-11: TC的mapid是方法而非成员，需�?)调用
-    Map* map = sMapMgr->FindMap(creatureData->mapid(), 0);
+    Map* map = sMapMgr->FindMap(creatureData->mapId, 0);
     //End By leewheel
     if (!map)
         return nullptr;
@@ -2863,10 +2857,10 @@ std::string PlayerbotAI::GetLocalizedAreaName(const AreaTableEntry* entry)
     std::string name;
     if (entry)
     {
-    //By leewheel 2026-07-11: TC的area_name是方法而非成员，需�?)调用
-        name = entry->area_name()[sWorld->GetDefaultDbcLocale()];
+    //By leewheel 2026-09-09: TC-Cata的AreaTableEntry用AreaName字段(LocalizedString)而非area_name()方法
+        name = entry->AreaName[sWorld->GetDefaultDbcLocale()];
         if (name.empty())
-            name = entry->area_name()[LOCALE_enUS];
+            name = entry->AreaName[LOCALE_enUS];
     //End By leewheel
     }
 
@@ -2965,7 +2959,7 @@ bool PlayerbotAI::SayToGuild(const std::string& msg)
     {
         if (Guild* guild = sGuildMgr->GetGuildById(bot->GetGuildId()))
         {
-            if (!guild->HasRankRight(bot, GR_RIGHT_GCHATSPEAK))
+            if (!Guild_HasRankRight(guild, bot->GetGUID(), GR_RIGHT_GCHATSPEAK))
             {
                 return false;
             }
@@ -3043,8 +3037,8 @@ bool PlayerbotAI::SayToParty(const std::string& msg)
         return false;
 
     WorldPacket data;
-    ChatHandler::BuildChatPacket(data, CHAT_MSG_PARTY, msg.c_str(), LANG_UNIVERSAL, CHAT_TAG_NONE, bot->GetGUID(),
-                                 bot->GetName());
+    BuildChatPacket(data, CHAT_MSG_PARTY, msg.c_str(), Language(LANG_UNIVERSAL), uint16(CHAT_TAG_NONE), bot->GetGUID(),
+                                 bot->GetName().c_str());
 
     for (auto receiver : GetRealPlayersInGroup())
     {
@@ -3060,8 +3054,8 @@ bool PlayerbotAI::SayToRaid(const std::string& msg)
         return false;
 
     WorldPacket data;
-    ChatHandler::BuildChatPacket(data, CHAT_MSG_RAID, msg.c_str(), LANG_UNIVERSAL, CHAT_TAG_NONE, bot->GetGUID(),
-                                 bot->GetName());
+    BuildChatPacket(data, CHAT_MSG_RAID, msg.c_str(), Language(LANG_UNIVERSAL), uint16(CHAT_TAG_NONE), bot->GetGUID(),
+                                 bot->GetName().c_str());
 
     for (auto receiver : GetRealPlayersInGroup())
     {
@@ -3557,8 +3551,8 @@ bool PlayerbotAI::CanCastSpell(uint32 spellid, Unit* target, bool checkHasSpell,
     if (!itemTarget)
     {
         // Exception for Deep Freeze (44572) - allow cast for damage on immune targets (e.g., bosses)
-        //By leewheel 2026-07-11: TC的IsImmunedToSpell需要两个参�?SpellInfo*, WorldObject*)
-        if (target->IsImmunedToSpell(spellInfo, bot))
+        //By leewheel 2026-09-09: TC-Cata的IsImmunedToSpell需要(spellInfo, effectMask, caster)三个参数
+        if (Unit_IsImmunedToSpell(target, spellInfo, bot))
         //End By leewheel
         {
             if (spellid != 44572)  // Deep Freeze
@@ -4038,12 +4032,15 @@ bool PlayerbotAI::CastSpell(uint32 spellId, Unit* target, Item* itemTarget)
     //By leewheel 2026-07-18: SKINNING 法术的 Spell::prepare 虽然返回 OK（因 TRIGGERED_IGNORE_TARGET_CHECK），
     //但 Spell::AddUnitTarget 中的 SpellInfo::CheckTarget 会因 creature 已死亡返回 SPELL_FAILED_TARGETS_DEAD，
     //导致 m_UniqueTargetInfo 为空，EffectSkinning 永远不被调用，creature 状态不变化，bot 陷入死循环。
+    //By leewheel 2026-09-09: TC-Cata的Creature无loot成员，SendLoot API变化大
+    //暂时禁用剥皮快速路径，TODO: 适配TC-Cata的Loot系统后恢复
     //修复：对 SKINNING 法术绕过 Spell 系统，直接执行 EffectSkinning 的核心逻辑（设置 flag + SendLoot + UpdateGatherSkill）
-    if (spellInfo->GetEffects()[0].Effect == SPELL_EFFECT_SKINNING)
+    if (false && spellInfo->GetEffects()[0].Effect == SPELL_EFFECT_SKINNING)
+    // if (spellInfo->GetEffects()[0].Effect == SPELL_EFFECT_SKINNING)
     {
         Creature* skinnedCreature = target->ToCreature();
         if (skinnedCreature && skinnedCreature->HasUnitFlag(UNIT_FLAG_SKINNABLE) &&
-            (skinnedCreature->IsCritter() || skinnedCreature->loot.isLooted()) &&
+            (skinnedCreature->IsCritter() || Creature_IsLooted(skinnedCreature)) &&
             !skinnedCreature->HasUnitFlag3(UNIT_FLAG3_ALREADY_SKINNED))
         {
             uint32 skill = skinnedCreature->GetCreatureDifficulty()->GetRequiredLootSkill();
@@ -4053,7 +4050,8 @@ bool PlayerbotAI::CastSpell(uint32 spellId, Unit* target, Item* itemTarget)
 
             skinnedCreature->SetUnitFlag3(UNIT_FLAG3_ALREADY_SKINNED);
             skinnedCreature->SetDynamicFlag(UNIT_DYNFLAG_LOOTABLE);
-            bot->SendLoot(skinnedCreature->GetGUID(), LOOT_SKINNING);
+            // TODO: TC-Cata的SendLoot需要Loot&参数，需先生成剥皮loot
+            // bot->SendLoot(*skinnedCreature->GetLoot());
             bot->UpdateGatherSkill(skill, skillValue, reqValue, skinnedCreature->IsElite() ? 2 : 1);
 
             //By leewheel 2026-07-18: 施法成功日志
@@ -5645,8 +5643,8 @@ std::string const PlayerbotAI::HandleRemoteCommand(std::string const command)
             << " " << bot->GetOrientation();
 
         if (AreaTableEntry const* zoneEntry = sAreaTableStore.LookupEntry(bot->GetZoneId()))
-            //By leewheel 2026-07-11: LocalizedString::operator[]需要LocaleConstant枚举
-            out << " |" << zoneEntry->area_name()[DEFAULT_LOCALE] << "|";
+            //By leewheel 2026-09-09: TC-Cata的AreaTableEntry用AreaName字段而非area_name()方法
+            out << " |" << zoneEntry->AreaName[DEFAULT_LOCALE] << "|";
             //End By leewheel
 
         return out.str();
@@ -6555,7 +6553,8 @@ InventoryResult PlayerbotAI::CanEquipItem(uint8 slot, uint16& dest, Item* pItem,
             //End By leewheel
             // check allowed level (extend range to upper values if MaxLevel more or equal max player level, this let GM
             // set high level with 1...max range items)
-            if (ssd && ssd->MaxLevel < DEFAULT_MAX_LEVEL && ssd->MaxLevel < bot->GetLevel())
+            //By leewheel 2026-09-09: TC-Cata的ScalingStatDistributionEntry字段名是Maxlevel(小写l)
+            if (ssd && ssd->Maxlevel < DEFAULT_MAX_LEVEL && ssd->Maxlevel < bot->GetLevel())
                 return EQUIP_ERR_ITEM_CANT_BE_EQUIPPED;
 
             uint8 eslot = FindEquipSlot(pProto, slot, swap);
@@ -6868,8 +6867,8 @@ ChatChannelSource PlayerbotAI::GetChatChannelSource(Player* bot, uint32 type, st
             return ChatChannelSource::SRC_WORLD;
         else
         {
-            //By leewheel 2026-07-11: TC使用ForTeam(大写F)
-            ChannelMgr* cMgr = ChannelMgr::ForTeam(bot->GetTeamId());
+            //By leewheel 2026-09-09: TC-Cata的ChannelMgr::ForTeam需要Team类型，用GetTeam()而非GetTeamId()
+            ChannelMgr* cMgr = ChannelMgr::ForTeam(bot->GetTeam());
             //End By leewheel
             if (!cMgr)
             {
@@ -7151,9 +7150,9 @@ void PlayerbotAI::PetFollow()
     charmInfo->SetIsCommandFollow(true);
     charmInfo->SetIsFollowing(false);
     charmInfo->RemoveStayPosition();
-    charmInfo->SetForcedSpell(0);
-    //By leewheel 2026-07-11: TC的SetForcedTargetGUID需要ObjectGuid参数
-    charmInfo->SetForcedTargetGUID(ObjectGuid::Empty);
+    //By leewheel 2026-09-09: TC-Cata的CharmInfo无SetForcedSpell/SetForcedTargetGUID方法
+    // charmInfo->SetForcedSpell(0);
+    // charmInfo->SetForcedTargetGUID(ObjectGuid::Empty);
     //End By leewheel
 }
 

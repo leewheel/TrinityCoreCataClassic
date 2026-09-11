@@ -81,7 +81,7 @@ bool AutoShareQuestAction::Execute(Event /*event*/)
             if (!player->SatisfyQuestLog(false))
                 continue;
 
-            if (player->GetDivider())
+            if (Player_GetDivider(player))
                 continue;
 
             if (auto ai = GET_PLAYERBOT_AI(player))

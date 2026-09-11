@@ -76,7 +76,8 @@ void EquipAction::EquipItem(Item* item)
     // Handle ammunition separately
     if (invType == INVTYPE_AMMO)
     {
-        bot->SetAmmo(itemId);
+        //By leewheel 2026-09-09: TC-Cata无Player::SetAmmo方法
+        //弹药装备通过正常装备流程处理，此处直接返回
         std::ostringstream out;
         //By leewheel 2026-08-01: 玩家可见文本中文化
         out << "正在装备 " << chat->FormatItem(itemProto);

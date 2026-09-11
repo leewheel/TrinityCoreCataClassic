@@ -34,7 +34,8 @@ Unit* AggressiveTargetValue::Calculate()
         if (!unit->IsInWorld() || unit->IsDuringRemoveFromWorld())
             continue;
 
-        if (unit->ToCreature() && !unit->ToCreature()->GetCreatureTemplate()->lootid &&
+        //By leewheel 2026-09-09: TC-Cata的CreatureTemplate无lootid字段，使用Creature::GetLootId()
+        if (unit->ToCreature() && !unit->ToCreature()->GetLootId() &&
             bot->GetReactionTo(unit) >= REP_NEUTRAL)
             continue;
 

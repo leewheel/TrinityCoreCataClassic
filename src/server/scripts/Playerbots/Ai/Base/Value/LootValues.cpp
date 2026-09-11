@@ -19,21 +19,22 @@ LootTemplateAccess const* DropMapValue::GetLootTemplate(ObjectGuid guid, LootTyp
         if (info)
         {
             if (type == LOOT_CORPSE)
-                //By leewheel 2026-07-10: TC使用LootID()方法而非lootid成员
-                lTemplate = LootTemplates_Creature.GetLootFor(info->LootID());
+                //By leewheel 2026-09-09: TC-Cata使用CreatureTemplate_GetLootID兼容函数获取loot ID
+                lTemplate = LootTemplates_Creature.GetLootFor(CreatureTemplate_GetLootID(info));
                 //End By leewheel
-            //By leewheel 2026-07-09: TC的pickpocketLootId/SkinLootId在CreatureDifficulty中
+            //By leewheel 2026-09-09: TC-Cata的pickpocket/skin loot在CreatureDifficulty中
+            //使用兼容函数以避免GetDifficulty宏冲突
             else if (type == LOOT_PICKPOCKETING)
             {
-                CreatureDifficulty const* diff = info->GetDifficulty(DIFFICULTY_NORMAL);
-                if (diff && diff->PickPocketLootID)
-                    lTemplate = LootTemplates_Pickpocketing.GetLootFor(diff->PickPocketLootID);
+                uint32 lootId = CreatureTemplate_GetPickPocketLootID(info);
+                if (lootId)
+                    lTemplate = LootTemplates_Pickpocketing.GetLootFor(lootId);
             }
             else if (type == LOOT_SKINNING)
             {
-                CreatureDifficulty const* diff = info->GetDifficulty(DIFFICULTY_NORMAL);
-                if (diff && diff->SkinLootID)
-                    lTemplate = LootTemplates_Skinning.GetLootFor(diff->SkinLootID);
+                uint32 lootId = CreatureTemplate_GetSkinLootID(info);
+                if (lootId)
+                    lTemplate = LootTemplates_Skinning.GetLootFor(lootId);
             }
             //End By leewheel
         }
@@ -57,8 +58,8 @@ LootTemplateAccess const* DropMapValue::GetLootTemplate(ObjectGuid guid, LootTyp
         {
             if (type == LOOT_CORPSE)
                 lTemplate = LootTemplates_Item.GetLootFor(proto->GetId());
-            else if (type == LOOT_DISENCHANTING && proto->DisenchantID)
-                lTemplate = LootTemplates_Disenchant.GetLootFor(proto->DisenchantID);
+            else if (type == LOOT_DISENCHANTING && ItemTemplate_GetDisenchantID(proto))
+                lTemplate = LootTemplates_Disenchant.GetLootFor(ItemTemplate_GetDisenchantID(proto));
             if (type == LOOT_MILLING)
                 lTemplate = LootTemplates_Milling.GetLootFor(proto->GetId());
             if (type == LOOT_PROSPECTING)

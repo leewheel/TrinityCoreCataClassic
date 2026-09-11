@@ -74,7 +74,7 @@ bool AnzuCastHealOverTimeSpellOnBirdSpiritAction::Execute(Event /*event*/)
         //By leewheel 2026-09-04: 上游89a4c459——FindNearestCreature 第三参默认 true, 显式传参删除
         Creature* spirit = bot->FindNearestCreature(entry, searchRadius);
         if (spirit && !spirit->GetAuraEffect(
-                SPELL_AURA_PERIODIC_HEAL, SPELLFAMILY_DRUID, REJUVENATION_SPELL_ICON_ID, 0))
+                SPELL_AURA_PERIODIC_HEAL, SPELLFAMILY_DRUID, flag128(0x200000, 0, 0, 0)))
         {
             targetSpirit = spirit;
             break;

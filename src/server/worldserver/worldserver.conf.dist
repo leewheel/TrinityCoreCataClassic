@@ -115,7 +115,8 @@ LogsDir = ""
 LoginDatabaseInfo     = "127.0.0.1;3306;trinity;trinity;auth"
 WorldDatabaseInfo     = "127.0.0.1;3306;trinity;trinity;world"
 CharacterDatabaseInfo = "127.0.0.1;3306;trinity;trinity;characters"
-HotfixDatabaseInfo    = "127.0.0.1;3306;trinity;trinity;hotfixes"
+HotfixDatabaseInfo    = "127.0.0.1;3388;acore;acore;hotfixes"
+PlayerbotsDatabaseInfo = "127.0.0.1;3388;acore;acore;playerbots"
 
 #
 #    LoginDatabase.WorkerThreads
@@ -4334,3 +4335,268 @@ Load.Locales = 1
 
 #
 ###################################################################################################
+
+
+####################################################################################################
+# PLAYERBOTS 配置段 (mod-playerbots 移植到 TrinityCore cata_classic)
+#
+# 该段覆盖 src/server/scripts/Playerbots 端口代码中所有带 Playerbot. 前缀的 sConfigMgr 读取项。
+# 所有参数均带代码内默认值；以下仅在需要时修改默认行为。为便于维护，按代码读取顺序组织。
+####################################################################################################
+[Playerbot]
+
+##################################################
+# 总开关 / 基础行为
+##################################################
+# 是否启用 playerbots 模块
+Playerbot.Enabled = 1
+# 无真实玩家在线时是否禁用机器人（1 禁用 / 0 始终启用在世界）
+Playerbot.DisableWithoutRealPlayer = 0
+Playerbot.DisabledWithoutRealPlayerLoginDelay = 30
+Playerbot.DisabledWithoutRealPlayerLogoutDelay = 300
+# 是否允许角色常驻世界（RandomBot 自治游玩开关）
+Playerbot.PermanentlyInWorldTime = 1800000
+Playerbot.BotActiveAlone = 1
+Playerbot.BotActiveAloneDurationSeconds = 1800
+# 机器人账号相关
+Playerbot.AllowAccountBots = 1
+Playerbot.AllowGuildBots = 1
+Playerbot.AllowTrustedAccountBots = 1
+Playerbot.RandomBotAccountPrefix = "rndbot"
+Playerbot.RandomBotAccountCount = 0
+Playerbot.RandomBotAutologin = 1
+Playerbot.BotAutologin = 0
+Playerbot.AddClassAccountPoolSize = 50
+Playerbot.AddClassCommand = 1
+Playerbot.SelfBotLevel = 1
+Playerbot.MaxAddedBots = 40
+Playerbot.GroupInvitationPermission = 1
+Playerbot.KeepAltsInGroup = 0
+Playerbot.AutoInitOnly = 0
+Playerbot.ResetInstanceIdForAltBots = 0
+Playerbot.AutoInitEquipLevelLimitRatio = 1.0
+Playerbot.AllowLearnTrainerSpells = 1
+
+##################################################
+# 命令
+##################################################
+Playerbot.CommandPrefix = "bot"
+Playerbot.CommandSeparator = " "
+Playerbot.CommandServerPort = 4051
+
+##################################################
+# 召唤选项
+##################################################
+Playerbot.AllowSummonInCombat = 1
+Playerbot.AllowSummonWhenMasterIsDead = 1
+Playerbot.AllowSummonWhenBotIsDead = 1
+Playerbot.ReviveBotWhenSummoned = 1
+Playerbot.BotRepairWhenSummon = 1
+Playerbot.SummonAtInnkeepersEnabled = 1
+Playerbot.SummonWhenGroup = 1
+
+##################################################
+# 距离/视野 (单位 码)
+##################################################
+Playerbot.FarDistance = 20.0
+Playerbot.SightDistance = 100.0
+Playerbot.SpellDistance = 28.5
+Playerbot.ShootDistance = 5.0
+Playerbot.HealDistance = 38.5
+Playerbot.LootDistance = 15.0
+Playerbot.FleeDistance = 5.0
+Playerbot.AggroDistance = 22.0
+Playerbot.TooCloseDistance = 5.0
+Playerbot.MeleeDistance = 0.75
+Playerbot.FollowDistance = 1.5
+Playerbot.WhisperDistance = 6000.0
+Playerbot.ContactDistance = 0.45
+Playerbot.AoeRadius = 10.0
+Playerbot.RpgDistance = 200.0
+Playerbot.GrindDistance = 75.0
+Playerbot.ReactDistance = 150.0
+Playerbot.TargetPosRecalcDistance = 0.1
+
+##################################################
+# 生命/法力阈值
+##################################################
+Playerbot.CriticalHealth = 25
+Playerbot.LowHealth = 45
+Playerbot.MediumHealth = 65
+Playerbot.AlmostFullHealth = 85
+Playerbot.LowMana = 15
+Playerbot.MediumMana = 40
+Playerbot.HighMana = 65
+# 自动保存法力相关
+Playerbot.AutoSaveMana = 1
+Playerbot.SaveManaThreshold = 50
+
+##################################################
+# 计时器
+##################################################
+Playerbot.IterationsPerTick = 10
+Playerbot.GlobalCoolDown = 500
+Playerbot.ReactDelay = 100
+Playerbot.DynamicReactDelay = 1
+Playerbot.MaxWaitForMove = 5000
+Playerbot.DisableMoveSplinePath = 0
+Playerbot.MaxMovementSearchTime = 3
+Playerbot.ExpireActionTime = 5000
+Playerbot.DispelAuraDuration = 700
+Playerbot.PassiveDelay = 10000
+Playerbot.RepeatDelay = 2000
+Playerbot.ErrorDelay = 100
+Playerbot.RpgDelay = 10000
+Playerbot.SitDelay = 20000
+Playerbot.ReturnDelay = 2000
+Playerbot.LootDelay = 1000
+Playerbot.LootPickupDelay = 150
+Playerbot.BotTaxiDelayMin = 5000
+Playerbot.BotTaxiDelayMax = 20000
+Playerbot.BotTaxiGapMs = 500
+Playerbot.BotTaxiGapJitterMs = 100
+
+##################################################
+# 拾取 / 掷骰
+##################################################
+Playerbot.FreeMethodLoot = 0
+Playerbot.LootNeedRollLevel = 1
+Playerbot.LootGreedRollLevel = 0
+Playerbot.LootRollRecipe = 0
+Playerbot.LootRollDisenchant = 0
+
+##################################################
+# 装备 / 交易
+##################################################
+Playerbot.AutoEquipUpgradeLoot = 1
+Playerbot.EquipUpgradeThreshold = 1.1
+Playerbot.TwoRoundsGearInit = 0
+Playerbot.RandomBotShowHelmet = 1
+Playerbot.RandomBotShowCloak = 1
+Playerbot.EnableRandomBotTrading = 1
+Playerbot.Gearscorecheck = 1
+Playerbot.LimitGearExpansion = 0
+Playerbot.LimitEnchantExpansion = 0
+Playerbot.LimitTalentsExpansion = 0
+Playerbot.MinEnchantingBotLevel = 10
+
+##################################################
+# 聊天 / 广播
+##################################################
+Playerbot.InviteChat = 0
+Playerbot.RandomBotTalk = 1
+Playerbot.RandomBotEmote = 1
+Playerbot.RandomBotSayWithoutMaster = 1
+Playerbot.ActiveGrindBotTalkChance = 0
+Playerbot.EnableGreet = 1
+Playerbot.EnablePeriodicOnlineOffline = 1
+Playerbot.PeriodicOnlineOfflineRatio = 1
+Playerbot.EnableBroadcasts = 1
+Playerbot.BroadcastToGuildGlobalChance = 100
+Playerbot.BroadcastToGuildRecruitmentGlobalChance = 50
+Playerbot.BroadcastToGeneralGlobalChance = 20
+Playerbot.BroadcastToLocalDefenseGlobalChance = 40
+Playerbot.BroadcastToTradeGlobalChance = 25
+Playerbot.BroadcastToWorldGlobalChance = 1
+Playerbot.BroadcastToLFGGlobalChance = 10
+Playerbot.GuildRepliesRate = 100
+Playerbot.PetChatCommandDebug = 0
+
+##################################################
+# 策略
+##################################################
+Playerbot.CombatStrategies = "default"
+Playerbot.NonCombatStrategies = "default"
+Playerbot.AutoDoQuests = 1
+Playerbot.AutoPickReward = 1
+Playerbot.AutoPickTalents = 1
+Playerbot.AutoLearnQuestSpells = 1
+Playerbot.AutoLearnTrainerSpells = 1
+Playerbot.AutoUpgradeEquip = 1
+Playerbot.ApplyInstanceStrategies = 1
+Playerbot.EnableNewRpgStrategy = 1
+Playerbot.RandomBotRpgChance = 8
+
+##################################################
+# 骑乘 / 飞行
+##################################################
+Playerbot.UseGroundMountAtMinLevel = 20
+Playerbot.UseFastGroundMountAtMinLevel = 40
+Playerbot.UseFlyMountAtMinLevel = 60
+Playerbot.UseFastFlyMountAtMinLevel = 70
+
+##################################################
+# 施法作弊 (逗号分隔: food/taxi/gold/health/mana/power/raid)
+##################################################
+Playerbot.BotCheats = ""
+
+##################################################
+# 随机机器人 (RandomBots) 数量与等级
+##################################################
+Playerbot.MinRandomBots = 500
+Playerbot.MaxRandomBots = 500
+Playerbot.RandomBotsPerInterval = 25
+Playerbot.RandomBotUpdateInterval = 5
+Playerbot.RandombotStartingLevel = 1
+Playerbot.RandomBotMinLevel = 10
+Playerbot.RandomBotMaxLevel = 80
+Playerbot.RandomBotMinLevelChance = 10
+Playerbot.RandomBotMaxLevelChance = 5
+Playerbot.RandomBotFixedLevel = 0
+Playerbot.RandomBotXPRate = 1.0
+Playerbot.RandomBotAllianceRatio = 50
+Playerbot.DisableRandomLevels = 0
+Playerbot.RandomBotPreQuests = 0
+Playerbot.RandomBotMaps = ""
+Playerbot.RandomBotQuestIds = ""
+Playerbot.RandomBotQuestItems = ""
+Playerbot.RandomBotSpellIds = ""
+Playerbot.RandomBotTeleportDistance = 5000
+Playerbot.RandomBotRandomizeTime = 0
+Playerbot.RandomBotChangeStrategyTime = 0
+Playerbot.RandomBotInWorldTime = 0
+Playerbot.RandomBotPvpTime = 0
+Playerbot.RandomBotReviveTime = 0
+Playerbot.RandomBotTeleLowerLevel = 0
+Playerbot.RandomBotTeleHigherLevel = 0
+Playerbot.MinRandomBotReviveTime = 10
+Playerbot.MaxRandomBotReviveTime = 600
+Playerbot.MinRandomBotRandomizeTime = 600
+Playerbot.MaxRandomBotRandomizeTime = 86400
+Playerbot.MinRandomBotChangeStrategyTime = 600
+Playerbot.MaxRandomBotChangeStrategyTime = 86400
+Playerbot.MinRandomBotInWorldTime = 600
+Playerbot.MaxRandomBotInWorldTime = 86400
+Playerbot.MinRandomBotPvpTime = 600
+Playerbot.MaxRandomBotPvpTime = 86400
+
+##################################################
+# 随机机器人 公会
+##################################################
+Playerbot.RandomBotGuildNearby = 0
+Playerbot.RandomBotGuildCount = 20
+Playerbot.RandomBotGuildSizeMax = 15
+Playerbot.DeleteRandomBotGuilds = 0
+
+##################################################
+# 随机机器人 竞技场/战场
+##################################################
+Playerbot.RandomBotJoinBG = 1
+Playerbot.RandomBotAutoJoinBG = 0
+Playerbot.RandomBotArenaTeam2v2Count = 150
+Playerbot.RandomBotArenaTeam3v3Count = 150
+Playerbot.RandomBotArenaTeam5v5Count = 150
+Playerbot.RandomBotArenaTeamMinRating = 0
+Playerbot.RandomBotArenaTeamMaxRating = 2000
+
+##################################################
+# 日志 / 调试
+##################################################
+Playerbot.SpellIdDiagnosticLog = 0
+Playerbot.PerfMonEnabled = 0
+Playerbot.LogValuesPerTick = 0
+
+##################################################
+# 数据库 (playerbots 库：由 PlayerbotsDatabaseInfo 指定)
+##################################################
+Playerbot.EnablePeriodicOnlineOffline = 1

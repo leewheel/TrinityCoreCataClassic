@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
  * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
@@ -58,12 +58,14 @@ public:
 private:
     static bool IsEquipment(ItemTemplate const* proto)
     {
-        return proto->Class == ITEM_CLASS_ARMOR || proto->Class == ITEM_CLASS_WEAPON;
+        //By leewheel 2026-09-09: CreatureTemplate_GetClass仅用于CreatureTemplate，ItemTemplate用GetClass()
+        return proto->GetClass() == ITEM_CLASS_ARMOR || proto->GetClass() == ITEM_CLASS_WEAPON;
     }
 
     static bool IsProfessionTool(ItemTemplate const* proto)
     {
-        if (proto->Class != ITEM_CLASS_WEAPON)
+        //By leewheel 2026-09-09: CreatureTemplate_GetClass仅用于CreatureTemplate，ItemTemplate用GetClass()
+        if (proto->GetClass() != ITEM_CLASS_WEAPON)
             return false;
 
         if (proto->SubClass == ITEM_SUBCLASS_WEAPON_MISC || proto->SubClass == ITEM_SUBCLASS_WEAPON_FISHING_POLE)

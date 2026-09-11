@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
  * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
@@ -54,7 +54,9 @@
 #include "TravelMgr.h"
 #include "Unit.h"
 #include "World.h"
-#include "CreatorCenterService.h" // By leewheel 2026-08-21: 授权横幅(机器人全上线后再展示)
+//By leewheel 2026-09-09: TC-Cata无CreatorCenterService，注释掉避免编译错误
+//#include "CreatorCenterService.h" // 授权横幅(机器人全上线后再展示)
+//End By leewheel
 #include "Cell.h"
 #include "GridNotifiers.h"
 #include "CellImpl.h"
@@ -898,10 +900,20 @@ void RandomPlayerbotMgr::LoadBattleMastersCache()
         if (!bmaster)
             continue;
 
+        //By leewheel 2026-09-09: TC-Cata的FactionTemplateEntry字段是Faction/FactionGroup
+        // 从CreatureTemplate获取faction template ID并查找FactionTemplateEntry
         FactionTemplateEntry const* bmFaction = sFactionTemplateStore.LookupEntry(bmaster->faction);
-        uint32 bmFactionId = bmFaction->faction();
-        FactionEntry const* bmParentFaction = sFactionStore.LookupEntry(bmFactionId);
-        uint32 bmParentTeam = bmParentFaction->team();
+        uint32 bmFactionId = bmFaction ? bmFaction->Faction : 0;
+        uint32 bmParentTeam = 0;
+        if (bmFaction)
+        {
+            // 通过FactionGroup判断阵营：FactionGroup 1=联盟, 2=部落
+            if (bmFaction->FactionGroup == 1)
+                bmParentTeam = 891;  // 联盟
+            else if (bmFaction->FactionGroup == 2)
+                bmParentTeam = 892;  // 部落
+        }
+        //End By leewheel
         TeamId bmTeam = TEAM_NEUTRAL;
         if (bmParentTeam == 891)
             bmTeam = TEAM_ALLIANCE;
@@ -963,9 +975,10 @@ void RandomPlayerbotMgr::CheckBgQueue()
 
     for (int bracket = BG_BRACKET_ID_FIRST; bracket < MAX_BATTLEGROUND_BRACKETS; ++bracket)
     {
-        for (int queueType = BATTLEGROUND_QUEUE_AV; queueType < MAX_BATTLEGROUND_QUEUE_TYPES; ++queueType)
+        //By leewheel 2026-09-09: TC-Cata的BattlegroundData键类型是BattlegroundQueueTypeId
+        for (uint32 qt = 0; qt < uint32(MAX_BATTLEGROUND_QUEUE_TYPES); ++qt)
         {
-            BattlegroundData[queueType][bracket] = BattlegroundInfo();
+            BattlegroundData[BattlegroundQueueTypeId(qt)][bracket] = BattlegroundInfo();
         }
     }
 
@@ -1004,7 +1017,7 @@ void RandomPlayerbotMgr::CheckBgQueue()
 
             // Arena logic
             bool isRated = false;
-            if (BattlegroundMgr::BGArenaType(queueTypeId))
+            if (BattlegroundMgr_BGArenaType(queueTypeId))
             {
                 BattlegroundQueue& bgQueue = sBattlegroundMgr->GetBattlegroundQueue(queueTypeId);
                 GroupQueueInfo ginfo;
@@ -1054,7 +1067,7 @@ void RandomPlayerbotMgr::CheckBgQueue()
             if (!player->IsInvitedForBattlegroundQueueType(queueTypeId) && !player->InBattleground())
             //End By leewheel 2026-07-11
             {
-                if (BattlegroundMgr::BGArenaType(queueTypeId))
+                if (BattlegroundMgr_BGArenaType(queueTypeId))
                 {
                     if (isRated)
                         BattlegroundData[queueTypeId][bracketId].activeRatedArenaQueue = 1;
@@ -1098,7 +1111,7 @@ void RandomPlayerbotMgr::CheckBgQueue()
             BattlegroundData[queueTypeId][bracketId].minLevel = pvpDiff->MinLevel;
             BattlegroundData[queueTypeId][bracketId].maxLevel = pvpDiff->MaxLevel;
 
-            if (BattlegroundMgr::BGArenaType(queueTypeId))
+            if (BattlegroundMgr_BGArenaType(queueTypeId))
             {
                 bool isRated = false;
                 BattlegroundQueue& bgQueue = sBattlegroundMgr->GetBattlegroundQueue(queueTypeId);
@@ -1198,32 +1211,43 @@ void RandomPlayerbotMgr::CheckBgQueue()
 
         // Check both bgInstanceCount / bgInstances.size
         // to help counter against potentional inconsistencies
-        auto updateRatedArenaInstanceCount = [&](uint32 queueType, uint32 bracket, uint32 minCount)
+        //By leewheel 2026-09-09: TC-Cata的BattlegroundData键类型是BattlegroundQueueTypeId
+        auto updateRatedArenaInstanceCount = [&](BattlegroundQueueTypeId const& qt, uint32 bracket, uint32 minCount)
         {
-            if (BattlegroundData[queueType][bracket].activeRatedArenaQueue == 0 &&
-                BattlegroundData[queueType][bracket].ratedArenaInstanceCount < minCount &&
-                BattlegroundData[queueType][bracket].ratedArenaInstances.size() < minCount)
-                BattlegroundData[queueType][bracket].activeRatedArenaQueue = 1;
+            if (BattlegroundData[qt][bracket].activeRatedArenaQueue == 0 &&
+                BattlegroundData[qt][bracket].ratedArenaInstanceCount < minCount &&
+                BattlegroundData[qt][bracket].ratedArenaInstances.size() < minCount)
+                BattlegroundData[qt][bracket].activeRatedArenaQueue = 1;
         };
 
         auto updateBGInstanceCount = [&](uint32 queueType, std::vector<uint32> brackets, uint32 minCount)
         {
             for (uint32 bracket : brackets)
             {
-                if (BattlegroundData[queueType][bracket].activeBgQueue == 0 &&
-                    BattlegroundData[queueType][bracket].bgInstanceCount < minCount &&
-                    BattlegroundData[queueType][bracket].bgInstances.size() < minCount)
-                    BattlegroundData[queueType][bracket].activeBgQueue = 1;
+                //By leewheel 2026-09-09: TC-Cata的BattlegroundData键类型是BattlegroundQueueTypeId
+                // 普通BG: Type=Battleground(0), Rated=false, TeamSize=0, 只需BattlemasterListId
+                BattlegroundQueueTypeId qt = BattlegroundQueueTypeId(queueType);
+                if (BattlegroundData[qt][bracket].activeBgQueue == 0 &&
+                    BattlegroundData[qt][bracket].bgInstanceCount < minCount &&
+                    BattlegroundData[qt][bracket].bgInstances.size() < minCount)
+                    BattlegroundData[qt][bracket].activeBgQueue = 1;
             }
         };
 
         // Update rated arena instance counts
-        updateRatedArenaInstanceCount(BATTLEGROUND_QUEUE_2v2, randomBotAutoJoinArenaBracket,
-                                      randomBotAutoJoinBGRatedArena2v2Count);
-        updateRatedArenaInstanceCount(BATTLEGROUND_QUEUE_3v3, randomBotAutoJoinArenaBracket,
-                                      randomBotAutoJoinBGRatedArena3v3Count);
-        updateRatedArenaInstanceCount(BATTLEGROUND_QUEUE_5v5, randomBotAutoJoinArenaBracket,
-                                      randomBotAutoJoinBGRatedArena5v5Count);
+        //By leewheel 2026-09-09: TC-Cata使用BattlegroundMgr::BGQueueTypeId构造竞技场队列ID
+        updateRatedArenaInstanceCount(
+            BattlegroundMgr::BGQueueTypeId(BATTLEGROUND_AA, BattlegroundQueueIdType::Arena, true, 2),
+            randomBotAutoJoinArenaBracket,
+            randomBotAutoJoinBGRatedArena2v2Count);
+        updateRatedArenaInstanceCount(
+            BattlegroundMgr::BGQueueTypeId(BATTLEGROUND_AA, BattlegroundQueueIdType::Arena, true, 3),
+            randomBotAutoJoinArenaBracket,
+            randomBotAutoJoinBGRatedArena3v3Count);
+        updateRatedArenaInstanceCount(
+            BattlegroundMgr::BGQueueTypeId(BATTLEGROUND_AA, BattlegroundQueueIdType::Arena, true, 5),
+            randomBotAutoJoinArenaBracket,
+            randomBotAutoJoinBGRatedArena5v5Count);
 
         // Update battleground instance counts
         updateBGInstanceCount(BATTLEGROUND_QUEUE_IC, icBrackets, randomBotAutoJoinBGICCount);
@@ -1243,7 +1267,7 @@ void RandomPlayerbotMgr::LogBattlegroundInfo()
         //By leewheel 2026-09-06: 移植到TrinityCore-Cata，外层键已是BattlegroundQueueTypeId
         BattlegroundQueueTypeId queueTypeId = queueTypePair.first;
 
-        if (uint8 type = BattlegroundMgr::BGArenaType(queueTypeId))
+        if (uint8 type = BattlegroundMgr_BGArenaType(queueTypeId))
         {
             for (auto const& bracketIdPair : queueTypePair.second)
             {
@@ -1731,7 +1755,8 @@ void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>&
 
     PerfMonitorOperation* pmo = sPerfMonitor.start(PERF_MON_RNDBOT, "RandomTeleportByLocations");
 
-    std::shuffle(std::begin(tlocs), std::end(tlocs), RandomEngine::Instance());
+    //By leewheel 2026-09-09: TC-Cata的RandomEngine无Instance()静态方法，直接构造临时对象
+    std::shuffle(std::begin(tlocs), std::end(tlocs), RandomEngine());
     for (uint32 i = 0; i < tlocs.size(); i++)
     {
         WorldLocation loc = tlocs[i];
@@ -1762,7 +1787,8 @@ void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>&
         if (zone->FactionGroupMask == 1 && bot->GetTeamId() == TEAM_HORDE)
             continue;
 
-        if (map->IsInWater(bot->GetPhaseShift(), x, y, z, nullptr, bot->GetCollisionHeight()))
+        //By leewheel 2026-09-09: TC-Cata的Map::IsInWater只接受5个参数，移除collisionHeight
+        if (map->IsInWater(bot->GetPhaseShift(), x, y, z))
             continue;
 
         float ground = map->GetHeight(bot->GetPhaseShift(), x, y, z + 0.5f);
@@ -1975,10 +2001,12 @@ std::vector<WorldLocation> RandomPlayerbotMgr::GetPlayerZoneTeleportLocations(st
         // 才回退到普通传送, 保留敌对地点会让下游组队检查清空集合导致bot滞留
         if (AreaTableEntry const* zone = sAreaTableStore.LookupEntry(zoneId))
         {
-            if (zone->team() == 4 && bot->GetTeamId() == TEAM_ALLIANCE)
+            //By leewheel 2026-09-09: TC-Cata无AreaTableEntry::team()，用FactionGroupMask判断
+            // FactionGroupMask 2=部落, 1=联盟
+            if (zone->FactionGroupMask == 2 && bot->GetTeamId() == TEAM_ALLIANCE)
                 continue;
 
-            if (zone->team() == 2 && bot->GetTeamId() == TEAM_HORDE)
+            if (zone->FactionGroupMask == 1 && bot->GetTeamId() == TEAM_HORDE)
                 continue;
         }
 
@@ -2566,7 +2594,7 @@ uint32 RandomPlayerbotMgr::SetEventValue(uint32 bot, std::string const& event, u
         if (!data.empty())
             stmt->SetData(6, data.c_str());
         else
-            stmt->SetData(6);  // NULL
+            stmt->setNull(6);  // NULL
 
         trans->Append(stmt);
     }
@@ -2794,7 +2822,8 @@ void RandomPlayerbotMgr::OnBotLoginInternal(Player* const bot)
             TC_LOG_INFO("playerbots", "机器人已经全部上线，总共{}个机器人。", sRandomPlayerbotMgr.GetMaxAllowedBotCount());
 
             //By leewheel 2026-08-21: 机器人全部登录后再输出一次授权信息到控制台
-            sCreatorCenterService->PrintLicenseBanner();
+            //By leewheel 2026-09-09: TC-Cata无sCreatorCenterService，注释掉
+            //sCreatorCenterService->PrintLicenseBanner();
             //End By leewheel
 
             _isBotLogging = false;
@@ -2829,7 +2858,8 @@ void RandomPlayerbotMgr::OnBotLoginInternal(Player* const bot)
             bot->GetName().c_str(), bot->GetLevel());
         PlayerbotFactory factory(bot, bot->GetLevel());
         bot->resetTalents(true);
-        bot->InitTalentForLevel();
+        //By leewheel 2026-09-09: Player_InitTalentForLevel参数应为Player*，不是RandomPlayerbotMgr*
+        Player_InitTalentForLevel(bot);
         factory.InitTalentsTree();
     }
     //End By leewheel
@@ -2901,7 +2931,7 @@ void RandomPlayerbotMgr::OnPlayerLogin(Player* player)
         // botPos.GetReachableRandomPointOnGround(player, sPlayerbotAIConfig.reactDistance * 2, true);
 
         // player->TeleportTo(botPos);
-        // player->Relocate(botPos.coord_x, botPos.coord_y, botPos.coord_z, botPos.orientation);
+        // player->Relocate(botPos.coord_x, botPos.coord_y, botPos.coord_z, botPos.GetOrientation());
 
         if (!player->GetFactionTemplateEntry())
         {
@@ -3409,13 +3439,14 @@ ObjectGuid RandomPlayerbotMgr::GetBattleMasterGUID(Player* bot, BattlegroundType
 
         //By leewheel 2026-07-11: TC的ObjectAccessor::GetCreature只接受(WorldObject const&, ObjectGuid const&)
         // 使用FindNearestCreature通过creature entry查找附近的生物
+        //By leewheel 2026-09-09: TC-Cata的CreatureData/SpawnData用mapId字段(不是mapid方法)
         Creature* Bm = nullptr;
         Map* map = bot->GetMap();
-        if (map && data->mapid() == bot->GetMapId())
+        if (map && data->mapId == bot->GetMapId())
         {
             Bm = bot->FindNearestCreature(*i, 200.0f);
         }
-        //End By leewheel 2026-07-11
+        //End By leewheel
         if (!Bm)
             continue;
 
@@ -3450,7 +3481,8 @@ ObjectGuid RandomPlayerbotMgr::GetBattleMasterGUID(Player* bot, BattlegroundType
         //End By leewheel 2025-01-16
             continue;
 
-        float dist2 = ServerFacade::instance().GetDistance2d(bot, data->posX(), data->posY());
+        //By leewheel 2026-09-09: TC-Cata的CreatureData坐标在spawnPoint(Position)中
+        float dist2 = ServerFacade::instance().GetDistance2d(bot, data->spawnPoint.GetPositionX(), data->spawnPoint.GetPositionY());
         if (dist2 < dist1)
         {
             dist1 = dist2;

@@ -1,4 +1,4 @@
-/*
+﻿/*
  * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
  * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
  * or (at your option) any later version.
@@ -226,7 +226,7 @@ bool PlayerbotFactory::IsTrainerSpellAllowedForBot(Player* bot, Trainer::Trainer
     if (!bot || !trainer || !trainerSpell)
         return false;
 
-    if (trainer->GetTrainerType() != Trainer::Type::Tradeskill || !sRandomPlayerbotMgr.IsRandomBot(bot))
+    if (trainer->GetType() != Trainer::Type::Tradeskill || !sRandomPlayerbotMgr.IsRandomBot(bot)) //By leewheel 2026-09-09: TC中方法名为GetType()
         return true;
 
     uint16 const skillId = GetTrainerSpellTradeSkill(trainerSpell);
@@ -581,15 +581,15 @@ void PlayerbotFactory::Init()
     //End By leewheel
     if (sPlayerbotAIConfig.randomBotPreQuests)
     {
-        ObjectMgr::QuestMap const& questTemplates = sObjectMgr->GetQuestTemplates();
-        for (ObjectMgr::QuestMap::const_iterator i = questTemplates.begin(); i != questTemplates.end(); ++i)
+        ObjectMgr::QuestContainer const& questTemplates = sObjectMgr->GetQuestTemplates();
+        for (ObjectMgr::QuestContainer::const_iterator i = questTemplates.begin(); i != questTemplates.end(); ++i)
         {
             uint32 questId = i->first;
             //By leewheel 2026-07-11: TC的QuestMap存储Quest值而非指针，需取地址
-            Quest const* quest = &i->second;
+            Quest const* quest = i->second.get();
             //End By leewheel
 
-            if (!quest->GetRequiredClasses() || quest->IsRepeatable() || quest->GetQuestMinLevel() < 10)
+            if (!Quest_GetRequiredClasses(quest) || quest->IsRepeatable() || quest->GetQuestMinLevel() < 10)
                 continue;
 
             if (quest->GetRewSpell() > 0)
@@ -641,7 +641,7 @@ void PlayerbotFactory::Init()
                 GetMSTimeDiffToNow(initSubTimer), specialQuestIds.size());
     initSubTimer = getMSTime();
     //End By leewheel
-    uint32 maxStoreSize = sSpellMgr->GetSpellInfoStoreSize();
+    uint32 maxStoreSize = SpellMgr_GetSpellInfoStoreSize();
     //By leewheel 2026-07-28: 诊断6/7卡死
     TC_LOG_INFO("server.loading", "    [Init.C] 进入法术附魔缓存循环, maxStoreSize={}", maxStoreSize);
     //End By leewheel
@@ -704,7 +704,7 @@ void PlayerbotFactory::Init()
     //End By leewheel
     for (auto iter = sSpellItemEnchantmentStore.begin(); iter != sSpellItemEnchantmentStore.end(); iter++)
     {
-        uint32 gemId = iter->GemID(); //By leewheel 2026-07-10: TC中GemID是方法
+        uint32 gemId = iter->GemItemID; //By leewheel 2026-07-10: TC中GemID是方法
         if (gemId == 0)
         {
             continue;
@@ -731,7 +731,7 @@ void PlayerbotFactory::Init()
            continue;
         }
 
-        if (!sGemPropertiesStore.LookupEntry(proto->GemProperties())) //By leewheel 2026-07-10: TC中GemProperties是方法
+        if (!sGemPropertiesStore.LookupEntry(proto->GetGemProperties())) //By leewheel 2026-09-09: TC中方法名为GetGemProperties()
         {
             continue;
         }
@@ -901,8 +901,8 @@ void PlayerbotFactory::Randomize(bool incremental)
     {
         bot->resetTalents(true);
         //By leewheel 2026-07-22: TC的ResetTalents不正确恢复CharacterPoints，
-        //必须调InitTalentForLevel()否则后续LearnTalent因CharacterPoints==0全部静默失败
-        bot->InitTalentForLevel();
+        //必须调Player_InitTalentForLevel(bot)否则后续LearnTalent因CharacterPoints==0全部静默失败
+        Player_InitTalentForLevel(bot);
         //End By leewheel
     }
     //End By leewheel
@@ -1445,10 +1445,10 @@ void PlayerbotFactory::InitPetTalents()
         return;
     }
     CreatureFamilyEntry const* pet_family = sCreatureFamilyStore.LookupEntry(ci->family);
-    if (!pet_family || pet_family->petTalentType() < 0)
+    if (!pet_family || pet_family->PetTalentType < 0) //By leewheel 2026-09-09: TC-Cata中字段名为PetTalentType(int8)
     {
         // TC_LOG_INFO("playerbots", "{} init pet talents failed with petTalentType < 0({})", bot->GetName().c_str(),
-        // pet_family->petTalentType());
+        // pet_family->PetTalentType);
         return;
     }
     std::map<uint32, std::vector<TalentEntry const*>> spells;
@@ -1460,10 +1460,13 @@ void PlayerbotFactory::InitPetTalents()
         if (!talentInfo)
             continue;
 
-        TalentTabEntry const* talentTabInfo = sTalentTabStore.LookupEntry(talentInfo->GetTalentTab());
+        TalentTabEntry const* talentTabInfo = sTalentTabStore.LookupEntry(talentInfo->TabID); //By leewheel 2026-09-09: TC-Cata中字段为TabID
 
         // prevent learn talent for different family (cheating)
-        if (!((1 << pet_family->petTalentType()) & talentTabInfo->petTalentMask()))
+        //By leewheel 2026-09-09: TC-Cata中TalentTabEntry无petTalentMask字段(宠物天赋系统改为专精), 暂跳过家族匹配检查
+        // if (!((1 << pet_family->PetTalentType) & talentTabInfo->petTalentMask()))
+        //     continue;
+        if (!talentTabInfo)
             continue;
         bool diveClass = talentInfo->GetTalentID() == 2201 || talentInfo->GetTalentID() == 2208 || talentInfo->GetTalentID() == 2219 ||
                          talentInfo->GetTalentID() == 2203;
@@ -1473,12 +1476,12 @@ void PlayerbotFactory::InitPetTalents()
                          talentInfo->GetTalentID() == 2109;
         if (dashClass && diveTypePet)
             continue;
-        spells[talentInfo->GetRow()].push_back(talentInfo);
+        spells[talentInfo->TierID].push_back(talentInfo);
     }
 
     std::vector<std::vector<uint32>> order =
-        sPlayerbotAIConfig.parsedHunterPetLinkOrder[pet_family->petTalentType()][20];
-    uint32 maxTalentPoints = pet->GetMaxTalentPointsForLevel(pet->GetLevel());
+        sPlayerbotAIConfig.parsedHunterPetLinkOrder[pet_family->PetTalentType][20];
+    uint32 maxTalentPoints = pet->GetFreeTalentPoints();
 
     if (order.empty())
     {
@@ -1502,7 +1505,7 @@ void PlayerbotFactory::InitPetTalents()
                 int maxRank = 0;
                 for (uint32 rank = 0; rank < std::min((uint32)MAX_TALENT_RANK, (uint32)pet->GetFreeTalentPoints()); ++rank)
                 {
-                    uint32 spellId = talentInfo->GetRankID()[rank];
+                    uint32 spellId = talentInfo->SpellRank[rank]; //By leewheel 2026-09-09: TC-Cata中字段为SpellRank数组
                     if (!spellId)
                         continue;
 
@@ -1512,18 +1515,18 @@ void PlayerbotFactory::InitPetTalents()
                 // maxRank);
                 if (talentInfo->PrereqTalent[0])
                 {
-                    bot->LearnPetTalent(pet->GetGUID(), talentInfo->PrereqTalent[0],
+                    Player_LearnPetTalent(bot, talentInfo->PrereqTalent[0],
                                         std::min<uint32>(talentInfo->PrereqRank[0], bot->GetFreeTalentPoints() - 1));
                 }
-                bot->LearnPetTalent(pet->GetGUID(), talentInfo->GetTalentID(), maxRank);
+                Player_LearnPetTalent(bot, talentInfo->GetTalentID(), maxRank);
                 spells_row.erase(spells_row.begin() + index);
             }
         }
     }
     else
     {
-        uint32 spec = pet_family->petTalentType();
-        uint32 startPoints = pet->GetMaxTalentPointsForLevel(pet->GetLevel());
+        uint32 spec = pet_family->PetTalentType; //By leewheel 2026-09-09: TC-Cata中字段为PetTalentType
+        uint32 startPoints = pet->GetFreeTalentPoints(); //By leewheel 2026-09-09: TC-Cata无GetMaxTalentPointsForLevel, 用GetFreeTalentPoints替代
         while (startPoints > 1 && startPoints < 20 &&
                sPlayerbotAIConfig.parsedHunterPetLinkOrder[spec][startPoints].size() == 0)
         {
@@ -1542,7 +1545,7 @@ void PlayerbotFactory::InitPetTalents()
                 std::vector<TalentEntry const*>& spell = spells[row];
                 for (TalentEntry const* talentInfo : spell)
                 {
-                    if (talentInfo->GetCol() != col)
+                    if (talentInfo->ColumnIndex != col)
                     {
                         continue;
                     }
@@ -1555,13 +1558,13 @@ void PlayerbotFactory::InitPetTalents()
                             uint32 maxValidRank = 0;
                             for (uint8 r = 0; r < MAX_TALENT_RANK; ++r)
                             {
-                                if (prereqTalentInfo->GetRankID()[r])
+                                if (prereqTalentInfo->SpellRank[r])
                                     maxValidRank = r;
                             }
                             if (prereqRank > maxValidRank)
                                 prereqRank = maxValidRank;
                         }
-                        bot->LearnPetTalent(pet->GetGUID(), talentInfo->PrereqTalent[0], prereqRank);
+                        Player_LearnPetTalent(bot, talentInfo->PrereqTalent[0], prereqRank);
                     }
                     //End By leewheel
                     talentID = talentInfo->GetTalentID();
@@ -1569,7 +1572,7 @@ void PlayerbotFactory::InitPetTalents()
                     uint32 currentTalentRank = 0;
                     for (uint8 rank = 0; rank < MAX_TALENT_RANK; ++rank)
                     {
-                        if (talentInfo->GetRankID()[rank] && pet->HasSpell(talentInfo->GetRankID()[rank]))
+                        if (talentInfo->SpellRank[rank] && pet->HasSpell(talentInfo->SpellRank[rank])) //By leewheel 2026-09-09: TC-Cata中字段为SpellRank数组
                         {
                             currentTalentRank = rank + 1;
                             break;
@@ -1581,7 +1584,7 @@ void PlayerbotFactory::InitPetTalents()
                         uint32 maxValidRank = 0;
                         for (uint8 r = 0; r < MAX_TALENT_RANK; ++r)
                         {
-                            if (talentInfo->GetRankID()[r])
+                            if (talentInfo->SpellRank[r]) //By leewheel 2026-09-09: TC-Cata中字段为SpellRank数组
                                 maxValidRank = r;
                         }
                         if (learnLevel > maxValidRank)
@@ -1589,7 +1592,7 @@ void PlayerbotFactory::InitPetTalents()
                     }
                     //End By leewheel
                 }
-                bot->LearnPetTalent(pet->GetGUID(), talentID, learnLevel);
+                Player_LearnPetTalent(bot, talentID, learnLevel); //By leewheel 2026-09-09: TC使用自由函数Player_LearnPetTalent
                 if (pet->GetFreeTalentPoints() == 0)
                 {
                     break;
@@ -1601,14 +1604,14 @@ void PlayerbotFactory::InitPetTalents()
             }
         }
     }
-    bot->SendTalentsInfoData(true);
+    bot->SendTalentsInfoData();
 }
 
 void PlayerbotFactory::InitPet()
 {
     Pet* pet = bot->GetPet();
 
-    if (!pet && bot->GetPetStable() && bot->GetPetStable()->CurrentPet)
+    if (!pet && bot->GetPetStable() && bot->GetPetStable()->GetCurrentPet())
         return;
 
     if (!pet)
@@ -1627,7 +1630,7 @@ void PlayerbotFactory::InitPet()
 
         for (CreatureTemplateContainer::const_iterator itr = creatures.begin(); itr != creatures.end(); ++itr)
         {
-            if (!itr->second.IsTameable(bot->CanTameExoticPets()))
+            if (!itr->second.IsTameable(bot->CanTameExoticPets(), (itr->second.GetDifficulty)(DIFFICULTY_NORMAL))) //By leewheel 2026-09-09: TC的IsTameable需两个参数
                 continue;
 
             //By leewheel 2026-09-05: 上游f119bf48——无世界刷新的模板(占位/开发残留)不可被驯服,直接跳过
@@ -1635,7 +1638,8 @@ void PlayerbotFactory::InitPet()
                 continue;
             //End By leewheel
 
-            if (itr->second.minlevel > bot->GetLevel())
+            CreatureDifficulty const* _diff = (itr->second.GetDifficulty)(DIFFICULTY_NORMAL);
+            if (_diff && _diff->MinLevel > bot->GetLevel()) // TC-Cata: MinLevel在CreatureDifficulty中
                 continue;
 
             bool onlyWolf = sPlayerbotAIConfig.hunterWolfPet == 2 ||
@@ -1671,15 +1675,14 @@ void PlayerbotFactory::InitPet()
                 continue;
             if (co->Name.size() > 21)
                 continue;
-            if (bot->GetPetStable() && bot->GetPetStable()->CurrentPet)
+            if (bot->GetPetStable() && bot->GetPetStable()->GetCurrentPet()) //By leewheel 2026-09-09: TC中用GetCurrentPet()方法
             {
-                auto petGuid = bot->GetPetStable()->CurrentPet.value(); // To correct the build warnin in VS
-                // bot->GetPetStable()->CurrentPet.value();
-                // bot->GetPetStable()->CurrentPet.reset();
+                // auto petGuid = bot->GetPetStable()->GetCurrentPet()Index.value();
+                // bot->GetPetStable()->GetCurrentPet()Index.reset();
                 bot->RemovePet(nullptr, PET_SAVE_AS_CURRENT);
                 bot->RemovePet(nullptr, PET_SAVE_NOT_IN_SLOT);
             }
-            if (bot->GetPetStable() && bot->GetPetStable()->GetUnslottedHunterPet())
+            if (bot->GetPetStable() && !bot->GetPetStable()->UnslottedPets.empty()) //By leewheel 2026-09-09: TC中无GetUnslottedHunterPet(), 直接检查UnslottedPets向量
             {
                 bot->GetPetStable()->UnslottedPets.clear();
                 bot->RemovePet(nullptr, PET_SAVE_AS_CURRENT);
@@ -1704,7 +1707,7 @@ void PlayerbotFactory::InitPet()
             // caster have pet now
             bot->SetMinion(pet, true);
 
-            pet->InitTalentForLevel();
+            Player_InitTalentForLevel(bot);
 
             pet->SavePetToDB(PET_SAVE_AS_CURRENT);
             bot->PetSpellInitialize();
@@ -1814,11 +1817,11 @@ void PlayerbotFactory::ResetQuests()
     {
         bot->SetQuestSlot(slot, 0);
     }
-    ObjectMgr::QuestMap const& questTemplates = sObjectMgr->GetQuestTemplates();
-    for (ObjectMgr::QuestMap::const_iterator i = questTemplates.begin(); i != questTemplates.end(); ++i)
+    ObjectMgr::QuestContainer const& questTemplates = sObjectMgr->GetQuestTemplates();
+    for (ObjectMgr::QuestContainer::const_iterator i = questTemplates.begin(); i != questTemplates.end(); ++i)
     {
         //By leewheel 2026-07-11: TC的QuestMap存储Quest值而非指针，需取地址
-        Quest const* quest = &i->second;
+        Quest const* quest = i->second.get();
         //End By leewheel
 
         uint32 entry = quest->GetQuestId();
@@ -1893,7 +1896,7 @@ uint32 PlayerbotFactory::InitTalentsTree(bool increment /*false*/, bool use_temp
     {
         bot->resetTalents(true);
         //By leewheel 2026-07-22: TC的ResetTalents不正确恢复CharacterPoints
-        bot->InitTalentForLevel();
+        Player_InitTalentForLevel(bot);
         //End By leewheel
     }
     // use template if can
@@ -1914,7 +1917,7 @@ uint32 PlayerbotFactory::InitTalentsTree(bool increment /*false*/, bool use_temp
         bot->SetCanDualWield(true);
     }
 
-    bot->SendTalentsInfoData(false);
+    bot->SendTalentsInfoData();
     return sPlayerbotAIConfig.randomClassSpecIndex[cls][specTab];
 }
 
@@ -1925,7 +1928,7 @@ void PlayerbotFactory::InitTalentsBySpecNo(Player* bot, int specNo, bool reset)
         bot->resetTalents(true);
     }
     //By leewheel 2026-07-22: 确保CharacterPoints正确，否则LearnTalent检查CharacterPoints==0会静默失败
-    bot->InitTalentForLevel();
+    Player_InitTalentForLevel(bot);
     uint32 cls = bot->getClass();
     int startLevel = bot->GetLevel();
     uint32 classMask = bot->GetClassMask();
@@ -1936,14 +1939,14 @@ void PlayerbotFactory::InitTalentsBySpecNo(Player* bot, int specNo, bool reset)
         if (!talentInfo)
             continue;
 
-        TalentTabEntry const* talentTabInfo = sTalentTabStore.LookupEntry(talentInfo->GetTalentTab());
+        TalentTabEntry const* talentTabInfo = sTalentTabStore.LookupEntry(talentInfo->TabID); //By leewheel 2026-09-09: TC-Cata中TalentEntry字段为TabID
         if (!talentTabInfo)
             continue;
 
-        if ((classMask & talentTabInfo->ClassMask) == 0)
+        if ((classMask & talentTabInfo->ClassMask) == 0) //By leewheel 2026-09-09: 修复变量名拼写错误talentTabInfo→talentTabInfo
             continue;
 
-        spells_row[talentInfo->GetRow()].push_back(talentInfo);
+        spells_row[talentInfo->TierID].push_back(talentInfo); //By leewheel 2026-09-09: TC-Cata中字段为TierID
     }
     while (startLevel > 1 && startLevel < 80 &&
            sPlayerbotAIConfig.parsedSpecLinkOrder[cls][specNo][startLevel].size() == 0)
@@ -1970,14 +1973,14 @@ void PlayerbotFactory::InitTalentsBySpecNo(Player* bot, int specNo, bool reset)
             }
             for (TalentEntry const* talentInfo : spells)
             {
-                //By leewheel 2026-09-03 修复C4389警告：GetCol()返回uint8，col为uint32，显式转换对齐
-                if (talentInfo->GetCol() != static_cast<uint8>(col))
+                //By leewheel 2026-09-09: TC-Cata中字段为ColumnIndex
+                if (talentInfo->ColumnIndex != static_cast<uint8>(col))
                 {
                     continue;
                 }
-                TalentTabEntry const* talentTabInfo = sTalentTabStore.LookupEntry(talentInfo->GetTalentTab());
-                //By leewheel 2026-09-03 修复C4389警告：tabpage()返回int32，tab为uint32，显式转换对齐
-                if (static_cast<uint32>(talentTabInfo->tabpage()) != tab)
+                TalentTabEntry const* talentTabInfo = sTalentTabStore.LookupEntry(talentInfo->TabID); //By leewheel 2026-09-09: TC-Cata中字段为TabID
+                //By leewheel 2026-09-09: TC-Cata中TalentTabEntry字段为OrderIndex
+                if (static_cast<uint32>(talentTabInfo->OrderIndex) != tab)
                 {
                     continue;
                 }
@@ -2026,7 +2029,7 @@ void PlayerbotFactory::InitTalentsBySpecNo(Player* bot, int specNo, bool reset)
         bot->SetCanDualWield(true);
     }
 
-    bot->SendTalentsInfoData(false);
+    bot->SendTalentsInfoData();
     sRandomPlayerbotMgr.SetValue(bot->GetGUID().GetCounter(), "specNo", (uint32)specNo + 1);
 }
 
@@ -2037,7 +2040,7 @@ void PlayerbotFactory::InitTalentsByParsedSpecLink(Player* bot, std::vector<std:
     {
         bot->resetTalents(true);
         //By leewheel 2026-07-22: TC的ResetTalents不正确恢复CharacterPoints
-        bot->InitTalentForLevel();
+        Player_InitTalentForLevel(bot);
         //End By leewheel
     }
     uint32 classMask = bot->GetClassMask();
@@ -2048,14 +2051,14 @@ void PlayerbotFactory::InitTalentsByParsedSpecLink(Player* bot, std::vector<std:
         if (!talentInfo)
             continue;
 
-        TalentTabEntry const* talentTabInfo = sTalentTabStore.LookupEntry(talentInfo->GetTalentTab());
+        TalentTabEntry const* talentTabInfo = sTalentTabStore.LookupEntry(talentInfo->TabID); //By leewheel 2026-09-09: TC-Cata中字段为TabID
         if (!talentTabInfo)
             continue;
 
-        if ((classMask & talentTabInfo->ClassMask) == 0)
+        if ((classMask & talentTabInfo->ClassMask) == 0) //By leewheel 2026-09-09: 修复变量名拼写错误
             continue;
 
-        spells_row[talentInfo->GetRow()].push_back(talentInfo);
+        spells_row[talentInfo->TierID].push_back(talentInfo); //By leewheel 2026-09-09: TC-Cata中字段为TierID
     }
     for (std::vector<uint32>& p : parsedSpecLink)
     {
@@ -2073,13 +2076,13 @@ void PlayerbotFactory::InitTalentsByParsedSpecLink(Player* bot, std::vector<std:
         }
         for (TalentEntry const* talentInfo : spells)
         {
-            if (talentInfo->GetCol() != col)
+            if (talentInfo->ColumnIndex != col) //By leewheel 2026-09-09: TC-Cata中字段为ColumnIndex
             {
                 continue;
             }
-            TalentTabEntry const* talentTabInfo = sTalentTabStore.LookupEntry(talentInfo->GetTalentTab());
-            //By leewheel 2026-09-03 修复C4389警告：tabpage()返回int32，tab为uint32，显式转换对齐
-            if (static_cast<uint32>(talentTabInfo->tabpage()) != tab)
+            TalentTabEntry const* talentTabInfo = sTalentTabStore.LookupEntry(talentInfo->TabID); //By leewheel 2026-09-09: TC-Cata中字段为TabID
+            //By leewheel 2026-09-09: TC-Cata中TalentTabEntry字段为OrderIndex
+            if (static_cast<uint32>(talentTabInfo->OrderIndex) != tab)
             {
                 continue;
             }
@@ -2115,7 +2118,7 @@ void PlayerbotFactory::InitTalentsByParsedSpecLink(Player* bot, std::vector<std:
             break;
         }
     }
-    bot->SendTalentsInfoData(false);
+    bot->SendTalentsInfoData(); //By leewheel 2026-09-09: TC的SendTalentsInfoData无参数
 }
 
 class DestroyItemsVisitor : public IterateItemsVisitor
@@ -2791,7 +2794,7 @@ void PlayerbotFactory::InitEquipment(bool incremental, bool second_chance)
             {
                 uint8 equipSlot = equipped->GetSlot();
                 bot->_ApplyItemMods(equipped, equipSlot, false);
-                equipped->SetItemRandomProperties(bestRandomPropForSlot);
+                equipped->SetItemRandomEnchantment(ItemRandomPropertiesId(bestRandomPropForSlot));
                 bot->_ApplyItemMods(equipped, equipSlot, true);
             }
         }
@@ -2902,7 +2905,7 @@ void PlayerbotFactory::InitEquipment(bool incremental, bool second_chance)
                 {
                     uint8 equipSlot = equipped->GetSlot();
                     bot->_ApplyItemMods(equipped, equipSlot, false);
-                    equipped->SetItemRandomProperties(bestRandomPropForSlot);
+                    equipped->SetItemRandomEnchantment(ItemRandomPropertiesId(bestRandomPropForSlot)); //By leewheel 2026-09-09: TC中方法名为SetItemRandomEnchantment
                     bot->_ApplyItemMods(equipped, equipSlot, true);
                 }
             }
@@ -3092,7 +3095,7 @@ void PlayerbotFactory::EnchantItem(Item* item)
 
     std::vector<uint32> ids;
 
-    for (uint32 id = 1; id < sSpellMgr->GetSpellInfoStoreSize(); ++id)
+    for (uint32 id = 1; id < SpellMgr_GetSpellInfoStoreSize(); ++id)
     {
         SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(id);
         if (!spellInfo)
@@ -3627,7 +3630,7 @@ void PlayerbotFactory::InitSkills()
             SetRandomSkill(SKILL_CROSSBOWS);
             SetRandomSkill(SKILL_POLEARMS);
             SetRandomSkill(SKILL_FIST_WEAPONS);
-            SetRandomSkill(SKILL_THROWN);
+            //SetRandomSkill(SKILL_THROWN); //By leewheel 2026-09-09: Cata中移除了投掷武器技能
             bot->SetSkill(SKILL_DUAL_WIELD, 0, dualWieldLevel, dualWieldLevel);
             bot->SetSkill(SKILL_PLATE_MAIL, 0, skillLevel, skillLevel);
             bot->SetCanDualWield(dualWieldLevel);
@@ -3682,7 +3685,7 @@ void PlayerbotFactory::InitSkills()
             SetRandomSkill(SKILL_CROSSBOWS);
             SetRandomSkill(SKILL_POLEARMS);
             SetRandomSkill(SKILL_FIST_WEAPONS);
-            SetRandomSkill(SKILL_THROWN);
+            //SetRandomSkill(SKILL_THROWN);
             bot->SetSkill(SKILL_DUAL_WIELD, 0, dualWieldLevel, dualWieldLevel);
             bot->SetSkill(SKILL_MAIL, 0, skillLevel, skillLevel);
             bot->SetCanDualWield(dualWieldLevel);
@@ -3696,7 +3699,7 @@ void PlayerbotFactory::InitSkills()
             SetRandomSkill(SKILL_DAGGERS);
             SetRandomSkill(SKILL_CROSSBOWS);
             SetRandomSkill(SKILL_FIST_WEAPONS);
-            SetRandomSkill(SKILL_THROWN);
+            //SetRandomSkill(SKILL_THROWN); //By leewheel 2026-09-09: Cata中移除了投掷武器技能
             SetRandomSkill(SKILL_LOCKPICKING);
             bot->SetSkill(SKILL_DUAL_WIELD, 0, 1, 1);
             bot->SetCanDualWield(true);
@@ -3776,15 +3779,16 @@ void PlayerbotFactory::InitAvailableSpells()
             if (!trainer)
                 continue;
 
-            //By leewheel 2026-08-30: 上游引入includeTradeskills——非随机bot跳过专业技能训练师
-            Trainer::Type const trainerType = trainer->GetTrainerType();
-            if (trainerType != Trainer::Type::Class &&
+            //By leewheel 2026-09-09: TC中方法名为GetType(), Class类型对应Talent
+            Trainer::Type const trainerType = trainer->GetType();
+            if (trainerType != Trainer::Type::Talent &&
                 !(includeTradeskills && trainerType == Trainer::Type::Tradeskill))
                 continue;
 
-            if (trainerType == Trainer::Type::Class && !trainer->IsTrainerValidForPlayer(bot))
+            //By leewheel 2026-09-09: TC无IsTrainerValidForPlayer方法, 暂跳过职业训练师有效性检查
+            // if (trainerType == Trainer::Type::Talent && !trainer->IsTrainerValidForPlayer(bot))
+            //     continue;
             //End By leewheel
-                continue;
 
             trainerIds.push_back(i->first);
         }
@@ -3931,7 +3935,7 @@ void PlayerbotFactory::InitSpecialSpells()
 void PlayerbotFactory::InitTalents(uint32 specNo)
 {
     //By leewheel 2026-07-22: 确保CharacterPoints正确
-    bot->InitTalentForLevel();
+    Player_InitTalentForLevel(bot);
     uint32 classMask = bot->GetClassMask();
     std::map<uint32, std::vector<TalentEntry const*>> spells;
     for (uint32 i = 0; i < sTalentStore.GetNumRows(); ++i)
@@ -3940,15 +3944,15 @@ void PlayerbotFactory::InitTalents(uint32 specNo)
         if (!talentInfo)
             continue;
 
-        TalentTabEntry const* talentTabInfo = sTalentTabStore.LookupEntry(talentInfo->GetTalentTab());
+        TalentTabEntry const* talentTabInfo = sTalentTabStore.LookupEntry(talentInfo->TabID);
         //By leewheel 2026-09-03 修复C4389警告：tabpage()返回int32，specNo为uint32，显式转换对齐
-        if (!talentTabInfo || static_cast<uint32>(talentTabInfo->tabpage()) != specNo)
+        if (!talentTabInfo || static_cast<uint32>(talentTabInfo->OrderIndex) != specNo)
             continue;
 
         if ((classMask & talentTabInfo->ClassMask) == 0)
             continue;
 
-        spells[talentInfo->GetRow()].push_back(talentInfo);
+        spells[talentInfo->TierID].push_back(talentInfo);
     }
 
     uint32 freePoints = bot->GetFreeTalentPoints();
@@ -3970,7 +3974,7 @@ void PlayerbotFactory::InitTalents(uint32 specNo)
             int maxRank = -1;
             for (uint32 rank = 0; rank < std::min((uint32)MAX_TALENT_RANK, bot->GetFreeTalentPoints()); ++rank)
             {
-                uint32 spellId = talentInfo->GetRankID()[rank];
+                uint32 spellId = talentInfo->SpellRank[rank];
                 if (!spellId)
                     break;
                 maxRank = rank;
@@ -3999,7 +4003,7 @@ void PlayerbotFactory::InitTalents(uint32 specNo)
 void PlayerbotFactory::InitTalentsByTemplate(uint32 specTab)
 {
     //By leewheel 2026-07-22: 确保CharacterPoints正确，同InitTalents/InitTalentsBySpecNo
-    bot->InitTalentForLevel();
+    Player_InitTalentForLevel(bot);
     //End By leewheel
     // if (sPlayerbotAIConfig.parsedSpecLinkOrder[bot->getClass()][specNo][80].size() == 0)
     // {
@@ -4016,14 +4020,14 @@ void PlayerbotFactory::InitTalentsByTemplate(uint32 specTab)
         if (!talentInfo)
             continue;
 
-        TalentTabEntry const* talentTabInfo = sTalentTabStore.LookupEntry(talentInfo->GetTalentTab());
+        TalentTabEntry const* talentTabInfo = sTalentTabStore.LookupEntry(talentInfo->TabID);
         if (!talentTabInfo)
             continue;
 
         if ((classMask & talentTabInfo->ClassMask) == 0)
             continue;
 
-        spells_row[talentInfo->GetRow()].push_back(talentInfo);
+        spells_row[talentInfo->TierID].push_back(talentInfo);
     }
     while (startLevel > 1 && startLevel < 80 &&
            sPlayerbotAIConfig.parsedSpecLinkOrder[cls][specIndex][startLevel].size() == 0)
@@ -4056,14 +4060,14 @@ void PlayerbotFactory::InitTalentsByTemplate(uint32 specTab)
             }
             for (TalentEntry const* talentInfo : spells)
             {
-                //By leewheel 2026-09-03 修复C4389警告：GetCol()返回uint8，col为uint32，显式转换对齐
-                if (talentInfo->GetCol() != static_cast<uint8>(col))
+                //By leewheel 2026-09-09: TC-Cata中字段为ColumnIndex
+                if (talentInfo->ColumnIndex != static_cast<uint8>(col))
                 {
                     continue;
                 }
-                TalentTabEntry const* talentTabInfo = sTalentTabStore.LookupEntry(talentInfo->GetTalentTab());
-                //By leewheel 2026-09-03 修复C4389警告：tabpage()返回int32，tab为uint32，显式转换对齐
-                if (static_cast<uint32>(talentTabInfo->tabpage()) != tab)
+                TalentTabEntry const* talentTabInfo = sTalentTabStore.LookupEntry(talentInfo->TabID); //By leewheel 2026-09-09: TC-Cata中字段为TabID
+                //By leewheel 2026-09-09: TC-Cata中TalentTabEntry字段为OrderIndex
+                if (static_cast<uint32>(talentTabInfo->OrderIndex) != tab)
                 {
                     continue;
                 }
@@ -4327,7 +4331,7 @@ void PlayerbotFactory::InitAmmo()
         //End By leewheel
     }
 
-    bot->SetAmmo(entry);
+    bot->SetUInt32Value(5, entry); //By leewheel 2026-09-09: TC无SetAmmo方法, 使用SetUInt32Value(PLAYER_AMMO_ID=5)
 }
 
 uint32 PlayerbotFactory::CalcMixedGearScore(uint32 gs, uint32 quality)
@@ -4529,7 +4533,7 @@ std::vector<uint32> PlayerbotFactory::GetCurrentGemsCount()
                 if (!enchantEntry)
                     continue;
 
-                uint32 gemid = enchantEntry->GemID(); //By leewheel 2026-07-10: TC中GemID是方法
+                uint32 gemid = enchantEntry->GemItemID; //By leewheel 2026-09-09: TC-Cata中为GemItemID字段
                 if (!gemid)
                     continue;
 
@@ -4537,11 +4541,11 @@ std::vector<uint32> PlayerbotFactory::GetCurrentGemsCount()
                 if (!gemProto)
                     continue;
 
-                GemPropertiesEntry const* gemProperty = sGemPropertiesStore.LookupEntry(gemProto->GemProperties()); //By leewheel 2026-07-10: TC中GemProperties是方法
+                GemPropertiesEntry const* gemProperty = sGemPropertiesStore.LookupEntry(gemProto->GetGemProperties()); //By leewheel 2026-07-10: TC中GemProperties是方法
                 if (!gemProperty)
                     continue;
 
-                uint8 GemColor = gemProperty->color(); //By leewheel 2026-07-10: TC中color是方法
+                uint8 GemColor = gemProperty->Type; //By leewheel 2026-09-09: TC-Cata中字段名为Type
 
                 for (uint8 b = 0, tmpcolormask = 1; b < 4; b++, tmpcolormask <<= 1)
                 {
@@ -4859,7 +4863,7 @@ void PlayerbotFactory::InitGlyphs(bool increment)
 
     if (sPlayerbotAIConfig.limitTalentsExpansion && bot->GetLevel() <= 70)
     {
-        bot->SendTalentsInfoData(false);
+        bot->SendTalentsInfoData();
         return;
     }
 
@@ -5188,7 +5192,7 @@ void PlayerbotFactory::InitGlyphs(bool increment)
             }
         }
     }
-    bot->SendTalentsInfoData(false);
+    bot->SendTalentsInfoData(); //By leewheel 2026-09-09: TC的SendTalentsInfoData无参数
 }
 
 void PlayerbotFactory::CancelAuras() { bot->RemoveAllAuras(); }
@@ -5569,7 +5573,7 @@ void PlayerbotFactory::ApplyEnchantAndGemsNew(bool /*destroyOld*/)
         if (!gemTemplate)
             continue;
 
-        const GemPropertiesEntry* gemProperties = sGemPropertiesStore.LookupEntry(gemTemplate->GemProperties()); //By leewheel 2026-07-10: TC中GemProperties是方法
+        const GemPropertiesEntry* gemProperties = sGemPropertiesStore.LookupEntry(gemTemplate->GetGemProperties()); //By leewheel 2026-07-10: TC中GemProperties是方法
         if (!gemProperties)
             continue;
 
@@ -5584,7 +5588,7 @@ void PlayerbotFactory::ApplyEnchantAndGemsNew(bool /*destroyOld*/)
         }
 
         //By leewheel 2026-07-11: TC用EnchantId而非spellitemenchantement
-        uint32 enchant_id = gemProperties->EnchantId;
+        uint32 enchant_id = gemProperties->EnchantID;
         //End By leewheel
         if (!enchant_id)
             continue;
@@ -5717,15 +5721,15 @@ void PlayerbotFactory::ApplyEnchantAndGemsNew(bool /*destroyOld*/)
                 if (isJewelersGem && jewelersCount >= 3)
                     continue;
 
-                const GemPropertiesEntry* gemProperties = sGemPropertiesStore.LookupEntry(gemTemplate->GemProperties()); //By leewheel 2026-07-10: TC中GemProperties是方法
+                const GemPropertiesEntry* gemProperties = sGemPropertiesStore.LookupEntry(gemTemplate->GetGemProperties()); //By leewheel 2026-09-09: TC中方法名为GetGemProperties()
                 if (!gemProperties)
                     continue;
 
-                if ((socketColor & gemProperties->color()) == 0 && gemProperties->color() == 1)  // meta socket //By leewheel 2026-07-10: TC中color是方法
+                if ((socketColor & gemProperties->Type) == 0 && gemProperties->Type == 1)  // meta socket //By leewheel 2026-09-09: TC-Cata中字段名为Type
                     continue;
 
-                //By leewheel 2026-07-11: TC用EnchantId而非spellitemenchantement
-                uint32 enchant_id = gemProperties->EnchantId;
+                //By leewheel 2026-09-09: TC-Cata中字段名为EnchantID
+                uint32 enchant_id = gemProperties->EnchantID;
                 //End By leewheel
                 if (!enchant_id)
                     continue;
@@ -5738,15 +5742,15 @@ void PlayerbotFactory::ApplyEnchantAndGemsNew(bool /*destroyOld*/)
                     // Ensure meta gem activation
                     for (size_t i = 1; i < curCount.size(); i++)
                     {
-                        if (curCount[i] < (uint32)requiredActive && (gemProperties->color() & (1 << i))) //By leewheel 2026-07-10: TC中color是方法
+                        if (curCount[i] < (uint32)requiredActive && (gemProperties->Type & (1 << i))) //By leewheel 2026-07-10: TC中color是方法
                         {
                             score *= 2;
                             break;
                         }
                     }
                 }
-                //By leewheel 2026-07-11: color是方法,需要加括号
-                if (socketColor & gemProperties->color())
+                //By leewheel 2026-09-09: TC-Cata中字段名为Type
+                if (socketColor & gemProperties->Type)
                 //End By leewheel
                     //By leewheel 2026-09-03 修复C4305警告：double字面量1.2乘float产生截断告警，改为float字面量
                     score *= 1.2f;

@@ -1,4 +1,4 @@
-/*
+﻿/*
  * 机器人AI配置实现
  * 从 AzerothCore mod-playerbots 移植到 TrinityCore
  * 使用 TrinityCore 的 sConfigMgr API (GetBoolDefault/GetIntDefault/GetFloatDefault/GetStringDefault)
@@ -1257,6 +1257,7 @@ std::vector<std::vector<uint32>> PlayerbotAIConfig::ParseTempTalentsOrder(uint32
         if (!talentTabInfo)
             continue;
 
+        //By leewheel 2026-09-09: 修复变量名拼写错误 talentTabinfo -> talentTabInfo
         if ((classMask & talentTabInfo->ClassMask) == 0)
             continue;
 
@@ -1308,7 +1309,8 @@ std::vector<std::vector<uint32>> PlayerbotAIConfig::ParseTempPetTalentsOrder(uin
         if (!talentTabInfo)
             continue;
 
-        if (!((1 << spec) & talentTabInfo->PetTalentMask))
+        //By leewheel 2026-09-09: TC的TalentTabEntry无PetTalentMask字段，宠物天赋用OrderIndex匹配spec
+        if (talentTabInfo->OrderIndex != (int32)spec)
             continue;
 
         // 跳过一些重复法术如冲刺/俯冲

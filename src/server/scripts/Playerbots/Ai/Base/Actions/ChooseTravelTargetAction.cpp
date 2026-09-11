@@ -9,6 +9,10 @@
 #include "LootObjectStack.h"
 #include "Playerbots.h"
 
+//By leewheel 2026-09-09: 解决GetDifficulty()宏与CreatureTemplate::GetDifficulty(Difficulty)的冲突
+// Playerbots.h中定义了#define GetDifficulty() GetDifficultyID()（用于Map兼容）
+#undef GetDifficulty
+
 bool ChooseTravelTargetAction::Execute(Event /*event*/)
 {
     // Player* requester = event.getOwner() ? event.getOwner() : GetMaster(); //not used, line marked for removal.
@@ -984,13 +988,11 @@ bool ChooseTravelTargetAction::needForQuest(Unit* target)
             {
                 if (CreatureTemplate const* data = sObjectMgr->GetCreatureTemplate(target->GetEntry()))
                 {
-                    //By leewheel 20260709
-                    //CreatureTemplate的LootID()是成员函数不是成员变量，使用lootid直接成员
-                    //与GrindTargetValue.cpp中的data->lootid用法保持一致
-                    //End By leewheel
-                    if (uint32 lootId = data->lootid)
+                    //By leewheel 2026-09-09: TC的LootID在CreatureDifficulty中，通过GetDifficulty获取
+                    CreatureDifficulty const* diff = data->GetDifficulty(DIFFICULTY_NONE);
+                    if (diff && diff->LootID)
                     {
-                        if (LootTemplates_Creature.HaveQuestLootForPlayer(lootId, bot))
+                        if (LootTemplates_Creature.HaveQuestLootForPlayer(diff->LootID, bot))
                             return true;
                     }
                 }

@@ -869,7 +869,8 @@ static int32 GetAuraStrength(Aura const* aura, AuraType auraType)
         if (!auraEffect || auraEffect->GetAuraType() != auraType)
             continue;
 
-        amount = std::max(amount, auraEffect->GetAmount());
+        //By leewheel 2026-09-09: TC的GetAmount返回double，BasePoints为float，需显式转int32以匹配std::max参数类型
+        amount = std::max(amount, static_cast<int32>(auraEffect->GetAmount()));
     }
 
     return amount;
@@ -927,7 +928,8 @@ static int32 GetBlessingCastStrength(Player* caster, BlessingType type, uint32 s
         if (spellInfo->GetEffects()[effect].ApplyAuraName != auraType)
             continue;
 
-        amount = std::max(amount, spellInfo->GetEffects()[effect].BasePoints + 1);
+        //By leewheel 2026-09-09: TC的BasePoints为float，需显式转int32以匹配std::max参数类型
+        amount = std::max(amount, static_cast<int32>(spellInfo->GetEffects()[effect].BasePoints + 1));
     }
 
     if (amount <= 0)

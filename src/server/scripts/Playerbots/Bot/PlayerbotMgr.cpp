@@ -105,9 +105,8 @@ void PlayerbotHolder::AddPlayerBot(ObjectGuid playerGuid, uint32 masterAccountId
     bool isRndbot = !masterAccountId;
     bool sameAccount = sPlayerbotAIConfig.allowAccountBots && accountId == masterAccountId;
     Guild* guild = masterPlayer ? sGuildMgr->GetGuildById(masterPlayer->GetGuildId()) : nullptr;
-    //By leewheel 2026-07-12: TC的Guild::GetMember返回私有类型Member*，改用GetMemberRankId判断成员是否存在
-    bool sameGuild = sPlayerbotAIConfig.allowGuildBots && guild && guild->GetMemberRankId(playerGuid) != GuildRankId(0xFF);
-    //End By leewheel
+    //By leewheel 2026-09-09: TC的Guild::GetMember是私有方法，用IsMember判断公会成员即可
+    bool sameGuild = sPlayerbotAIConfig.allowGuildBots && guild && guild->IsMember(playerGuid);
     bool addClassBot = sRandomPlayerbotMgr.IsAddclassBot(playerGuid.GetCounter());
     bool linkedAccount = sPlayerbotAIConfig.allowTrustedAccountBots && IsAccountLinked(accountId, masterAccountId);
     //By leewheel 2026-07-20: 快速组队系统需要能添加随机账号中的离线机器人
@@ -169,37 +168,41 @@ void PlayerbotHolder::AddPlayerBot(ObjectGuid playerGuid, uint32 masterAccountId
 
     botLoading.emplace(playerGuid, masterAccountId);
 
-    // 在世界线程中异步执行登录回调
-    sWorld->AddQueryHolderCallback(CharacterDatabase.DelayQueryHolder(holder))
-        .AfterComplete(
-            [](SQLQueryHolderBase const& queryHolder)
+    //By leewheel 2026-09-09: TC-Cata的World无AddQueryHolderCallback方法
+    //使用同步方式执行查询并调用回调（机器人登录不频繁，同步可接受）
+    SQLQueryHolderCallback queryCallback = CharacterDatabase.DelayQueryHolder(holder);
+    queryCallback.AfterComplete(
+        [](SQLQueryHolderBase const& queryHolder)
+        {
+            PlayerbotLoginQueryHolder const& holder = static_cast<PlayerbotLoginQueryHolder const&>(queryHolder);
+            uint32 masterAccountId = holder.GetMasterAccountId();
+
+            if (masterAccountId)
             {
-                PlayerbotLoginQueryHolder const& holder = static_cast<PlayerbotLoginQueryHolder const&>(queryHolder);
-                uint32 masterAccountId = holder.GetMasterAccountId();
+                // 验证并找到主人的当前WorldSession
+                WorldSession* masterSession = sWorldSessionMgr->FindSession(masterAccountId);
+                Player* masterPlayer = masterSession ? masterSession->GetPlayer() : nullptr;
 
-                if (masterAccountId)
+                if (masterPlayer)
                 {
-                    // 验证并找到主人的当前WorldSession
-                    WorldSession* masterSession = sWorldSessionMgr->FindSession(masterAccountId);
-                    Player* masterPlayer = masterSession ? masterSession->GetPlayer() : nullptr;
+                    PlayerbotHolder* mgr = PlayerbotsMgr::instance().GetPlayerbotMgr(masterPlayer);
 
-                    if (masterPlayer)
+                    if (mgr != nullptr)
                     {
-                        PlayerbotHolder* mgr = PlayerbotsMgr::instance().GetPlayerbotMgr(masterPlayer);
-
-                        if (mgr != nullptr)
-                        {
-                            mgr->HandlePlayerBotLoginCallback(holder);
-                            return;
-                        }
-
-                        PlayerbotHolder::botLoading.erase(holder.GetGuid());
+                        mgr->HandlePlayerBotLoginCallback(holder);
                         return;
                     }
-                }
 
-                sRandomPlayerbotMgr.HandlePlayerBotLoginCallback(holder);
-            });
+                    PlayerbotHolder::botLoading.erase(holder.GetGuid());
+                    return;
+                }
+            }
+
+            sRandomPlayerbotMgr.HandlePlayerBotLoginCallback(holder);
+        });
+    // 等待查询完成并同步执行回调
+    queryCallback.m_future.wait();
+    queryCallback.InvokeIfReady();
 }
 
 // === IsAccountLinked - 检查账号是否关联 ===
@@ -217,10 +220,11 @@ void PlayerbotHolder::HandlePlayerBotLoginCallback(PlayerbotLoginQueryHolder con
 {
     uint32 botAccountId = holder.GetAccountId();
 
-    // TC适配: WorldSession构造函数参数不同
+    // TC适配: WorldSession构造函数参数不同（14个参数）
+    //By leewheel 2026-09-09: TC-Cata的WorldSession构造函数需14个参数，新增build和clientBuildVariant
     WorldSession* botSession =
         new WorldSession(botAccountId, "", 0x0, nullptr, SEC_PLAYER, EXPANSION_WRATH_OF_THE_LICH_KING, time_t(0),
-                         "", Minutes(0), sWorld->GetDefaultDbcLocale(), 0, false);
+                         "", Minutes(0), 0, ClientBuild::VariantId{0, 0, 0}, sWorld->GetDefaultDbcLocale(), 0, false);
     // 标记为机器人会话
     botSession->SetBot(true);
 

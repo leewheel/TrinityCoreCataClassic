@@ -30,7 +30,8 @@ class ForPlayerCommandScript : public CommandScript
 public:
     ForPlayerCommandScript() : CommandScript("ForPlayerCommandScript") { }
 
-    ChatCommandTable GetCommands() const override
+    //By leewheel 2026-09-08: TC-Cata返回std::span而非ChatCommandTable(数组类型不能作为函数返回值)
+    std::span<ChatCommandBuilder const> GetCommands() const override
     {
         static ChatCommandTable petTauntTable = {{ "", HandleBotPetTaunt, rbac::RBAC_PERM_COMMAND_PLAYER_BOT, Console::No }};
 

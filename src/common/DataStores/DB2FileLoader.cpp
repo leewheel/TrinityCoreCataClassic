@@ -1,4 +1,4 @@
-/*
+﻿/*
  * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -186,6 +186,18 @@ public:
     virtual DB2FileLoadInfo const* GetLoadInfo() const = 0;
     virtual DB2SectionHeader& GetSection(uint32 section) const = 0;
 
+    // By leewheel 2026-09-10:
+    // 通用 WDC5 支持：暴露列元数据（压缩类型/位宽/附加数据大小），供工具在
+    // 无 loadInfo 的表上通过 DB2Record 访问器逐字段读取。
+    virtual uint32 GetColumnMetaCount() const = 0;
+    virtual void GetColumnMeta(uint32 field, uint16& bitOffset, uint16& bitSize, uint32& additionalDataSize, uint32& compressionType) const = 0;
+    // 布局类型与稀疏原始记录导出
+    virtual bool IsRegular() const = 0;
+    virtual uint32 GetSparseRecordCount() const = 0;
+    virtual bool ReadSparseRecord(uint32 recordIndex, uint32& id, uint8 const*& data, uint32& size) const = 0;
+    virtual uint16 GetSparseBufferSize() const = 0;
+    // End By leewheel
+
 private:
     friend class DB2Record;
     virtual unsigned char const* GetRawRecordData(uint32 recordNumber, uint32 const* section) const = 0;
@@ -230,6 +242,14 @@ public:
     uint32 GetMaxId() const override;
     DB2FileLoadInfo const* GetLoadInfo() const override;
     DB2SectionHeader& GetSection(uint32 section) const override;
+    // By leewheel 2026-09-10: 通用解析暴露列元数据
+    uint32 GetColumnMetaCount() const override;
+    void GetColumnMeta(uint32 field, uint16& bitOffset, uint16& bitSize, uint32& additionalDataSize, uint32& compressionType) const override;
+    bool IsRegular() const override;
+    uint32 GetSparseRecordCount() const override;
+    bool ReadSparseRecord(uint32 recordIndex, uint32& id, uint8 const*& data, uint32& size) const override;
+    uint16 GetSparseBufferSize() const override;
+    // End By leewheel
 
 private:
     void FillParentLookup(char* dataTable);
@@ -294,6 +314,14 @@ public:
     uint32 GetMaxId() const override;
     DB2FileLoadInfo const* GetLoadInfo() const override;
     DB2SectionHeader& GetSection(uint32 section) const override;
+    // By leewheel 2026-09-10: 通用解析暴露列元数据
+    uint32 GetColumnMetaCount() const override;
+    void GetColumnMeta(uint32 field, uint16& bitOffset, uint16& bitSize, uint32& additionalDataSize, uint32& compressionType) const override;
+    bool IsRegular() const override;
+    uint32 GetSparseRecordCount() const override;
+    bool ReadSparseRecord(uint32 recordIndex, uint32& id, uint8 const*& data, uint32& size) const override;
+    uint16 GetSparseBufferSize() const override;
+    // End By leewheel
 
 private:
     void FillParentLookup(char* dataTable);
@@ -987,6 +1015,39 @@ DB2SectionHeader& DB2FileLoaderRegularImpl::GetSection(uint32 section) const
     return _sections[section];
 }
 
+// By leewheel 2026-09-10: 通用 WDC5 解析：返回列元数据（Regular 布局为固定记录）
+uint32 DB2FileLoaderRegularImpl::GetColumnMetaCount() const
+{
+    return _columnMeta ? _header->TotalFieldCount : 0;
+}
+
+void DB2FileLoaderRegularImpl::GetColumnMeta(uint32 field, uint16& bitOffset, uint16& bitSize, uint32& additionalDataSize, uint32& compressionType) const
+{
+    bitOffset = _columnMeta[field].BitOffset;
+    bitSize = _columnMeta[field].BitSize;
+    additionalDataSize = _columnMeta[field].AdditionalDataSize;
+    compressionType = uint32(_columnMeta[field].CompressionType);
+}
+// By leewheel 2026-09-10: Regular 固定记录布局
+bool DB2FileLoaderRegularImpl::IsRegular() const
+{
+    return true;
+}
+uint32 DB2FileLoaderRegularImpl::GetSparseRecordCount() const
+{
+    return 0;
+}
+bool DB2FileLoaderRegularImpl::ReadSparseRecord(uint32 recordIndex, uint32& id, uint8 const*& data, uint32& size) const
+{
+    (void)recordIndex; (void)id; (void)data; (void)size;
+    return false; // Regular 布局不走原始稀疏记录读取
+}
+uint16 DB2FileLoaderRegularImpl::GetSparseBufferSize() const
+{
+    return 0; // Regular 无稀疏缓冲区
+}
+// End By leewheel
+
 DB2FileLoaderSparseImpl::DB2FileLoaderSparseImpl(char const* fileName, DB2FileLoadInfo const* loadInfo, DB2Header const* header, DB2FileSource* source) :
     _fileName(fileName),
     _loadInfo(loadInfo),
@@ -1595,6 +1656,73 @@ DB2SectionHeader& DB2FileLoaderSparseImpl::GetSection(uint32 section) const
     return _sections[section];
 }
 
+// By leewheel 2026-09-10: Sparse(catalog) 布局未保存 columnMeta，不支持通用按列读取
+uint32 DB2FileLoaderSparseImpl::GetColumnMetaCount() const
+{
+    return 0;
+}
+
+void DB2FileLoaderSparseImpl::GetColumnMeta(uint32 field, uint16& bitOffset, uint16& bitSize, uint32& additionalDataSize, uint32& compressionType) const
+{
+    bitOffset = 0;
+    bitSize = 0;
+    additionalDataSize = 0;
+    compressionType = 0;
+}
+
+// By leewheel 2026-09-10:
+// 稀疏(catalog)布局不保存 columnMeta，通用解析无法按列读取字段。为保证
+// zhCN 全部 815 个 db2 文件一个不少导入 db2files，对稀疏文件按"原始记录
+// 字节"导出：每行 = {id, size, hex}，原样保留字节供后续反查，且不因
+// loadInfo 为空而崩溃。返回的 data 指向内部共享 _recordBuffer，调用方必须
+// 在下次调用前完成拷贝/序列化。
+// End By leewheel
+// By leewheel 2026-09-10:
+// 稀疏(catalog)布局的布局类型判定：返回 false，标识非 Regular 布局，使
+// db2dump 通用解析对这类文件走 ReadSparseRecord 原始记录字节导出路径。
+// End By leewheel
+bool DB2FileLoaderSparseImpl::IsRegular() const
+{
+    return false;
+}
+
+uint16 DB2FileLoaderSparseImpl::GetSparseBufferSize() const
+{
+    return _maxRecordSize;
+}
+
+uint32 DB2FileLoaderSparseImpl::GetSparseRecordCount() const
+{
+    return _catalog.size();
+}
+
+// By leewheel 2026-09-10: 实现对稀疏文件 ReadSparseRecord 的声明，复用
+// _catalog FileOffset/RecordSize 直接读取原始字节，规避无 loadInfo 下
+// 逐字段访问器(RecordGetString/GetFieldOffset 依赖 _loadInfo->Meta)崩溃。
+// End By leewheel
+bool DB2FileLoaderSparseImpl::ReadSparseRecord(uint32 recordIndex, uint32& id, uint8 const*& data, uint32& size) const
+{
+    if (recordIndex >= _catalog.size())
+        return false;
+
+    uint32 recSize = _catalog[recordIndex].RecordSize;
+    // By leewheel 2026-09-10 防护：_recordBuffer 按 _maxRecordSize 分配，若某条
+    // 记录超出缓冲区或缓冲区资源 0，直接返回 false 避免越界写(堆损坏)。
+    if (_maxRecordSize == 0 || recSize > uint32(_maxRecordSize))
+        return false;
+
+    bool posOK = _source->SetPosition(_catalog[recordIndex].FileOffset);
+    uint8* rawRecord = _recordBuffer.get();
+    bool readOK = _source->Read(rawRecord, recSize);
+    if (!readOK)
+        return false;
+
+    id = _catalogIds[recordIndex];
+    data = rawRecord;
+    size = recSize;
+    return true;
+}
+
 DB2Record::DB2Record(DB2FileLoaderImpl const& db2, uint32 recordIndex, std::size_t* fieldOffsets)
     : _db2(db2), _recordIndex(recordIndex), _recordData(db2.GetRawRecordData(recordIndex, nullptr)), _fieldOffsets(fieldOffsets)
 {
@@ -2074,3 +2202,48 @@ DB2RecordCopy DB2FileLoader::GetRecordCopy(uint32 copyNumber) const
 {
     return _impl->GetRecordCopy(copyNumber);
 }
+
+// By leewheel 2026-09-10:
+// 通用 WDC5 解析支持：将工具的列元数据访问转发到实际实现。
+DB2FileLoadInfo const* DB2FileLoader::GetLoadInfo() const
+{
+    return _impl->GetLoadInfo();
+}
+
+uint32 DB2FileLoader::GetColumnMetaCount() const
+{
+    return _impl->GetColumnMetaCount();
+}
+
+void DB2FileLoader::GetColumnMeta(uint32 field, uint16& bitOffset, uint16& bitSize, uint32& additionalDataSize, uint32& compressionType) const
+{
+    _impl->GetColumnMeta(field, bitOffset, bitSize, additionalDataSize, compressionType);
+}
+
+// By leewheel 2026-09-10:
+// Sparse(catalog) 原始记录导出的实现转发：判断布局类型、取稀疏记录数与读取
+// 单条记录原始字节，供 db2dump 对无 loadInfo 的稀疏文件安全导出。
+// End By leewheel
+bool DB2FileLoader::IsRegular() const
+{
+    return _impl->IsRegular();
+}
+
+// By leewheel 2026-09-10: 转发稀疏记录计数
+uint32 DB2FileLoader::GetSparseRecordCount() const
+{
+    return _impl->GetSparseRecordCount();
+}
+
+// By leewheel 2026-09-10: 转发稀疏原始记录读取
+bool DB2FileLoader::ReadSparseRecord(uint32 recordIndex, uint32& id, uint8 const*& data, uint32& size) const
+{
+    return _impl->ReadSparseRecord(recordIndex, id, data, size);
+}
+
+// By leewheel 2026-09-10: 转发稀疏缓冲区大小（诊断用）
+uint16 DB2FileLoader::GetSparseBufferSize() const
+{
+    return _impl->GetSparseBufferSize();
+}
+// End By leewheel

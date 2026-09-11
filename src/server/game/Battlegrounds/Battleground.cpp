@@ -1552,3 +1552,16 @@ uint32 Battleground::GetMinPlayersPerTeam() const
 {
     return _battlegroundTemplate->GetMinPlayersPerTeam();
 }
+
+// By leewheel 2026-09-09: TC-Cata已移除m_BGObjects存储，GetBGObject/GetBGCreature仅保留声明未实现。
+// mod-playerbots(Playerbots)仍在调用这两个API。此处补上null返回实现以解决链接错误；
+// TC-Cata战场对象经GetBgMap()->GetBattlegroundScript()访问，此老接口始终返回nullptr，调用方需判空。
+GameObject* Battleground::GetBGObject(uint32 /*type*/, bool /*logError*/)
+{
+    return nullptr;
+}
+
+Creature* Battleground::GetBGCreature(uint32 /*type*/, bool /*logError*/)
+{
+    return nullptr;
+}

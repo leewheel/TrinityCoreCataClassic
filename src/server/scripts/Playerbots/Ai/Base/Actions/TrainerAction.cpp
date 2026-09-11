@@ -34,7 +34,7 @@ bool TrainerAction::Execute(Event event)
     bool learnSpells = param.find("learn") != std::string::npos || sRandomPlayerbotMgr.IsRandomBot(bot) ||
                        (sPlayerbotAIConfig.allowLearnTrainerSpells &&
                         // TODO: Rewrite to only exclude start primary profession skills and make config dependent.
-                        (trainer->GetTrainerType() != Trainer::Type::Tradeskill || !botAI->HasActivePlayerMaster()));
+                        (trainer->GetType() != Trainer::Type::Tradeskill || !botAI->HasActivePlayerMaster()));
 
     Iterate(target, learnSpells, spellId);
 
@@ -65,7 +65,7 @@ bool TrainerAction::isPossible()
     if (!trainer)
         return false;
 
-    if (!trainer->IsTrainerValidForPlayer(bot))
+    if (!Trainer_IsTrainerValidForPlayer(trainer, bot))
         return false;
 
     //By leewheel 2026-09-05: 上游02207b55——存在任一允许该bot学习(含主专业限制)且可教的法术才为真
@@ -306,7 +306,7 @@ bool MaintenanceAction::Execute(Event /*event*/)
     }
 
     bot->DurabilityRepairAll(false, 1.0f, false);
-    bot->SendTalentsInfoData(false);
+    bot->SendTalentsInfoData();
 
     return true;
 }
@@ -627,7 +627,7 @@ bool RemoveGlyphAction::Execute(Event /*event*/)
         bot->SetGlyph(slotIndex, 0);
         //End By leewheel
     }
-    bot->SendTalentsInfoData(false);
+    bot->SendTalentsInfoData();
     return true;
 }
 

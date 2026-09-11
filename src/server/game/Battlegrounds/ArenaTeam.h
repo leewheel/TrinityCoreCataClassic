@@ -91,6 +91,7 @@ struct TC_GAME_API ArenaTeamMember
     uint16 SeasonWins;
     uint16 PersonalRating;
     uint16 MatchMakerRating;
+    uint16 MaxMMR;
 
     void ModifyPersonalRating(Player* player, int32 mod, uint32 type);
     void ModifyMatchmakerRating(int32 mod, uint32 slot);
@@ -136,6 +137,24 @@ class TC_GAME_API ArenaTeam
         uint32 GetRating() const          { return Stats.Rating; }
         uint32 GetAverageMMR(Group* group) const;
 
+        void SetRatingForAll(uint16 rating)
+        {
+            Stats.Rating = rating;
+            for (ArenaTeamMember& member : Members)
+            {
+                member.PersonalRating = rating;
+                member.MatchMakerRating = rating;
+            }
+        }
+        void SetEmblem(uint32 backgroundColor, uint8 emblemStyle, uint32 emblemColor, uint8 borderStyle, uint32 borderColor)
+        {
+            BackgroundColor = backgroundColor;
+            EmblemStyle = emblemStyle;
+            EmblemColor = emblemColor;
+            BorderStyle = borderStyle;
+            BorderColor = borderColor;
+        }
+
         void SetCaptain(ObjectGuid guid);
         bool SetName(std::string const& name);
         bool AddMember(ObjectGuid PlayerGuid);
@@ -145,6 +164,8 @@ class TC_GAME_API ArenaTeam
         bool Empty() const { return Members.empty(); }
         MemberList::iterator m_membersBegin() { return Members.begin(); }
         MemberList::iterator m_membersEnd() { return Members.end(); }
+        MemberList const& GetMembers() const { return Members; }
+        MemberList& GetMembers() { return Members; }
         bool IsMember(ObjectGuid guid) const;
 
         ArenaTeamMember* GetMember(ObjectGuid guid);

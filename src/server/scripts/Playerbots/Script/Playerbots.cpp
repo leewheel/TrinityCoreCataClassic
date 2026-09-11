@@ -124,7 +124,8 @@ void LoadSpellNameEngCache()
 
     // ========== 补充源: SpellInfo DB2 enUS locale(覆盖表中没有的条目) ==========
     uint32 db2Supplement = 0;
-    uint32 storeSize = sSpellMgr->GetSpellInfoStoreSize();
+    //By leewheel 2026-09-09: TC-Cata无GetSpellInfoStoreSize，使用sSpellMgr->GetSpellInfo遍历有效范围
+    uint32 const storeSize = 200000;  // 足够大的上限，覆盖所有合法spellId
     for (uint32 spellId = 1; spellId < storeSize; ++spellId)
     {
         if (sSpellNameEngCache.find(spellId) != sSpellNameEngCache.end())
@@ -595,7 +596,8 @@ public:
     PlayerbotsServerScript() : ServerScript("PlayerbotsServerScript") {}
 
     //By leewheel 2026-07-12: TC核心已按AC语义扩展 CanPacketReceive(可拦截,const包),见 ScriptMgr.h
-    bool CanPacketReceive(WorldSession* session, WorldPacket const& packet) override
+    //By leewheel 2026-09-08: TC-Cata的ServerScript无CanPacketReceive虚函数，移除override关键字
+    bool CanPacketReceive(WorldSession* session, WorldPacket const& packet)
     //End By leewheel
     {
         if (Player* player = session->GetPlayer())

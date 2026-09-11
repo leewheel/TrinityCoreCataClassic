@@ -1,4 +1,4 @@
-/*
+﻿/*
 * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
 * and/or modify it under version 3 of the License, or (at your option), any later version.
 */
@@ -871,8 +871,8 @@ void RandomPlayerbotFactory::CreateRandomBots()
         RandomPlayerbotFactory factory;
 
 //By leewheel 2026-07-12: 必须调用SetBot(true)，否则SaveToDB时不会跳过collection保存导致外键约束失败
-WorldSession* session = new WorldSession(accountId, "", 0x0, nullptr, SEC_PLAYER, EXPANSION_WRATH_OF_THE_LICH_KING,
-time_t(0), "", Minutes(0), LOCALE_enUS, 0, false); // By leewheel 2026-07-08
+WorldSession* session = new WorldSession(accountId, "", 0, nullptr, SEC_PLAYER, EXPANSION_WRATH_OF_THE_LICH_KING,
+time_t(0), "", Minutes(0), 0, ClientBuild::VariantId{}, LOCALE_enUS, 0, false);
 session->SetBot(true);
 //End By leewheel
 sessionBots.push_back(session);

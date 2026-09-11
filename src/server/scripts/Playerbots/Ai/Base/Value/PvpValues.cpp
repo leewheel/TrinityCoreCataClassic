@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
  * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
@@ -10,6 +10,9 @@
 #include "BattlegroundMgr.h"
 #include "Playerbots.h"
 #include "ServerFacade.h"
+//By leewheel 2026-09-09: 包含战场常量定义(BG_WS_SPELL_*, BG_EY_NETHERSTORM_FLAG_SPELL等)
+#include "BattlegroundAVCompat.h"
+//End By leewheel
 
 // 辅助函数：在战场玩家列表中查找携带指定旗帜光环的玩家
 static Player* FindFlagCarrierInBattleground(Battleground* bg, uint32 flagSpellId)
@@ -149,7 +152,9 @@ CreatureData const* BgMasterValue::NearestBm(bool allowDead)
         if (!bmPair)
             continue;
 
-        WorldPosition bmPos(bmPair->mapid(), bmPair->posX(), bmPair->posY(), bmPair->posZ(), bmPair->orientation());
+        //By leewheel 2026-09-09: TC的SpawnData用mapId字段和spawnPoint，而非mapid()/posX()等方法
+        WorldPosition bmPos(bmPair->mapId, bmPair->spawnPoint);
+        //End By leewheel
 
         float dist = botPos.distance(bmPos);  // This is the aproximate travel distance.
 
@@ -176,9 +181,11 @@ CreatureData const* BgMasterValue::NearestBm(bool allowDead)
             continue;
 
         // Is the area hostile?
-        if (area->team() == 4 && bot->GetTeamId() == TEAM_ALLIANCE)
+        //By leewheel 2026-09-09: TC用FactionGroupMask字段替代team()方法
+        if (area->FactionGroupMask == 4 && bot->GetTeamId() == TEAM_ALLIANCE)
             continue;
-        if (area->team() == 2 && bot->GetTeamId() == TEAM_HORDE)
+        if (area->FactionGroupMask == 2 && bot->GetTeamId() == TEAM_HORDE)
+        //End By leewheel
             continue;
 
         if (!allowDead)
@@ -226,7 +233,9 @@ BattlegroundTypeId RpgBgTypeValue::Calculate()
             if (!bgTemplate)
                 continue;
 
-            if (bot->GetLevel() < bgTemplate->GetMinLevel())
+            //By leewheel 2026-09-09: TC的BattlegroundTemplate通过BattlemasterEntry获取MinLevel
+            if (bgTemplate->BattlemasterEntry && bot->GetLevel() < bgTemplate->BattlemasterEntry->MinLevel)
+            //End By leewheel
                 continue;
             //End By leewheel
 

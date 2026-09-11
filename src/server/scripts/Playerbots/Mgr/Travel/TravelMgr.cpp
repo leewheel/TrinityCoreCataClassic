@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
  * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
@@ -31,8 +31,8 @@
 #include "VMapFactory.h"
 #include "VMapMgr2.h"
 #include "Map.h"
-//By leewheel 2026-09-03: 添加MMapFactory.h——TC的MMAP::MMapFactory::createOrGetMMapManager在此头文件声明
-#include "MMapFactory.h"
+//By leewheel 2026-09-09: TC-Cata用MMapManager::instance()而非MMapFactory
+#include "Management/MMapManager.h"
 //End By leewheel
 #include "Corpse.h"
 #include "CellImpl.h"
@@ -272,7 +272,7 @@ bool WorldPosition::isOverworld()
 bool WorldPosition::isInWater()
 {
     return getMap() ? getMap()->IsInWater(PhaseShift(), GetPositionX(), GetPositionY(), GetPositionZ(),
-                                          nullptr, DEFAULT_COLLISION_HEIGHT)
+                                          nullptr)
                     : false;
 };
 
@@ -411,7 +411,7 @@ MapEntry const* WorldPosition::getMapEntry() { return sMapStore.LookupEntry(GetM
 
 uint32 WorldPosition::getInstanceId()
 {
-    if (Map* map = sMapMgr->FindBaseMap(GetMapId()))
+    if (Map* map = sMapMgr->FindMap(GetMapId(), 0))
         return map->GetInstanceId();
 
     return 0;
@@ -521,8 +521,8 @@ std::string const WorldPosition::getAreaName(bool fullName, bool zoneName)
     {
         MapEntry const* map = sMapStore.LookupEntry(GetMapId());
         if (map)
-            //By leewheel 2026-07-10: TC的MapEntry::name()是方法
-    return map->name()[DEFAULT_LOCALE];
+            //By leewheel 2026-09-09: TC-Cata的MapEntry使用MapName字段
+    return map->MapName[DEFAULT_LOCALE];
     //End By leewheel
     }
 
@@ -530,14 +530,14 @@ std::string const WorldPosition::getAreaName(bool fullName, bool zoneName)
     if (!area)
         return "";
 
-    //By leewheel 2026-07-11: LocalizedString的operator[]需要LocaleConstant枚举
-    std::string areaName = area->area_name()[DEFAULT_LOCALE];
+    //By leewheel 2026-09-09: TC-Cata的AreaTableEntry使用AreaName字段
+    std::string areaName = area->AreaName[DEFAULT_LOCALE];
     //End By leewheel
 
     if (fullName)
     {
-        //By leewheel 2026-07-10: TC的AreaTableEntry::zone()是方法
-    uint16 zoneId = area->zone();
+        //By leewheel 2026-09-09: TC-Cata的AreaTableEntry使用ParentAreaID字段
+    uint16 zoneId = area->ParentAreaID;
     //End By leewheel
 
         while (zoneId > 0)
@@ -546,8 +546,8 @@ std::string const WorldPosition::getAreaName(bool fullName, bool zoneName)
             if (!parentArea)
                 break;
 
-            //By leewheel 2026-07-11: LocalizedString的operator[]需要LocaleConstant枚举
-            std::string const subAreaName = parentArea->area_name()[DEFAULT_LOCALE];
+            //By leewheel 2026-09-09: TC-Cata的AreaTableEntry使用AreaName字段
+            std::string const subAreaName = parentArea->AreaName[DEFAULT_LOCALE];
             //End By leewheel
 
             if (zoneName)
@@ -555,8 +555,8 @@ std::string const WorldPosition::getAreaName(bool fullName, bool zoneName)
             else
                 areaName = subAreaName + " " + areaName;
 
-            //By leewheel 2026-07-10: TC的AreaTableEntry::zone()是方法
-    zoneId = parentArea->zone();
+            //By leewheel 2026-09-09: TC-Cata的AreaTableEntry使用ParentAreaID字段
+    zoneId = parentArea->ParentAreaID;
     //End By leewheel
         }
     }
@@ -614,7 +614,7 @@ std::vector<GridCoord> WorldPosition::getGridCoord(WorldPosition secondPos)
 std::vector<WorldPosition> WorldPosition::fromGridCoord(GridCoord gridCoord)
 {
     std::vector<WorldPosition> retVec;
-    GridCoord g;
+    GridCoord g(0, 0);
 
     for (uint32 d = 0; d < 4; d++)
     {
@@ -635,7 +635,7 @@ std::vector<WorldPosition> WorldPosition::fromGridCoord(GridCoord gridCoord)
 std::vector<WorldPosition> WorldPosition::fromCellCoord(CellCoord cellcoord)
 {
     std::vector<WorldPosition> retVec;
-    CellCoord p;
+    CellCoord p(0, 0);
 
     for (uint32 d = 0; d < 4; d++)
     {
@@ -769,11 +769,9 @@ void WorldPosition::loadMapAndVMap(uint32 mapId, uint8 x, uint8 y)
 */
     if (!TravelMgr::instance().isBadMmap(mapId, x, y))
     {
-        //By leewheel 2026-09-03 修复C4189警告并恢复AC原功能：AC原版经Map::GetMapCollisionData().LoadMMapTile加载mmap瓦片，
-        //失败才记bad；旧移植版删除了加载调用导致map未引用、且无条件记bad(功能性bug，任何新grid首次检查即被永久标记坏图)。
-        //TC 343等价API为MMAP::MMapFactory::createOrGetMMapManager()->loadMap(basePath, mapId, gx, gy)
-        //(与TerrainInfo::LoadMMap一致；已加载tile与无mmtile的tile返回false属正常，与AC仅ERROR记bad语义一致)
-        if (!MMAP::MMapFactory::createOrGetMMapManager()->loadMap(sWorld->GetDataPath(), mapId, x, y))
+        //By leewheel 2026-09-09: TC-Cata的loadMap返回LoadResult枚举，仅错误时记bad
+        MMAP::LoadResult result = MMAP::MMapManager::instance()->loadMap(sWorld->GetDataPath(), mapId, 0, x, y);
+        if (result != MMAP::LoadResult::Success && result != MMAP::LoadResult::AlreadyLoaded && result != MMAP::LoadResult::FileNotFound)
             TravelMgr::instance().addBadMmap(mapId, x, y);
         //End By leewheel
 
@@ -940,11 +938,11 @@ uint32 WorldPosition::getUnitsAggro(GuidVector& units, Player* bot)
 
 void FindPointCreatureData::operator()(CreatureData const& creatureData)
 {
-    //By leewheel 2026-07-11: TC的SpawnData使用方法调用mapid()/posX()/posY()/posZ()
+    //By leewheel 2026-09-09: TC-Cata的SpawnData使用mapId字段和spawnPoint成员
     if (!entry || creatureData.id == entry)
-        if ((!point || creatureData.mapid() == point.GetMapId()) &&
-            (!radius || point.sqDistance(WorldPosition(creatureData.mapid(), creatureData.posX(), creatureData.posY(),
-                                                       creatureData.posZ())) < radius * radius))
+        if ((!point || creatureData.mapId == point.GetMapId()) &&
+            (!radius || point.sqDistance(WorldPosition(creatureData.mapId, creatureData.spawnPoint.GetPositionX(), creatureData.spawnPoint.GetPositionY(),
+                                                       creatureData.spawnPoint.GetPositionZ())) < radius * radius))
     //End By leewheel
         {
             data.push_back(&creatureData);
@@ -953,11 +951,11 @@ void FindPointCreatureData::operator()(CreatureData const& creatureData)
 
 void FindPointGameObjectData::operator()(GameObjectData const& gameobjectData)
 {
-    //By leewheel 2026-07-11: TC的SpawnData使用方法调用mapid()/posX()/posY()/posZ()
+    //By leewheel 2026-09-09: TC-Cata的SpawnData使用mapId字段和spawnPoint成员
     if (!entry || gameobjectData.id == entry)
-        if ((!point || gameobjectData.mapid() == point.GetMapId()) &&
-            (!radius || point.sqDistance(WorldPosition(gameobjectData.mapid(), gameobjectData.posX(), gameobjectData.posY(),
-                                                       gameobjectData.posZ())) < radius * radius))
+        if ((!point || gameobjectData.mapId == point.GetMapId()) &&
+            (!radius || point.sqDistance(WorldPosition(gameobjectData.mapId, gameobjectData.spawnPoint.GetPositionX(), gameobjectData.spawnPoint.GetPositionY(),
+                                                       gameobjectData.spawnPoint.GetPositionZ())) < radius * radius))
     //End By leewheel
         {
             data.push_back(&gameobjectData);
@@ -976,7 +974,7 @@ std::vector<CreatureData const*> WorldPosition::getCreaturesNear(float radius, u
 std::vector<GameObjectData const*> WorldPosition::getGameObjectsNear(float radius, uint32 entry)
 {
     FindPointGameObjectData worker(*this, radius, entry);
-    for (auto const& itr : sObjectMgr->GetAllGOData())
+    for (auto const& itr : sObjectMgr->GetAllGameObjectData())
         worker(itr.second);
 
     return worker.GetResult();
@@ -1099,18 +1097,18 @@ bool GuidPosition::IsCreatureOrGOAccessible()
 GuidPosition::GuidPosition(WorldObject* wo) : ObjectGuid(wo->GetGUID()), WorldPosition(wo), loadedFromDB(false) {}
 
 GuidPosition::GuidPosition(CreatureData const& creData)
-    //By leewheel 2026-07-11: TC的SpawnData使用方法调用mapid()/posX()/posY()/posZ()/orientation()
-    : ObjectGuid(ObjectGuid::Create<HighGuid::Creature>(creData.mapid(), creData.id, creData.spawnId)),
-      WorldPosition(creData.mapid(), creData.posX(), creData.posY(), creData.posZ(), creData.orientation())
+    //By leewheel 2026-09-09: TC-Cata的SpawnData使用mapId字段和spawnPoint成员
+    : ObjectGuid(ObjectGuid::Create<HighGuid::Creature>(creData.mapId, creData.id, creData.spawnId)),
+      WorldPosition(creData.mapId, creData.spawnPoint.GetPositionX(), creData.spawnPoint.GetPositionY(), creData.spawnPoint.GetPositionZ(), creData.spawnPoint.GetOrientation())
     //End By leewheel
 {
     loadedFromDB = true;
 }
 
 GuidPosition::GuidPosition(GameObjectData const& goData)
-    //By leewheel 2026-07-11: TC的SpawnData使用方法调用mapid()/posX()/posY()/posZ()/orientation()
-    : ObjectGuid(ObjectGuid::Create<HighGuid::GameObject>(goData.mapid(), goData.id, goData.spawnId)),
-      WorldPosition(goData.mapid(), goData.posX(), goData.posY(), goData.posZ(), goData.orientation())
+    //By leewheel 2026-09-09: TC-Cata的SpawnData使用mapId字段和spawnPoint成员
+    : ObjectGuid(ObjectGuid::Create<HighGuid::GameObject>(goData.mapId, goData.id, goData.spawnId)),
+      WorldPosition(goData.mapId, goData.spawnPoint.GetPositionX(), goData.spawnPoint.GetPositionY(), goData.spawnPoint.GetPositionZ(), goData.spawnPoint.GetOrientation())
     //End By leewheel
 {
     loadedFromDB = true;
@@ -1224,7 +1222,7 @@ bool QuestRelationTravelDestination::isActive(Player* bot)
         }
 
         // Do not try to pick up dungeon/elite quests in instances without a group.
-        if ((questTemplate->GetType() == QUEST_TYPE_ELITE || questTemplate->GetType() == QUEST_TYPE_DUNGEON) &&
+        if ((questTemplate->GetQuestType() == QUEST_TYPE_ELITE || questTemplate->GetQuestType() == QUEST_TYPE_DUNGEON) &&
             !AI_VALUE(bool, "can fight boss"))
             return false;
     }
@@ -1234,7 +1232,7 @@ bool QuestRelationTravelDestination::isActive(Player* bot)
             return false;
 
         //Do not try to hand-in dungeon/elite quests in instances without a group.
-        if ((questTemplate->GetType() == QUEST_TYPE_ELITE || questTemplate->GetType() == QUEST_TYPE_DUNGEON) && !AI_VALUE(bool, "can fight boss"))
+        if ((questTemplate->GetQuestType() == QUEST_TYPE_ELITE || questTemplate->GetQuestType() == QUEST_TYPE_DUNGEON) && !AI_VALUE(bool, "can fight boss"))
         {
             WorldPosition pos(bot);
             if (!this->nearestPoint(&pos)->isOverworld())
@@ -1276,12 +1274,12 @@ bool QuestObjectiveTravelDestination::isActive(Player* bot)
     if (getEntry() > 0)
     {
         CreatureTemplate const* cInfo = sObjectMgr->GetCreatureTemplate(getEntry());
-        if (cInfo && (int)cInfo->maxlevel - (int)bot->GetLevel() > 4)
+        if (cInfo && (int)CreatureTemplate_GetMaxLevel(cInfo) - (int)bot->GetLevel() > 4)
             return false;
 
         // Do not try to hand-in dungeon/elite quests in instances without a group.
-        //By leewheel 2026-09-06: 移植到TrinityCore-Cata，rank字段更名为Classification
-        if (cInfo->Classification > CREATURE_ELITE_NORMAL)
+        //By leewheel 2026-09-09: TC-Cata使用Classification字段
+        if (cInfo->Classification > CreatureClassifications::Normal)
         {
             WorldPosition pos(bot);
             if (!this->nearestPoint(const_cast<WorldPosition*>(&pos))->isOverworld() &&
@@ -1293,7 +1291,7 @@ bool QuestObjectiveTravelDestination::isActive(Player* bot)
         }
     }
 
-    if (questTemplate->GetType() == QUEST_TYPE_ELITE && !AI_VALUE(bool, "can fight elite"))
+    if (questTemplate->GetQuestType() == QUEST_TYPE_ELITE && !AI_VALUE(bool, "can fight elite"))
         return false;
 
     if (!TravelMgr::instance().getObjectiveStatus(bot, questTemplate, objective))
@@ -1368,9 +1366,9 @@ bool RpgTravelDestination::isActive(Player* bot)
 
     }
 
-    //By leewheel 2026-07-11: TC的FactionTemplateEntry使用Faction成员(大写), faction()是兼容方法
+    //By leewheel 2026-09-09: TC的FactionTemplateEntry使用Faction字段
     FactionTemplateEntry const* factionEntry = sFactionTemplateStore.LookupEntry(cInfo->faction);
-    ReputationRank reaction = bot->GetReputationRank(factionEntry->faction());
+    ReputationRank reaction = bot->GetReputationRank(factionEntry->Faction);
     //End By leewheel
 
     return reaction > REP_NEUTRAL;
@@ -1395,24 +1393,17 @@ bool ExploreTravelDestination::isActive(Player* bot)
 {
     AreaTableEntry const* area = sAreaTableStore.LookupEntry(areaId);
 
-    //By leewheel 2026-07-11: TC的AreaTableEntry::area_level()是方法
-    if (area->area_level() && (uint32)area->area_level() > bot->GetLevel() && bot->GetLevel() < DEFAULT_MAX_LEVEL)
+    //By leewheel 2026-09-09: TC-Cata的AreaTableEntry使用ExplorationLevel和AreaBit字段
+    if (area->ExplorationLevel && (uint32)area->ExplorationLevel > bot->GetLevel() && bot->GetLevel() < DEFAULT_MAX_LEVEL)
     //End By leewheel
         return false;
 
-    //By leewheel 2026-07-10: TC的AreaTableEntry::exploreFlag()是方法
-    if (area->exploreFlag() == 0xffff)
-    //End By leewheel
+    //By leewheel 2026-09-09: TC-Cata使用AreaBit字段和HasExploredZone方法
+    if (area->AreaBit < 0)
         return false;
 
-    int offset = area->exploreFlag() / 32;
-
-    //By leewheel 2026-07-11: TC使用GetExploredZone代替GetUInt32Value(PLAYER_EXPLORED_ZONES_1 + offset)
-    uint64 val = UI64LIT(1) << (area->exploreFlag() % 64);
-    uint64 currFields = bot->GetExploredZone(offset);
+    return !bot->HasExploredZone(areaId);
     //End By leewheel
-
-    return !(currFields & val);
 }
 
 // std::string const ExploreTravelDestination::getTitle()
@@ -1441,24 +1432,24 @@ bool GrindTravelDestination::isActive(Player* bot)
 
     int32 maxLevel = std::max(botLevel * (0.5f + levelMod), botLevel - 5.0f + levelBoost);
 
-    if ((int32)cInfo->maxlevel > maxLevel)  //@lvl5 max = 3, @lvl60 max = 57
+    if ((int32)CreatureTemplate_GetMaxLevel(cInfo) > maxLevel)  //@lvl5 max = 3, @lvl60 max = 57
         return false;
 
     int32 minLevel = std::max(botLevel * (0.4f + levelMod), botLevel - 12.0f + levelBoost);
 
-    if ((int32)cInfo->maxlevel < minLevel)  //@lvl5 min = 3, @lvl60 max = 50
+    if ((int32)CreatureTemplate_GetMaxLevel(cInfo) < minLevel)  //@lvl5 min = 3, @lvl60 max = 50
         return false;
 
-    if (!cInfo->mingold)
+    if (!CreatureTemplate_GetGoldMin(cInfo))
         return false;
 
-    //By leewheel 2026-09-06: 移植到TrinityCore-Cata，rank字段更名为Classification
-    if (cInfo->Classification > CREATURE_ELITE_NORMAL && !AI_VALUE(bool, "can fight elite"))
+    //By leewheel 2026-09-09: TC-Cata使用Classification字段
+    if (cInfo->Classification > CreatureClassifications::Normal && !AI_VALUE(bool, "can fight elite"))
         return false;
 
-    //By leewheel 2026-07-11: TC的FactionTemplateEntry使用faction()兼容方法
+    //By leewheel 2026-09-09: TC的FactionTemplateEntry使用Faction字段
     FactionTemplateEntry const* factionEntry = sFactionTemplateStore.LookupEntry(cInfo->faction);
-    ReputationRank reaction = bot->GetReputationRank(factionEntry->faction());
+    ReputationRank reaction = bot->GetReputationRank(factionEntry->Faction);
     //End By leewheel
 
     return reaction < REP_NEUTRAL;
@@ -1506,7 +1497,7 @@ bool BossTravelDestination::isActive(Player* bot)
         return false;
     */
 
-    if ((int32)cInfo->maxlevel > bot->GetLevel() + 3)
+    if ((int32)CreatureTemplate_GetMaxLevel(cInfo) > bot->GetLevel() + 3)
         return false;
 
     FactionTemplateEntry const* factionEntry = sFactionTemplateStore.LookupEntry(cInfo->faction);
@@ -1945,7 +1936,7 @@ void TravelMgr::LoadQuestTravelTable()
     } t_loot;
     std::vector<loot> loots;*/
 
-    ObjectMgr::QuestMap const& questMap = sObjectMgr->GetQuestTemplates();
+    ObjectMgr::QuestContainer const& questMap = sObjectMgr->GetQuestTemplates();
     std::vector<uint32> questIds;
     std::unordered_map<uint32, uint32> entryCount;
 
@@ -1959,12 +1950,12 @@ void TravelMgr::LoadQuestTravelTable()
     {
         t_unit.type = 0;
         t_unit.entry = creatureData->id;
-//By leewheel 2026-07-10: TC的SpawnData使用方法调用
-    t_unit.map = creatureData->mapid();
-    t_unit.x = creatureData->posX();
-    t_unit.y = creatureData->posY();
-    t_unit.z = creatureData->posZ();
-    t_unit.o = creatureData->orientation();
+//By leewheel 2026-09-09: TC-Cata的SpawnData使用mapId字段和spawnPoint成员
+    t_unit.map = creatureData->mapId;
+    t_unit.x = creatureData->spawnPoint.GetPositionX();
+    t_unit.y = creatureData->spawnPoint.GetPositionY();
+    t_unit.z = creatureData->spawnPoint.GetPositionZ();
+    t_unit.o = creatureData->spawnPoint.GetOrientation();
     //End By leewheel
 
         entryCount[creatureData->id]++;
@@ -1982,12 +1973,12 @@ void TravelMgr::LoadQuestTravelTable()
     {
         t_unit.type = 1;
         t_unit.entry = gameobjectData->id;
-//By leewheel 2026-07-10: TC的SpawnData使用方法调用
-    t_unit.map = gameobjectData->mapid();
-    t_unit.x = gameobjectData->posX();
-    t_unit.y = gameobjectData->posY();
-    t_unit.z = gameobjectData->posZ();
-    t_unit.o = gameobjectData->orientation();
+//By leewheel 2026-09-09: TC-Cata的SpawnData使用mapId字段和spawnPoint成员
+    t_unit.map = gameobjectData->mapId;
+    t_unit.x = gameobjectData->spawnPoint.GetPositionX();
+    t_unit.y = gameobjectData->spawnPoint.GetPositionY();
+    t_unit.z = gameobjectData->spawnPoint.GetPositionZ();
+    t_unit.o = gameobjectData->spawnPoint.GetOrientation();
     //End By leewheel
         t_unit.c = 1;
 
@@ -2384,7 +2375,7 @@ void TravelMgr::LoadQuestTravelTable()
             }
         }
 
-        if (cInfo->mingold > 0)
+        if (CreatureTemplate_GetGoldMin(cInfo) > 0)
         {
             gLoc = new GrindTravelDestination(u.entry, sPlayerbotAIConfig.tooCloseDistance,
                                               sPlayerbotAIConfig.sightDistance);
@@ -2396,7 +2387,7 @@ void TravelMgr::LoadQuestTravelTable()
             grindMobs.push_back(gLoc);
         }
 
-        //By leewheel 2026-09-06: 移植到TrinityCore-Cata，rank字段更名为Classification(3=世界首领→Obsolete, 1=精英→Elite)
+        //By leewheel 2026-09-09: TC-Cata使用Classification字段
         if (cInfo->Classification == CreatureClassifications::Obsolete || (cInfo->Classification == CreatureClassifications::Elite && !point.isOverworld() && u.c == 1))
         {
             std::string const nodeName = cInfo->Name;
@@ -2424,8 +2415,8 @@ void TravelMgr::LoadQuestTravelTable()
         if (!area)
             continue;
 
-        //By leewheel 2026-07-11: TC的AreaTableEntry::exploreFlag()是方法
-        if (!area->exploreFlag())
+        //By leewheel 2026-09-09: TC-Cata的AreaTableEntry使用AreaBit字段
+        if (area->AreaBit < 0)
         //End By leewheel
             continue;
 
@@ -2441,8 +2432,8 @@ void TravelMgr::LoadQuestTravelTable()
             loc->setMaxVisitors(1000, 0);
             loc->setCooldownDelay(1000);
             loc->setExpireDelay(1000);
-            //By leewheel 2026-07-10: TC的AreaTableEntry::area_name()是方法
-    loc->setTitle(area->area_name()[DEFAULT_LOCALE]);
+            //By leewheel 2026-09-09: TC-Cata的AreaTableEntry使用AreaName字段
+    loc->setTitle(area->AreaName[DEFAULT_LOCALE]);
     //End By leewheel
             exploreLocs.insert_or_assign(area->ID, loc);
         }
@@ -2562,8 +2553,10 @@ void TravelMgr::LoadQuestTravelTable()
 
             std::vector<WorldPosition> ppath;
 
+            //By leewheel 2026-09-08: TC-Cata的TaxiPathNodeEntry字段名变更
             for (auto& n : nodes)
-                ppath.push_back(WorldPosition(n->mapid(), n->x(), n->y(), n->z(), 0.0));
+                ppath.push_back(WorldPosition(n->ContinentID, n->Loc.X, n->Loc.Y, n->Loc.Z, 0.0f));
+            //End By leewheel
 
             float totalTime = startPos.getPathLength(ppath) / (450 * 8.0f);
 
@@ -2585,7 +2578,7 @@ void TravelMgr::LoadQuestTravelTable()
 
             pos = WorldPosition(u.map, u.x, u.y, u.z, u.o);
 
-            //By leewheel 2026-09-06: 移植到TrinityCore-Cata，rank字段更名为Classification(3=世界首领→Obsolete, 1=精英→Elite)
+            //By leewheel 2026-09-09: TC-Cata使用Classification字段
             if (cInfo->Classification == CreatureClassifications::Obsolete || (cInfo->Classification == CreatureClassifications::Elite && !pos.isOverworld() && u.c == 1))
             {
                 std::string const nodeName = cInfo->Name;
@@ -2732,7 +2725,9 @@ void TravelMgr::LoadQuestTravelTable()
                     //Loop over the path and connect stop locations.
                     for (auto& p : path)
                     {
-                        WorldPosition pos = WorldPosition(p->mapid(), p->x(), p->y(), p->z(), 0);
+                        //By leewheel 2026-09-08: TC-Cata的TaxiPathNodeEntry字段名变更
+                        WorldPosition pos = WorldPosition(p->ContinentID, p->Loc.X, p->Loc.Y, p->Loc.Z, 0);
+                        //End By leewheel
 
                         //if (data->displayId == 3015)
                         //    pos.setZ(pos.getZ() + 6.0f);
@@ -2768,7 +2763,9 @@ void TravelMgr::LoadQuestTravelTable()
                         //Continue from start until first stop and connect to end.
                         for (auto& p : path)
                         {
-                            WorldPosition pos = WorldPosition(p->mapid(), p->x(), p->y(), p->z(), 0);
+                            //By leewheel 2026-09-08: TC-Cata的TaxiPathNodeEntry字段名变更
+                            WorldPosition pos = WorldPosition(p->ContinentID, p->Loc.X, p->Loc.Y, p->Loc.Z, 0);
+                            //End By leewheel
 
                             //if (data->displayId == 3015)
                             //    pos.setZ(pos.getZ() + 6.0f);
@@ -3013,11 +3010,10 @@ void TravelMgr::LoadQuestTravelTable()
             if (!cInfo)
                 continue;
 
-            //By leewheel 2025-01-16
-            // TC中SpawnData的mapid/posX/posY/posZ/orientation是方法,需要加()
+            //By leewheel 2026-09-09: TC-Cata的SpawnData使用mapId字段和spawnPoint成员
             WorldPosition point =
-                WorldPosition(cData->mapid(), cData->posX(), cData->posY(), cData->posZ(), cData->orientation());
-            //End By leewheel 2025-01-16
+                WorldPosition(cData->mapId, cData->spawnPoint.GetPositionX(), cData->spawnPoint.GetPositionY(), cData->spawnPoint.GetPositionZ(), cData->spawnPoint.GetOrientation());
+            //End By leewheel
 
             std::string name = cInfo->Name;
             name.erase(remove(name.begin(), name.end(), ','), name.end());
@@ -3026,8 +3022,8 @@ void TravelMgr::LoadQuestTravelTable()
             std::ostringstream out;
             out << name << ",";
             point.printWKT(out);
-            //By leewheel 2026-09-06: 移植到TrinityCore-Cata，maxlevel→MaxLevel, rank→Classification(作用域枚举需显式转数值)
-            out << cInfo->MaxLevel << ",";
+            //By leewheel 2026-09-09: TC-Cata使用CreatureTemplate_GetMaxLevel和Classification
+            out << CreatureTemplate_GetMaxLevel(cInfo) << ",";
             out << uint32(cInfo->Classification) << ",";
             //By leewheel 2026-07-11: TC的CreatureTemplate使用小写faction
     out << cInfo->faction << ",";
@@ -3345,11 +3341,10 @@ void TravelMgr::LoadQuestTravelTable()
             if (!data)
                 continue;
 
-            //By leewheel 2025-01-16
-            // TC中SpawnData的mapid/posX/posY/posZ/orientation是方法,需要加()
+            //By leewheel 2026-09-09: TC-Cata的SpawnData使用mapId字段和spawnPoint成员
             WorldPosition point =
-                WorldPosition(gData->mapid(), gData->posX(), gData->posY(), gData->posZ(), gData->orientation());
-            //End By leewheel 2025-01-16
+                WorldPosition(gData->mapId, gData->spawnPoint.GetPositionX(), gData->spawnPoint.GetPositionY(), gData->spawnPoint.GetPositionZ(), gData->spawnPoint.GetOrientation());
+            //End By leewheel
 
             std::string name = data->name;
             name.erase(remove(name.begin(), name.end(), ','), name.end());
@@ -3490,10 +3485,10 @@ void TravelMgr::LoadQuestTravelTable()
             Field* fields = result->Fetch();
             uint32 accountId = fields[0].Get<uint32>();
 
-//By leewheel 2026-07-12: 必须调用SetBot(true)，否则SaveToDB时不会跳过collection保存导致外键约束失败
+//By leewheel 2026-09-09: TC-Cata的WorldSession构造函数需要14个参数(新增build和clientBuildVariant)
             WorldSession* session =
-                new WorldSession(accountId, "", 0x0, nullptr, SEC_PLAYER, EXPANSION_WRATH_OF_THE_LICH_KING, time_t(0),
-                                 "", Minutes(0), LOCALE_enUS, 0, false);
+                new WorldSession(accountId, "", 0, nullptr, SEC_PLAYER, EXPANSION_WRATH_OF_THE_LICH_KING, time_t(0),
+                                 "", Minutes(0), 0, ClientBuild::VariantId{}, LOCALE_enUS, 0, false);
             session->SetBot(true);
             //End By leewheel
 
@@ -3511,7 +3506,7 @@ void TravelMgr::LoadQuestTravelTable()
                 {
                     if (cls != 10)
                     {
-                    //By leewheel 2026-07-11: TC的CharacterCreateInfo只有Name/Race/Class/Sex字段
+                    //By leewheel 2026-09-09: TC-Cata的CharacterCreateInfo使用Class字段
                     auto characterInfo = std::make_unique<WorldPackets::Character::CharacterCreateInfo>();
                     characterInfo->Name = "dummy";
                     characterInfo->Race = race;
@@ -3877,9 +3872,9 @@ uint32 TravelMgr::getDialogStatus(Player* pPlayer, int32 questgiver, Quest const
         QuestStatus status = pPlayer->GetQuestStatus(questId);
 
         if ((status == QUEST_STATUS_COMPLETE && !pPlayer->GetQuestRewardStatus(questId)) ||
-            (pQuest->IsAutoComplete() && pPlayer->CanTakeQuest(pQuest, false)))
+            (pQuest->HasFlag(QUEST_FLAGS_AUTO_COMPLETE) && pPlayer->CanTakeQuest(pQuest, false)))
         {
-            if (pQuest->IsAutoComplete() && pQuest->IsRepeatable())
+            if (pQuest->HasFlag(QUEST_FLAGS_AUTO_COMPLETE) && pQuest->IsRepeatable())
             {
                 dialogStatusNew = DIALOG_STATUS_REWARD_REP;
             }
@@ -3929,7 +3924,7 @@ uint32 TravelMgr::getDialogStatus(Player* pPlayer, int32 questgiver, Quest const
                 if (pPlayer->SatisfyQuestLevel(pQuest, false))
                 {
                     int32 lowLevelDiff = sWorld->getIntConfig(CONFIG_QUEST_LOW_LEVEL_HIDE_DIFF);
-                    if (pQuest->IsAutoComplete() || (pQuest->IsRepeatable() && pPlayer->IsQuestRewarded(questId)))
+                    if (pQuest->HasFlag(QUEST_FLAGS_AUTO_COMPLETE) || (pQuest->IsRepeatable() && pPlayer->IsQuestRewarded(questId)))
                     {
                         dialogStatusNew = DIALOG_STATUS_REWARD_REP;
                     }
@@ -4780,16 +4775,16 @@ void TravelMgr::PrepareDestinationCache()
         if (!creatureTemplate)
             continue;
 
-        //By leewheel 2026-07-11: TC的SpawnData使用方法调用mapid()/posX()/posY()/posZ()/orientation()
-        uint16 mapId = creatureData.mapid();
+        //By leewheel 2026-09-09: TC-Cata的SpawnData使用mapId字段和spawnPoint成员
+        uint16 mapId = creatureData.mapId;
         if (std::find(sPlayerbotAIConfig.randomBotMaps.begin(), sPlayerbotAIConfig.randomBotMaps.end(), mapId)
                       == sPlayerbotAIConfig.randomBotMaps.end())
             continue;
 
-        float x = creatureData.posX();
-        float y = creatureData.posY();
-        float z = creatureData.posZ();
-        float orient = creatureData.orientation();
+        float x = creatureData.spawnPoint.GetPositionX();
+        float y = creatureData.spawnPoint.GetPositionY();
+        float z = creatureData.spawnPoint.GetPositionZ();
+        float orient = creatureData.spawnPoint.GetOrientation();
         uint32 templateEntry = creatureData.id;
         //End By leewheel
 
@@ -4805,14 +4800,14 @@ void TravelMgr::PrepareDestinationCache()
         if (!area)
             continue;
 
-        //By leewheel 2026-07-10: TC的AreaTableEntry::zone()是方法
-    uint32 areaId = area->zone() ? area->zone() : area->ID;
+        //By leewheel 2026-09-09: TC-Cata的AreaTableEntry使用ParentAreaID字段
+    uint32 areaId = area->ParentAreaID ? area->ParentAreaID : area->ID;
     //End By leewheel
 
         // CREATURES
         if (creatureTemplate->npcflag == 0 &&
-            creatureTemplate->lootid != 0 &&
-            creatureTemplate->maxlevel - creatureTemplate->minlevel < 3 &&
+            CreatureTemplate_GetLootID(creatureTemplate) != 0 &&
+            CreatureTemplate_GetMaxLevel(creatureTemplate) - CreatureTemplate_GetMinLevel(creatureTemplate) < 3 &&
             creatureTemplate->Entry != 32820 && creatureTemplate->Entry != 24196 &&
             creatureTemplate->Entry != 30627 && creatureTemplate->Entry != 30617 &&
             creatureData.spawntimesecs < 1000 &&
@@ -4823,7 +4818,7 @@ void TravelMgr::PrepareDestinationCache()
     //End By leewheel
             (creatureTemplate->unit_flags & 256) == 0 &&
             (creatureTemplate->unit_flags & 4096) == 0 &&
-            creatureTemplate->rank == 0)
+            creatureTemplate->Classification == CreatureClassifications::Normal)
         {
             int32 roundX = static_cast<int32>(std::lround(x / 50.0f));
             int32 roundY = static_cast<int32>(std::lround(y / 50.0f));
@@ -4916,8 +4911,8 @@ void TravelMgr::PrepareDestinationCache()
         // === BANKERS ===
         else if (creatureTemplate->npcflag & UNIT_NPC_FLAG_BANKER &&
                  creatureTemplate->npcflag != 135298 &&
-                 creatureTemplate->minlevel != 55 &&
-                 creatureTemplate->minlevel != 65 &&
+                 CreatureTemplate_GetMinLevel(creatureTemplate) != 55 &&
+                 CreatureTemplate_GetMinLevel(creatureTemplate) != 65 &&
     //By leewheel 2026-07-11: TC的CreatureTemplate使用小写faction
     creatureTemplate->faction != 35 && creatureTemplate->faction != 474 &&
         creatureTemplate->faction != 69 && creatureTemplate->faction != 57 &&
@@ -4928,7 +4923,7 @@ void TravelMgr::PrepareDestinationCache()
             BankerLocation bLoc;
             bLoc.loc = WorldLocation(mapId, x + cos(orient) * 6.0f, y + sin(orient) * 6.0f, z + 2.0f, orient + M_PI);
             bLoc.entry = templateEntry;
-            uint32 level = (creatureTemplate->minlevel + creatureTemplate->maxlevel + 1) / 2;
+            uint32 level = (CreatureTemplate_GetMinLevel(creatureTemplate) + CreatureTemplate_GetMaxLevel(creatureTemplate) + 1) / 2;
             for (uint32 l = 1; l <= maxLevel; l++)
             {
                 // Bots 1-60 go to base game bankers (all have minlevel 30 or 45)
@@ -4956,7 +4951,7 @@ void TravelMgr::PrepareDestinationCache()
         if (creatureDataList.size() >= 2)
         {
             CreatureTemplate const* creatureTemplate = sObjectMgr->GetCreatureTemplate(creatureDataList[0].id);
-            uint32 level = (creatureTemplate->minlevel + creatureTemplate->maxlevel + 1) / 2;
+            uint32 level = (CreatureTemplate_GetMinLevel(creatureTemplate) + CreatureTemplate_GetMaxLevel(creatureTemplate) + 1) / 2;
             //By leewheel 2026-07-11: 使用配置项替代硬编码值
             for (int32 l = (int32)level - (int32)sPlayerbotAIConfig.randomBotTeleLowerLevel;
                  l <= (int32)level + (int32)sPlayerbotAIConfig.randomBotTeleHigherLevel; l++)

@@ -1,4 +1,4 @@
-/* 毒蛇神殿 机器人策略 */
+﻿/* 毒蛇神殿 机器人策略 */
 #include "SSCActions.h"
 #include "AiFactory.h"
 #include "Corpse.h"
@@ -74,7 +74,8 @@ bool UnderbogColossusEscapeToxicPoolAction::Execute(Event /*event*/)
                 (eff.Effect == SPELL_EFFECT_APPLY_AURA &&
                  eff.ApplyAuraName == SPELL_AURA_PERIODIC_DAMAGE))
             {
-                radius = eff.CalcRadius();
+                //By leewheel 2026-09-09: TC-Cata的CalcRadius返回SpellRange结构体，取Max字段
+                radius = eff.CalcRadius().Max;
                 break;
             }
         }
@@ -894,12 +895,12 @@ bool LeotherasTheBlindDestroyInnerDemonAction::HandleFeralTankStrategy(Unit* inn
         botAI->CastSpell("tiger's fury", bot))
         casted = true;
 
-    if (bot->GetComboPoints() >= 4 &&
+    if (Player_GetComboPoints(bot) >= 4 &&
         botAI->CanCastSpell("ferocious bite", innerDemon) &&
         botAI->CastSpell("ferocious bite", innerDemon))
         casted = true;
 
-    if (bot->GetComboPoints() == 0 && innerDemon->GetHealthPct() > 25.0f &&
+    if (Player_GetComboPoints(bot) == 0 && innerDemon->GetHealthPct() > 25.0f &&
         botAI->CanCastSpell("rake", innerDemon) &&
         botAI->CastSpell("rake", innerDemon))
         casted = true;

@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
  * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
@@ -17,6 +17,9 @@
 //End By leewheel
 //By leewheel 2026-07-10: 需要SpellPackets.h来使用TC的包类系统
 #include "SpellPackets.h"
+//End By leewheel
+//By leewheel 2026-09-09: 引入Playerbots.h获取ObjectGuid_WriteAsPacked等兼容函数
+#include "Playerbots.h"
 //End By leewheel
 
 bool DebugAction::Execute(Event event)
@@ -38,7 +41,7 @@ bool DebugAction::Execute(Event event)
 
             uint32 areaId = 0;
             uint32 zoneId = 0;
-            Map* map = sMapMgr->FindBaseMap(pos.GetMapId());
+            Map* map = sMapMgr->FindMap(pos.GetMapId(), 0); //By leewheel 2026-09-09: TC用FindMap(mapId, instanceId), instanceId=0为基础地图
             if (map)
                 map->GetZoneAndAreaId(bot->GetPhaseShift(), zoneId, areaId, pos.GetPositionX(), pos.GetPositionY(), pos.GetPositionZ());
 
@@ -466,8 +469,8 @@ bool DebugAction::Execute(Event event)
             WorldPacket data(SMSG_SPELL_START, (8 + 8 + 4 + 2 + 4));
 
             data.Initialize(SMSG_SPELL_START);
-            bot->GetGUID().WriteAsPacked(data);
-            bot->GetGUID().WriteAsPacked(data);
+            ObjectGuid_WriteAsPacked(bot->GetGUID(), data);
+            ObjectGuid_WriteAsPacked(bot->GetGUID(), data);
             data << uint32(spellEffect);
             data << uint16(0);
             data << uint32(0);
@@ -478,8 +481,8 @@ bool DebugAction::Execute(Event event)
 
         {
             WorldPacket data(SMSG_SPELL_GO, 53);  // guess size
-            bot->GetGUID().WriteAsPacked(data);
-            bot->GetGUID().WriteAsPacked(data);
+            ObjectGuid_WriteAsPacked(bot->GetGUID(), data);
+            ObjectGuid_WriteAsPacked(bot->GetGUID(), data);
             data << uint32(spellEffect);   // spellID
             data << uint8(0) << uint8(1);  // flags
             data << uint8(1);              // amount of targets
@@ -1015,8 +1018,10 @@ void DebugAction::FakeSpell(uint32 spellId, Unit* truecaster, Unit* caster, Obje
         if (m_targets.HasTraj())
             castFlags |= CAST_FLAG_ADJUST_MISSILE;
 
-        if (!spellInfo->StartRecoveryTime)
-            castFlags |= CAST_FLAG_NO_GCD;
+        //By leewheel 2026-09-09: TC无CAST_FLAG_NO_GCD常量，FakeSpell为调试函数，跳过此标志
+        //if (!spellInfo->StartRecoveryTime)
+        //    castFlags |= CAST_FLAG_NO_GCD;
+        //End By leewheel
 
         WorldPackets::Spells::SpellGo packet;
         WorldPackets::Spells::SpellCastData& castData = packet.Cast;

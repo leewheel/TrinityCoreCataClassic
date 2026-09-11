@@ -864,6 +864,9 @@ struct QuestStatusData
     //Cata把目标进度移到QuestLog字段，此数组在SetQuestObjectiveData/加载时同步填充供模块查询
     std::array<uint16, QUEST_ITEM_OBJECTIVES_COUNT> ItemCount = { };
     //End By leewheel
+    //By leewheel 2026-09-09: AC兼容：按生物/物件目标StorageIndex记录的击杀/使用计数
+    std::array<uint16, QUEST_ITEM_OBJECTIVES_COUNT> CreatureOrGOCount = { };
+    //End By leewheel
 };
 
 #endif

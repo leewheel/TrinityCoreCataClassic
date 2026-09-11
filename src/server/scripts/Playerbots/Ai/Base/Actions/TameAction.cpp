@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
  * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
@@ -25,8 +25,8 @@
 
 bool IsExoticPet(const CreatureTemplate* creature)
 {
-    // Use the IsExotic() method from CreatureTemplate
-    return creature && creature->IsExotic();
+    // Use the CreatureTemplate_IsExotic helper from Playerbots.h (TC-Cata compatibility)
+    return creature && CreatureTemplate_IsExotic(creature);
 }
 
 bool HasBeastMastery(Player* bot)
@@ -63,7 +63,7 @@ bool TameAction::Execute(Event event)
         //End By leewheel
         {
             const CreatureTemplate& creature = itr->second;
-            if (!creature.IsTameable(true))
+            if (!CreatureTemplate_IsTameable(creature, true))
                 continue;
 
             CreatureFamilyEntry const* familyEntry = sCreatureFamilyStore.LookupEntry(creature.family);
@@ -76,7 +76,7 @@ bool TameAction::Execute(Event event)
             if (familyName.empty())
                 continue;
 
-            if (creature.IsExotic())
+            if (CreatureTemplate_IsExotic(creature))
                 exoticFamilies.insert(familyName);
             else
                 normalFamilies.insert(familyName);
@@ -214,7 +214,7 @@ bool TameAction::SetPetByName(const std::string& name)
         if (creatureName == lowerName)
         {
             // Skip if the creature isn't tameable at all
-            if (!creature.IsTameable(true))
+            if (!CreatureTemplate_IsTameable(creature, true))
                 continue;
 
             // If the creature is exotic and the bot doesn't have Beast Mastery, show error and fail
@@ -228,7 +228,7 @@ bool TameAction::SetPetByName(const std::string& name)
             }
 
             // Skip if the creature isn't tameable by this bot (respecting exotic pet rules)
-            if (!creature.IsTameable(bot->CanTameExoticPets()))
+            if (!CreatureTemplate_IsTameable(creature, bot->CanTameExoticPets()))
                 continue;
 
             // Store the found pet's name and entry ID for later use/feedback
@@ -255,7 +255,7 @@ bool TameAction::SetPetById(uint32 id)
     if (creature)
     {
         // Check if this creature is ever tameable (ignore bot's own restrictions for now)
-        if (!creature->IsTameable(true))
+        if (!CreatureTemplate_IsTameable(creature, true))
         {
             // If not tameable at all, show an error and fail
             botAI->TellError(PlayerbotTextMgr::instance().GetBotTextOrDefault(
@@ -274,7 +274,7 @@ bool TameAction::SetPetById(uint32 id)
         }
 
         // Check if the bot is actually allowed to tame this pet (honoring exotic pet rules)
-        if (!creature->IsTameable(bot->CanTameExoticPets()))
+        if (!CreatureTemplate_IsTameable(creature, bot->CanTameExoticPets()))
         {
             botAI->TellError(PlayerbotTextMgr::instance().GetBotTextOrDefault(
                 "tame_no_pet_by_id", "No tameable pet found with id: %id", {{"%id", std::to_string(id)}}));
@@ -318,7 +318,7 @@ bool TameAction::SetPetByFamily(const std::string& family)
     //End By leewheel
 
         // Skip if this creature is never tameable
-        if (!creature.IsTameable(true))
+        if (!CreatureTemplate_IsTameable(creature, true))
             continue;
 
         // Look up the family entry for this creature
@@ -344,7 +344,7 @@ bool TameAction::SetPetByFamily(const std::string& family)
         }
 
         // Only add as candidate if this bot is allowed to tame it (including exotic rules)
-        if (!creature.IsTameable(bot->CanTameExoticPets()))
+        if (!CreatureTemplate_IsTameable(creature, bot->CanTameExoticPets()))
             continue;
 
         candidates.push_back(&creature);
@@ -474,12 +474,14 @@ bool TameAction::CreateAndSetPet(uint32 creatureEntry)
     }
 
     // If the bot already has a current pet or an unslotted pet, remove them to avoid conflicts
-    if (bot->GetPetStable() && bot->GetPetStable()->CurrentPet)
+    //By leewheel 2026-09-09: TC-Cata的PetStable用GetCurrentPet()替代CurrentPet字段
+    if (bot->GetPetStable() && bot->GetPetStable()->GetCurrentPet())
     {
         bot->RemovePet(nullptr, PET_SAVE_AS_CURRENT);
         bot->RemovePet(nullptr, PET_SAVE_NOT_IN_SLOT);
     }
-    if (bot->GetPetStable() && bot->GetPetStable()->GetUnslottedHunterPet())
+    //By leewheel 2026-09-09: TC-Cata无GetUnslottedHunterPet方法，直接检查UnslottedPets向量
+    if (bot->GetPetStable() && !bot->GetPetStable()->UnslottedPets.empty())
     {
         bot->GetPetStable()->UnslottedPets.clear();
         bot->RemovePet(nullptr, PET_SAVE_AS_CURRENT);
@@ -501,8 +503,9 @@ bool TameAction::CreateAndSetPet(uint32 creatureEntry)
     pet->SetLevel(bot->GetLevel());
     // Set the pet as the bot's active minion
     bot->SetMinion(pet, true);
-    // Initialize talents appropriate for the pet's level
-    pet->InitTalentForLevel();
+    //By leewheel 2026-09-09: TC-Cata宠物天赋系统不同，
+    // 原AC的pet->InitTalentForLevel()不再适用，
+    // 宠物天赋由调用方PlayerbotFactory::InitPetTalents()处理
     // Save pet to the database as the current pet
     pet->SavePetToDB(PET_SAVE_AS_CURRENT);
     // Initialize available pet spells

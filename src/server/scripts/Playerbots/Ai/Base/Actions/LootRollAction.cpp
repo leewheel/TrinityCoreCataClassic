@@ -36,7 +36,7 @@ bool LootRollAction::Execute(Event /*event*/)
             continue;
 
         auto voteItr = roll->GetRollVoteMap().find(bot->GetGUID());
-        if (voteItr == roll->GetRollVoteMap().end() || voteItr->second != NOT_EMITED_YET)
+        if (voteItr == roll->GetRollVoteMap().end() || voteItr->second.Vote != RollVote::NotEmitedYet)
             continue;
 
         LootItem const* lootItem = roll->GetLootItem();
@@ -231,8 +231,9 @@ bool MasterLootRollAction::Execute(Event event)
     if (!group)
         return false;
 
-    // TC: CountRollVote(playerGuid, lootObjectGuid, lootListId, choice)
-    group->CountRollVote(bot->GetGUID(), creatureGuid, lootListId, CalculateRollVote(proto));
+    //By leewheel 2026-09-09: TC-Cata无Group::CountRollVote，使用Player::GetLootRoll + LootRoll::PlayerVote
+    if (LootRoll* lootRoll = bot->GetLootRoll(creatureGuid, lootListId))
+        lootRoll->PlayerVote(bot, CalculateRollVote(proto));
 
     return true;
 }

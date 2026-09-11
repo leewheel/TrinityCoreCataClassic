@@ -34,7 +34,7 @@ public:
 
 protected:
     WorldLocation GetLocationInternal();
-    virtual float GetAngle() = 0;
+    virtual float GetStanceAngle() = 0;
 };
 
 class StanceValue : public ManualSetValue<Stance*>

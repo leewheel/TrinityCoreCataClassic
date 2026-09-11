@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
  * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
@@ -104,13 +104,15 @@ bool GuidManageAction::Execute(Event event)
 
 bool GuidManageAction::PlayerIsValid(Player* member) { return !member->GetGuildId(); }
 
-//By leewheel 20260710: TC的GetMember是private，使用public方法GetMemberRankId替代
+//By leewheel 2026-09-09: TC-Cata的GetMember非const版本是private，使用GetMembers()查找
 uint8 GuidManageAction::GetRankId(Player* member)
 {
     Guild* guild = sGuildMgr->GetGuildById(member->GetGuildId());
     if (!guild)
         return 0xFF;
-    return static_cast<uint8>(guild->GetMemberRankId(member->GetGUID()));
+    auto const& members = guild->GetMembers();
+    auto itr = members.find(member->GetGUID());
+    return itr != members.end() ? static_cast<uint8>(itr->second.GetRankId()) : 0xFF;
 }
 //End By leewheel
 
@@ -123,10 +125,7 @@ bool GuildInviteAction::isUseful()
     if (!guild)
         return false;
 
-    //By leewheel 20260710: TC的Member是private类，使用public方法GetMemberRankRights替代
-    uint32 rights = guild->GetMemberRankRights(bot->GetGUID());
-    //End By leewheel
-    return (rights & GR_RIGHT_INVITE) != GR_RIGHT_NONE;
+    return Guild_HasRankRight(guild, bot->GetGUID(), GR_RIGHT_INVITE);
 }
 
 bool GuildInviteAction::PlayerIsValid(Player* member)
@@ -144,10 +143,7 @@ bool GuildPromoteAction::isUseful()
     if (!guild)
         return false;
 
-    //By leewheel 20260710: TC的Member是private类，使用public方法GetMemberRankRights替代
-    uint32 rights = guild->GetMemberRankRights(bot->GetGUID());
-    //End By leewheel
-    return (rights & GR_RIGHT_PROMOTE) != GR_RIGHT_NONE;
+    return Guild_HasRankRight(guild, bot->GetGUID(), GR_RIGHT_PROMOTE);
 }
 
 bool GuildPromoteAction::PlayerIsValid(Player* member)
@@ -164,10 +160,7 @@ bool GuildDemoteAction::isUseful()
     if (!guild)
         return false;
 
-    //By leewheel 20260710: TC的Member是private类，使用public方法GetMemberRankRights替代
-    uint32 rights = guild->GetMemberRankRights(bot->GetGUID());
-    //End By leewheel
-    return (rights & GR_RIGHT_DEMOTE) != GR_RIGHT_NONE;
+    return Guild_HasRankRight(guild, bot->GetGUID(), GR_RIGHT_DEMOTE);
 }
 
 bool GuildDemoteAction::PlayerIsValid(Player* member)
@@ -184,10 +177,7 @@ bool GuildRemoveAction::isUseful()
     if (!guild)
         return false;
 
-    //By leewheel 20260710: TC的Member是private类，使用public方法GetMemberRankRights替代
-    uint32 rights = guild->GetMemberRankRights(bot->GetGUID());
-    //End By leewheel
-    return (rights & GR_RIGHT_REMOVE) != GR_RIGHT_NONE;
+    return Guild_HasRankRight(guild, bot->GetGUID(), GR_RIGHT_REMOVE);
 }
 
 bool GuildRemoveAction::PlayerIsValid(Player* member)
@@ -220,10 +210,7 @@ bool GuildManageNearbyAction::Execute(Event /*event*/)
         {
             uint32 dCount = AI_VALUE(uint32, "death count");
 
-//By leewheel 20260710: 使用GetMemberRankRights替代直接访问Member
-uint32 rights = guild->GetMemberRankRights(botGuid);
-//End By leewheel
-if (!urand(0, 30) && dCount < 2 && (rights & GR_RIGHT_PROMOTE) != GR_RIGHT_NONE)
+if (!urand(0, 30) && dCount < 2 && Guild_HasRankRight(guild, botGuid, GR_RIGHT_PROMOTE))
             {
                 BroadcastHelper::BroadcastGuildMemberPromotion(botAI, bot, player);
 
@@ -231,10 +218,7 @@ if (!urand(0, 30) && dCount < 2 && (rights & GR_RIGHT_PROMOTE) != GR_RIGHT_NONE)
                 continue;
             }
 
-//By leewheel 20260710: 使用GetMemberRankRights替代直接访问Member（修复rights重定义）
-uint32 demoteRights = guild->GetMemberRankRights(botGuid);
-//End By leewheel
-if (!urand(0, 30) && dCount > 2 && (demoteRights & GR_RIGHT_DEMOTE) != GR_RIGHT_NONE)
+if (!urand(0, 30) && dCount > 2 && Guild_HasRankRight(guild, botGuid, GR_RIGHT_DEMOTE))
             {
                 BroadcastHelper::BroadcastGuildMemberDemotion(botAI, bot, player);
 
@@ -251,10 +235,7 @@ if (!urand(0, 30) && dCount > 2 && (demoteRights & GR_RIGHT_DEMOTE) != GR_RIGHT_
         if (guild->GetMembersCount() > 1000)
             return false;
 
-//By leewheel 20260710: 使用GetMemberRankRights替代直接访问Member（修复rights重定义）
-uint32 inviteRights = guild->GetMemberRankRights(botGuid);
-//End By leewheel
-if ((inviteRights & GR_RIGHT_INVITE) == GR_RIGHT_NONE)
+if (!Guild_HasRankRight(guild, botGuid, GR_RIGHT_INVITE))
             continue;
 
         if (player->GetGuildIdInvited())
@@ -367,8 +348,10 @@ bool GuildManageNearbyAction::isUseful()
 
     Guild* guild = sGuildMgr->GetGuildById(bot->GetGuildId());
 
-    //By leewheel 20260710: TC的Member是private类，使用public方法GetMemberRankRights替代
-    return guild->GetMemberRankRights(bot->GetGUID()) & (GR_RIGHT_DEMOTE | GR_RIGHT_PROMOTE | GR_RIGHT_INVITE);
+    //By leewheel 2026-09-09: TC-Cata只能用HasAnyRankRight检查单个权限
+    return Guild_HasRankRight(guild, bot->GetGUID(), GR_RIGHT_DEMOTE) ||
+           Guild_HasRankRight(guild, bot->GetGUID(), GR_RIGHT_PROMOTE) ||
+           Guild_HasRankRight(guild, bot->GetGUID(), GR_RIGHT_INVITE);
     //End By leewheel
 }
 

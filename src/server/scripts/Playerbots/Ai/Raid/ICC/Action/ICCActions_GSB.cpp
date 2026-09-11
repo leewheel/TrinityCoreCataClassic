@@ -1,4 +1,4 @@
-/* 鍐板啝鍫″瀿 鏈哄櫒浜虹瓥鐣?*/
+﻿/* 鍐板啝鍫″瀿 鏈哄櫒浜虹瓥鐣?*/
 #include "EquipAction.h"
 #include "GenericSpellActions.h"
 #include "ICCActions.h"

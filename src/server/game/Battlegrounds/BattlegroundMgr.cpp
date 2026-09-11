@@ -123,8 +123,11 @@ void BattlegroundMgr::Update(uint32 diff)
     }
 
     // update events timer
+    //By leewheel 2026-09-11: 遍历 m_BattlegroundQueues 前加锁，串行化与 Worker 线程并发 emplace 的访问，防止红黑树遍历中结构损坏(堆损坏崩溃根因之一)
+    std::lock_guard<std::recursive_mutex> bgQueuesGuard(m_BattlegroundQueuesLock);
     for (std::pair<BattlegroundQueueTypeId const, BattlegroundQueue>& pair : m_BattlegroundQueues)
         pair.second.UpdateEvents(diff);
+    //End By leewheel
 
     // update scheduled queues
     if (!m_QueueUpdateScheduler.empty())

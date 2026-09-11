@@ -123,14 +123,14 @@ bool AcceptQuestShareAction::Execute(Event event)
     p >> quest;
 
     Quest const* qInfo = sObjectMgr->GetQuestTemplate(quest);
-    if (!qInfo || !bot->GetDivider())
+    if (!qInfo || !Player_GetDivider(bot))
         return false;
 
     quest = qInfo->GetQuestId();
 
     if (bot->IsActiveQuest(quest))
     {
-        bot->SetDivider(ObjectGuid::Empty);
+        Player_SetDivider(bot, ObjectGuid::Empty);
         botAI->TellError(PlayerbotTextMgr::instance().GetBotTextOrDefault(
             "quest_already_have_error", "I have this quest", {}));
         return false;
@@ -140,18 +140,18 @@ bool AcceptQuestShareAction::Execute(Event event)
     if (!botAI->IsAltBot() && !bot->CanTakeQuest(qInfo, false))
     {
         // can't take quest
-        bot->SetDivider(ObjectGuid::Empty);
+        Player_SetDivider(bot, ObjectGuid::Empty);
         botAI->TellError(PlayerbotTextMgr::instance().GetBotTextOrDefault(
             "quest_cant_take_error", "I can't take this quest", {}));
 
         return false;
     }
 
-    if (bot->GetDivider())
+    if (Player_GetDivider(bot))
     {
         // send msg to quest giving player
         master->SendPushToPartyResponse(bot, QuestPushReason::Accepted);
-        bot->SetDivider(ObjectGuid::Empty);
+        Player_SetDivider(bot, ObjectGuid::Empty);
     }
 
     if (bot->CanAddQuest(qInfo, false))

@@ -67,20 +67,10 @@ enum ICDoorList
     BG_IC_MAXDOOR
 };
 
-enum ICNodePointType
-{
-    NODE_TYPE_REFINERY,
-    NODE_TYPE_QUARRY,
-    NODE_TYPE_DOCKS,
-    NODE_TYPE_HANGAR,
-    NODE_TYPE_WORKSHOP,
-
-    // Graveyards
-    NODE_TYPE_GRAVEYARD_A,
-    NODE_TYPE_GRAVEYARD_H,
-
-    MAX_NODE_TYPES
-};
+//By leewheel 2026-09-08: 移植mod-playerbots，使用兼容层的IoCCompatNodeType替代本地枚举，避免重定义冲突
+using ICNodePointType = IoCCompatNodeType;
+#define MAX_NODE_TYPES MAX_IC_NODE_TYPES
+//End By leewheel
 
 enum class IsleOfConquestNodeState
 {
@@ -208,10 +198,11 @@ enum IsleOfConquestPvpStats
 enum IsleOfConquestGameObjects
 {
     GO_TELEPORTER_1                             = 195314, // 195314 H-OUT 66549
-    GO_TELEPORTER_2                             = 195313, // 195313 H-IN 66548
+    //By leewheel 2026-09-09: GO_TELEPORTER_2/_4已由isle_of_conquest_state_compat.h在全局作用域定义，避免重定义
+    //GO_TELEPORTER_2                             = 195313, // 195313 H-IN 66548
 
     GO_TELEPORTER_3                             = 195315, // 195315 A-OUT 66549
-    GO_TELEPORTER_4                             = 195316, // 195316 A-IN 66548
+    //GO_TELEPORTER_4                             = 195316, // 195316 A-IN 66548
 
     GO_TELEPORTER_EFFECTS_A                     = 195701,
     GO_TELEPORTER_EFFECTS_H                     = 195702,

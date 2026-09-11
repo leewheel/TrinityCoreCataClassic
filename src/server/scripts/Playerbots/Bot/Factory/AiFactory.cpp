@@ -116,25 +116,31 @@ uint8 AiFactory::GetPlayerSpecTab(Player* bot)
 std::map<uint8, uint32> AiFactory::GetPlayerSpecTabs(Player* bot)
 {
     std::map<uint8, uint32> tabs = {{0, 0}, {0, 0}, {0, 0}};
-    const PlayerTalentMap& talentMap = bot->GetPlayerTalentMap(bot->GetActiveTalentGroup());
+    //By leewheel 2026-09-09: TC的GetPlayerTalentMap返回std::unordered_map<uint32, uint8>（value为rank）
+    //而非PlayerTalentMap（value为PlayerSpellState），使用auto匹配实际返回类型
+    auto const& talentMap = bot->GetPlayerTalentMap(bot->GetActiveTalentGroup());
 
     //By leewheel 2026-07-23: 修复LFG角色判定根因BUG
-    //TC 343的PlayerTalentMap key是TalentEntry ID（非spell ID），
+    //TC 343的TalentMap key是TalentEntry ID（非spell ID），
     //原代码把key当spellId传给GetTalentSpellPos永远返回nullptr，导致三个tab全为0，
     //GetPlayerSpecTab永远走默认分支（圣骑→惩戒=DPS，牧师→神圣=治疗，无坦克）
     //修复：直接用sTalentStore.LookupEntry查天赋条目，Rank是0-based所以+1为实际点数
-    uint32 const* talentTabIds = sDB2Manager.GetTalentTabPages(bot->getClass());
-
-    for (PlayerTalentMap::const_iterator i = talentMap.begin(); i != talentMap.end(); ++i)
+    //By leewheel 2026-09-09: TC无GetTalentTabPages，改用GetTalentTabByIndex逐个获取三页天赋TabID
+    uint32 talentTabIds[3] = {0, 0, 0};
+    for (int i = 0; i < 3; ++i)
     {
-        if (i->second.State == PLAYERSPELL_REMOVED)
-            continue;
+        if (TalentTabEntry const* tab = sDB2Manager.GetTalentTabByIndex(bot->getClass(), i))
+            talentTabIds[i] = tab->ID;
+    }
 
+    for (auto i = talentMap.begin(); i != talentMap.end(); ++i)
+    {
+        // TC的talentMap value是uint8 rank，无State字段，已学习的天赋才在map中
         TalentEntry const* talentInfo = sTalentStore.LookupEntry(i->first);
         if (!talentInfo)
             continue;
 
-        uint32 rank = i->second.Rank + 1;
+        uint32 rank = i->second + 1;
 
         if (talentInfo->TabID == talentTabIds[0])
             tabs[0] += rank;

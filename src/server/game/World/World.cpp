@@ -19,7 +19,13 @@
     \ingroup world
 */
 
+#include <atomic>
 #include "World.h"
+
+// By leewheel 2026-09-10: 世界线程阶段标记。每个 Update 耗时子块入口写入所在阶段名，
+// 供 FreezeDetector 检测到世界线程挂起时打印，定位卡死的具体子模块。
+// End By leewheel
+std::atomic<char const*> g_worldUpdatePhase{""};
 #include "AccountMgr.h"
 #include "AchievementMgr.h"
 #include "AreaTriggerDataStore.h"
@@ -2526,7 +2532,7 @@ void World::Update(uint32 diff)
 {
     TC_METRIC_TIMER("world_update_time_total");
     ///- Update the game time and check for shutdown time
-    _UpdateGameTime();
+    _UpdateGameTime(); g_worldUpdatePhase.store("PhaseUpdateGameTime", std::memory_order_relaxed);
     time_t currentGameTime = GameTime::GetGameTime();
 
     sWorldUpdateTime.UpdateWithDiff(diff);
@@ -2545,6 +2551,7 @@ void World::Update(uint32 diff)
     {
         TC_METRIC_TIMER("world_update_time", TC_METRIC_TAG("type", "Update who list"));
         m_timers[WUPDATE_WHO_LIST].Reset();
+        g_worldUpdatePhase.store("PhaseUpdateWhoList", std::memory_order_relaxed);
         sWhoListStorageMgr->Update();
     }
 
@@ -2568,30 +2575,35 @@ void World::Update(uint32 diff)
 
     {
         TC_METRIC_TIMER("world_update_time", TC_METRIC_TAG("type", "Check daily reset times"));
+        g_worldUpdatePhase.store("PhaseCheckScheduledReset", std::memory_order_relaxed);
         CheckScheduledResetTimes();
     }
 
     if (currentGameTime > m_NextRandomBGReset)
     {
         TC_METRIC_TIMER("world_update_time", TC_METRIC_TAG("type", "Reset random BG"));
+        g_worldUpdatePhase.store("PhaseResetRandomBG", std::memory_order_relaxed);
         ResetRandomBG();
     }
 
     if (currentGameTime > m_NextCalendarOldEventsDeletionTime)
     {
         TC_METRIC_TIMER("world_update_time", TC_METRIC_TAG("type", "Delete old calendar events"));
+        g_worldUpdatePhase.store("PhaseDeleteOldCalEvents", std::memory_order_relaxed);
         CalendarDeleteOldEvents();
     }
 
     if (currentGameTime > m_NextGuildReset)
     {
         TC_METRIC_TIMER("world_update_time", TC_METRIC_TAG("type", "Reset guild cap"));
+        g_worldUpdatePhase.store("PhaseResetGuildCap", std::memory_order_relaxed);
         ResetGuildCap();
     }
 
     if (currentGameTime > m_NextCurrencyReset)
     {
         TC_METRIC_TIMER("world_update_time", TC_METRIC_TAG("type", "Reset currency weekly cap"));
+        g_worldUpdatePhase.store("PhaseResetCurrencyCap", std::memory_order_relaxed);
         ResetCurrencyWeekCap();
     }
 
@@ -2600,6 +2612,7 @@ void World::Update(uint32 diff)
     {
         TC_METRIC_TIMER("world_update_time", TC_METRIC_TAG("type", "Update expired auctions"));
         m_timers[WUPDATE_AUCTIONS].Reset();
+        g_worldUpdatePhase.store("PhaseAuctions_Update", std::memory_order_relaxed);
 
         ///- Update mails (return old mails with item, or delete them)
         //(tested... works on win)
@@ -2617,6 +2630,7 @@ void World::Update(uint32 diff)
     {
         TC_METRIC_TIMER("world_update_time", TC_METRIC_TAG("type", "Update pending auctions"));
         m_timers[WUPDATE_AUCTIONS_PENDING].Reset();
+        g_worldUpdatePhase.store("PhaseAuctions_UpdatePending", std::memory_order_relaxed);
 
         sAuctionMgr->UpdatePendingAuctions();
     }
@@ -2625,6 +2639,7 @@ void World::Update(uint32 diff)
     {
         TC_METRIC_TIMER("world_update_time", TC_METRIC_TAG("type", "Update pending black market auctions"));
         m_timers[WUPDATE_BLACKMARKET].Reset();
+        g_worldUpdatePhase.store("PhaseBlackMarket_Update", std::memory_order_relaxed);
 
         ///- Update blackmarket, refresh auctions if necessary
         if ((blackmarket_timer *  m_timers[WUPDATE_BLACKMARKET].GetInterval() >=
@@ -2645,6 +2660,7 @@ void World::Update(uint32 diff)
     if (m_timers[WUPDATE_AHBOT].Passed())
     {
         TC_METRIC_TIMER("world_update_time", TC_METRIC_TAG("type", "Update AHBot"));
+        g_worldUpdatePhase.store("PhaseAuctionBot_Update", std::memory_order_relaxed);
         sAuctionBot->Update();
         m_timers[WUPDATE_AHBOT].Reset();
     }
@@ -2663,6 +2679,7 @@ void World::Update(uint32 diff)
     {
         /// <li> Handle session updates when the timer has passed
         TC_METRIC_TIMER("world_update_time", TC_METRIC_TAG("type", "Update sessions"));
+        g_worldUpdatePhase.store("PhaseUpdateSessions", std::memory_order_relaxed);
         UpdateSessions(diff);
     }
 
@@ -2670,6 +2687,7 @@ void World::Update(uint32 diff)
     if (m_timers[WUPDATE_UPTIME].Passed())
     {
         TC_METRIC_TIMER("world_update_time", TC_METRIC_TAG("type", "Update uptime"));
+        g_worldUpdatePhase.store("PhaseUpdateUpTime", std::memory_order_relaxed);
         uint32 tmpDiff = GameTime::GetUptime();
         uint32 maxOnlinePlayers = GetMaxPlayerCount();
 
@@ -2707,6 +2725,7 @@ void World::Update(uint32 diff)
     ///- Update objects when the timer has passed (maps, transport, creatures, ...)
     {
         TC_METRIC_TIMER("world_update_time", TC_METRIC_TAG("type", "Update maps"));
+        g_worldUpdatePhase.store("PhaseUpdateMaps", std::memory_order_relaxed);
         sMapMgr->Update(diff);
     }
 
@@ -2721,22 +2740,26 @@ void World::Update(uint32 diff)
         {
             TC_METRIC_TIMER("world_update_time", TC_METRIC_TAG("type", "Send autobroadcast"));
             m_timers[WUPDATE_AUTOBROADCAST].Reset();
+            g_worldUpdatePhase.store("PhaseSendAutobroadcast", std::memory_order_relaxed);
             SendAutoBroadcast();
         }
     }
 
     {
         TC_METRIC_TIMER("world_update_time", TC_METRIC_TAG("type", "Update battlegrounds"));
+        g_worldUpdatePhase.store("PhaseUpdateBattlegrounds", std::memory_order_relaxed);
         sBattlegroundMgr->Update(diff);
     }
 
     {
         TC_METRIC_TIMER("world_update_time", TC_METRIC_TAG("type", "Update outdoor pvp"));
+        g_worldUpdatePhase.store("PhaseUpdateOutdoorPvP", std::memory_order_relaxed);
         sOutdoorPvPMgr->Update(diff);
     }
 
     {
         TC_METRIC_TIMER("world_update_time", TC_METRIC_TAG("type", "Update battlefields"));
+        g_worldUpdatePhase.store("PhaseUpdateBattlefield", std::memory_order_relaxed);
         sBattlefieldMgr->Update(diff);
     }
 
@@ -2745,22 +2768,26 @@ void World::Update(uint32 diff)
     {
         TC_METRIC_TIMER("world_update_time", TC_METRIC_TAG("type", "Delete old characters"));
         m_timers[WUPDATE_DELETECHARS].Reset();
+        g_worldUpdatePhase.store("PhaseDeleteOldCharacters", std::memory_order_relaxed);
         Player::DeleteOldCharacters();
     }
 
     {
         TC_METRIC_TIMER("world_update_time", TC_METRIC_TAG("type", "Update groups"));
+        g_worldUpdatePhase.store("PhaseUpdateGroups", std::memory_order_relaxed);
         sGroupMgr->Update(diff);
     }
 
     {
         TC_METRIC_TIMER("world_update_time", TC_METRIC_TAG("type", "Update LFG"));
+        g_worldUpdatePhase.store("PhaseUpdateLFG", std::memory_order_relaxed);
         sLFGMgr->Update(diff);
     }
 
     {
         TC_METRIC_TIMER("world_update_time", TC_METRIC_TAG("type", "Process query callbacks"));
         // execute callbacks from sql queries that were queued recently
+        g_worldUpdatePhase.store("PhaseProcessQueryCallbacks", std::memory_order_relaxed);
         ProcessQueryCallbacks();
     }
 
@@ -2769,6 +2796,7 @@ void World::Update(uint32 diff)
     {
         TC_METRIC_TIMER("world_update_time", TC_METRIC_TAG("type", "Remove old corpses"));
         m_timers[WUPDATE_CORPSES].Reset();
+        g_worldUpdatePhase.store("PhaseRemoveOldCorpses", std::memory_order_relaxed);
         sMapMgr->DoForAllMaps([](Map* map)
         {
             map->RemoveOldCorpses();
@@ -2780,6 +2808,7 @@ void World::Update(uint32 diff)
     {
         TC_METRIC_TIMER("world_update_time", TC_METRIC_TAG("type", "Update game events"));
         m_timers[WUPDATE_EVENTS].Reset();                   // to give time for Update() to be processed
+        g_worldUpdatePhase.store("PhaseUpdateGameEvents", std::memory_order_relaxed);
         uint32 nextGameEvent = sGameEventMgr->Update();
         m_timers[WUPDATE_EVENTS].SetInterval(nextGameEvent);
         m_timers[WUPDATE_EVENTS].Reset();
@@ -2790,6 +2819,7 @@ void World::Update(uint32 diff)
     {
         TC_METRIC_TIMER("world_update_time", TC_METRIC_TAG("type", "Ping MySQL"));
         m_timers[WUPDATE_PINGDB].Reset();
+        g_worldUpdatePhase.store("PhasePingMySQL", std::memory_order_relaxed);
         TC_LOG_DEBUG("sql.driver", "Ping MySQL to keep connection alive");
         CharacterDatabase.KeepAlive();
         LoginDatabase.KeepAlive();
@@ -2801,6 +2831,7 @@ void World::Update(uint32 diff)
     {
         TC_METRIC_TIMER("world_update_time", TC_METRIC_TAG("type", "Save guilds"));
         m_timers[WUPDATE_GUILDSAVE].Reset();
+        g_worldUpdatePhase.store("PhaseSaveGuilds", std::memory_order_relaxed);
         sGuildMgr->SaveGuilds();
     }
 
@@ -2824,6 +2855,7 @@ void World::Update(uint32 diff)
 
     {
         TC_METRIC_TIMER("world_update_time", TC_METRIC_TAG("type", "Update world scripts"));
+        g_worldUpdatePhase.store("PhaseOnWorldUpdate", std::memory_order_relaxed);
         sScriptMgr->OnWorldUpdate(diff);
     }
 

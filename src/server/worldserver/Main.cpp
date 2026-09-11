@@ -15,6 +15,7 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <atomic>
 #include "Common.h"
 #include "AppenderDB.h"
 #include "AsyncAcceptor.h"
@@ -589,6 +590,10 @@ void SignalHandler(boost::system::error_code const& error, int /*signalNumber*/)
         World::StopNow(SHUTDOWN_EXIT_CODE);
 }
 
+// By leewheel 2026-09-10: 引用世界线程阶段标记，卡死时定位具体子模块。定义见 World.cpp。
+// End By leewheel
+extern std::atomic<char const*> g_worldUpdatePhase;
+
 void FreezeDetector::Handler(std::weak_ptr<FreezeDetector> freezeDetectorRef, boost::system::error_code const& error)
 {
     if (!error)
@@ -609,7 +614,7 @@ void FreezeDetector::Handler(std::weak_ptr<FreezeDetector> freezeDetectorRef, bo
                 uint32 msTimeDiff = getMSTimeDiff(freezeDetector->_lastChangeMsTime, curtime);
                 if (msTimeDiff > freezeDetector->_maxCoreStuckTimeInMs)
                 {
-                    TC_LOG_ERROR("server.worldserver", "World Thread hangs for {} ms, forcing a crash!", msTimeDiff);
+                    TC_LOG_ERROR("server.worldserver", "World Thread hangs for {} ms, forcing a crash! LastPhase={}", msTimeDiff, g_worldUpdatePhase.load());
                     ABORT_MSG("World Thread hangs for %u ms, forcing a crash!", msTimeDiff);
                 }
             }
@@ -654,7 +659,8 @@ bool StartDB()
         .AddDatabase(LoginDatabase, "Login")
         .AddDatabase(CharacterDatabase, "Character")
         .AddDatabase(WorldDatabase, "World")
-        .AddDatabase(HotfixDatabase, "Hotfix");
+        .AddDatabase(HotfixDatabase, "Hotfix")
+        .AddDatabase(PlayerbotsDatabase, "Playerbots");
 
     if (!loader.Load())
         return false;
@@ -674,6 +680,7 @@ void StopDB()
     WorldDatabase.Close();
     CharacterDatabase.Close();
     LoginDatabase.Close();
+    PlayerbotsDatabase.Close();
 
     MySQL::Library_End();
 }

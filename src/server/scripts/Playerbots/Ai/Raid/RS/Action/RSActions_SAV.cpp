@@ -1,4 +1,4 @@
-/* 红玉圣殿 机器人策略 */
+﻿/* 红玉圣殿 机器人策略 */
 #include "Playerbots.h"
 #include "RSActions.h"
 #include <algorithm>

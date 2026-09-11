@@ -45,6 +45,7 @@ void OpenItemAction::OpenItem(Item* item, uint8 bag, uint8 slot)
     botAI->GetAiObjectContext()->GetValue<LootObject>("loot target")->Set(lootObject);
 
     std::ostringstream out;
-    out << "打开物品: " << item->GetTemplate()->GetName();
+    //By leewheel 2026-09-09: TC使用GetName(locale)方法，ItemTemplate_GetName是AC函数
+    out << "打开物品: " << item->GetTemplate()->GetName(LOCALE_enUS);
     botAI->TellMaster(out.str());
 }

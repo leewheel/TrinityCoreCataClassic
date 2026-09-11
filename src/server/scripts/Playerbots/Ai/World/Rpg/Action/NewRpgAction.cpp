@@ -1,4 +1,4 @@
-#include "NewRpgAction.h"
+﻿#include "NewRpgAction.h"
 
 #include <cmath>
 #include <cstdlib>
@@ -565,7 +565,9 @@ void NewRpgTravelFlightAction::ContinueCrossMapTaxi()
 
     // 确认下一节点需要不同地图
     TaxiNodesEntry const* nextNode = sTaxiNodesStore.LookupEntry(nextDest);
-    if (!nextNode || nextNode->map_id() == bot->GetMapId())
+    //By leewheel 2026-09-09: TC-Cata的TaxiNodesEntry字段名: map_id→ContinentID
+    if (!nextNode || nextNode->ContinentID == bot->GetMapId())
+    //End By leewheel
         return;
 
     // TC无top(),用GetCurrentMovementGenerator()取当前生成器(MovementActions.cpp同款TC适配)
@@ -575,7 +577,9 @@ void NewRpgTravelFlightAction::ContinueCrossMapTaxi()
         return;
 
     TC_LOG_DEBUG("playerbots", "[New RPG] {} continuing taxi across map boundary (next node {} on map {})",
-                 bot->GetName(), nextDest, nextNode->map_id());
+                 //By leewheel 2026-09-09: TC-Cata的TaxiNodesEntry字段名: map_id→ContinentID
+                 bot->GetName(), nextDest, nextNode->ContinentID);
+                 //End By leewheel
 
     flight->SetCurrentNodeAfterTeleport();
 
@@ -588,7 +592,8 @@ void NewRpgTravelFlightAction::ContinueCrossMapTaxi()
     //By leewheel 2026-09-05: TC343无AC的TELE_TO_NOT_LEAVE_TAXI标志;TC核心的跨地图出租车处理
     //(MovementHandler.cpp:729)本身就是普通TeleportTo默认参数,传送不会中断FlightPathMovementGenerator,
     //因此去掉该标志即为TC等价实现
-    bot->TeleportTo(nextNode->map_id(), node->x(), node->y(), node->z(), bot->GetOrientation());
+    //By leewheel 2026-09-09: TC-Cata字段名变更: TaxiNodesEntry.map_id→ContinentID, TaxiPathNodeEntry.x/y/z→Loc.X/Y/Z
+    bot->TeleportTo(nextNode->ContinentID, node->Loc.X, node->Loc.Y, node->Loc.Z, bot->GetOrientation());
     //End By leewheel
 }
 //End By leewheel

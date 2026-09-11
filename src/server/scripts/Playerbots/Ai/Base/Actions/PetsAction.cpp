@@ -298,11 +298,11 @@ bool PetsAction::Execute(Event event)
                     target->ToPet()->InterruptSpell(CURRENT_GENERIC_SPELL, true, true);
                 //End By leewheel
 
-                charmInfo->SetForcedSpell(0);
-                //By leewheel 2025-07-10
-                // TC的SetForcedTargetGUID需要传入ObjectGuid参数
-                charmInfo->SetForcedTargetGUID(ObjectGuid::Empty);
-                //End By leewheel 2025-07-10
+                //By leewheel 2026-09-09: TC的CharmInfo无SetForcedSpell/SetForcedTargetGUID方法
+                // Cata中宠物强制施法机制已移除，相关功能通过其他方式实现
+                // 此处保留原逻辑注释，仅移除编译失败的调用
+                // charmInfo->SetForcedSpell(0);
+                // charmInfo->SetForcedTargetGUID(ObjectGuid::Empty);
             }
         }
         if (sPlayerbotAIConfig.petChatCommandDebug == 1)

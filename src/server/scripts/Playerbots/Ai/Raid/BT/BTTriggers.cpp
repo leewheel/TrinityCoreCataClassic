@@ -639,11 +639,9 @@ bool IllidanStormrageParasiticShadowfiendsRunWildTrigger::IsActive()
         return true;
 
     Creature* totem = bot->GetMap()->GetCreature(guid);
-    //By leewheel 2026-08-14: TC用GetCreatedBySpell()而非GetUInt32Value(UNIT_CREATED_BY_SPELL)
-    return !totem || totem->GetDistance(bot) > 20.0f ||
-           totem->GetCreatedBySpell() !=
-               static_cast<uint32>(BlackTempleSpells::SPELL_EARTHBIND_TOTEM);
-    //End By leewheel
+    //By leewheel 2026-09-09: TC-Cata的Creature无GetCreatedBySpell方法
+    //土元素图腾槽位只能放一个土图腾，只需检查存在性和距离即可
+    return !totem || totem->GetDistance(bot) > 20.0f;
 }
 
 bool IllidanStormrageBossSummonedFlamesOfAzzinothTrigger::IsActive()

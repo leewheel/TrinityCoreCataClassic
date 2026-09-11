@@ -122,7 +122,8 @@ float PullStrategy::GetRange() const
     {
         uint32 const spellId = botAI->GetAiObjectContext()->GetValue<uint32>("spell id", spellName)->Get();
         if (SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellId))
-            return bot->GetSpellMaxRangeForTarget(GetTarget(), spellInfo) - CONTACT_DISTANCE;
+            //By leewheel 2026-09-09: TC-Cata无Player::GetSpellMaxRangeForTarget，使用SpellInfo::GetMaxRange
+            return spellInfo->GetMaxRange(false, bot) - CONTACT_DISTANCE;
     }
 
     return (action == "shoot" ? botAI->GetRange("shoot") : botAI->GetRange("spell")) - CONTACT_DISTANCE;

@@ -16,6 +16,7 @@
 #include "ObjectMgr.h"
 #include "PlayerbotAI.h"
 #include "PlayerbotFactory.h"
+#include "Playerbots.h"
 #include "RandomItemMgr.h"
 #include "SharedDefines.h"
 #include "SpellAuraDefines.h"
@@ -878,8 +879,9 @@ void StatsWeightCalculator::ApplyOverflowPenalty(Player* player)
         if (type_ & CollectorType::MELEE)
         {
             float expertise_current, expertise_overflow;
-            //By leewheel 2026-07-11: TC使用GetExpertiseValue()替代GetUInt32Value(PLAYER_EXPERTISE)
-            expertise_current = player->GetExpertiseValue();
+            //By leewheel 2026-09-09: TC-Cata没有GetExpertiseValue()方法
+            //Cata中精通(Expertise)机制不同，基础值为0，全部来自精通等级
+            expertise_current = 0.0f;
             //End By leewheel
             expertise_current += player->GetRatingBonusValue(CR_EXPERTISE);
             expertise_overflow = EXPERTISE_OVERFLOW;
@@ -1069,7 +1071,7 @@ proto->GetSubClass() == ITEM_SUBCLASS_WEAPON_POLEARM);
                         if (slot == EQUIPMENT_SLOT_OFFHAND)
                         {
                             Item* mh = player_->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_MAINHAND);
-                            if (mh && mh->GetTemplate() && mh->GetTemplate()->Delay() == delay) //By leewheel 2026-07-10: TC中Delay是方法
+                            if (mh && mh->GetTemplate() && mh->GetTemplate()->GetDelay() == delay) //By leewheel 2026-09-09: TC中使用GetDelay()方法
                                 mult *= boost;  // synchronized: ×(1+weight)² total = ×9 for 2.0f weight
                         }
                         return mult;

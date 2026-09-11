@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
  * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
@@ -74,7 +74,7 @@ Unit* GrindTargetValue::FindTargetForGrinding(uint32 assistCount)
         if (!unit->IsInWorld() || unit->IsDuringRemoveFromWorld())
             continue;
 
-        if (unit->ToCreature() && !unit->ToCreature()->GetCreatureTemplate()->lootid &&
+        if (unit->ToCreature() && !unit->ToCreature()->GetLootId() &&
             bot->GetReactionTo(unit) >= REP_NEUTRAL)
             continue;
 
@@ -181,30 +181,28 @@ bool GrindTargetValue::needForQuest(Unit* target)
 
         if (status == QUEST_STATUS_INCOMPLETE)
         {
-            const QuestStatusData* questStatus = &bot->getQuestStatusMap()[questId];
-
-            if (questTemplate->GetQuestLevel() > bot->GetLevel() + 5)
+                        if (questTemplate->GetQuestLevel() > bot->GetLevel() + 5)
                 continue;
 
-            for (int j = 0; j < QUEST_OBJECTIVES_COUNT; j++)
+            //By leewheel 2026-09-09: TC-Cata无CreatureOrGOCount数组，改用GetQuestObjectiveData遍历目标
+            for (QuestObjective const& obj : questTemplate->GetObjectives())
             {
-                int32 entry = questTemplate->RequiredNpcOrGo[j];
-
-                if (entry && entry > 0)
+                if (obj.Type != QUEST_OBJECTIVE_MONSTER && obj.Type != QUEST_OBJECTIVE_GAMEOBJECT)
+                    continue;
+                if (obj.ObjectID > 0)
                 {
-                    int required = questTemplate->RequiredNpcOrGoCount[j];
-                    int available = questStatus->CreatureOrGOCount[j];
-
-                    if (required && available < required && target->GetEntry() == uint32(entry))
+                    int32 progress = bot->GetQuestObjectiveData(obj);
+                    if (obj.Amount && progress < obj.Amount && target->GetEntry() == uint32(obj.ObjectID))
                         return true;
                 }
             }
         }
     }
 
-    if (CreatureTemplate const* data = sObjectMgr->GetCreatureTemplate(target->GetEntry()))
+    //By leewheel 2026-09-09: TC-Cata的CreatureTemplate无lootid字段，通过Creature的GetLootId获取
+    if (target->ToCreature())
     {
-        if (uint32 lootId = data->lootid)
+        if (uint32 lootId = target->ToCreature()->GetLootId())
         {
             if (LootTemplates_Creature.HaveQuestLootForPlayer(lootId, bot))
             {

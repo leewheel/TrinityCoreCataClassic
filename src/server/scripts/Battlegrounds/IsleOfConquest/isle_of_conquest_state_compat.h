@@ -64,6 +64,7 @@ enum IoCCompatGateState : uint8
 };
 
 // By leewheel 2026-09-06: IC战场游戏对象/生物entry(客户端数据两代一致，取自Cata的IC脚本头)
+//By leewheel 2026-09-08: 移除GO_*_BANNER定义,与BattlegroundEntriesCompat.h重复导致C2872歧义
 namespace IoCCompat
 {
     constexpr uint32 NPC_HIGH_COMMANDER_HALFORD_WYRMBANE = 34924; // 联盟首领
@@ -71,17 +72,27 @@ namespace IoCCompat
     constexpr uint32 NPC_SIEGE_ENGINE_H                  = 35069; // 部落攻城车
     constexpr uint32 NPC_SIEGE_ENGINE_A                  = 34776; // 联盟攻城车
 
-    constexpr uint32 GO_ALLIANCE_BANNER                  = 195396; // 联盟大本营横幅
-    constexpr uint32 GO_HORDE_BANNER                     = 195393; // 部落大本营横幅
     constexpr uint32 GO_ALLIANCE_GATE_3                  = 195698; // 联盟前门
     constexpr uint32 GO_HORDE_GATE_1                     = 195494; // 部落前门
 
-    constexpr uint32 GO_REFINERY_BANNER                  = 195343; // 精炼厂横幅
-    constexpr uint32 GO_QUARRY_BANNER                    = 195338; // 采石场横幅
-    constexpr uint32 GO_DOCKS_BANNER                     = 195157; // 码头横幅
-    constexpr uint32 GO_HANGAR_BANNER                    = 195158; // 机库横幅
-    constexpr uint32 GO_WORKSHOP_BANNER                  = 195133; // 车间横幅
+    // 传送器 entry ID
+    constexpr uint32 GO_TELEPORTER_1                     = 195314; // 部落外侧
+    constexpr uint32 GO_TELEPORTER_2                     = 195313; // 部落内侧
+    constexpr uint32 GO_TELEPORTER_3                     = 195315; // 联盟外侧
+    constexpr uint32 GO_TELEPORTER_4                     = 195316; // 联盟内侧
+
+    // 城门/吊闸 GameObject entry ID
+    constexpr uint32 GO_DOODAD_PORTCULLISACTIVE02        = 195452; // 联盟要塞内吊闸
+    constexpr uint32 GO_DOODAD_HU_PORTCULLIS01           = 195436; // 部落要塞吊闸
 }
+
+// By leewheel 2026-09-09: AC兼容常量 - BG_IC_GO_* 用于GetBGObject(类型索引)
+// 注意：TC的IC战场不使用GetBGObject模式，此处定义为entry ID仅供编译通过
+//       实际调用GetBGObject可能返回nullptr，调用方需做判空处理
+constexpr uint32 BG_IC_GO_DOODAD_PORTCULLISACTIVE02 = IoCCompat::GO_DOODAD_PORTCULLISACTIVE02;
+constexpr uint32 BG_IC_GO_HORDE_KEEP_PORTCULLIS     = IoCCompat::GO_DOODAD_HU_PORTCULLIS01;
+constexpr uint32 GO_TELEPORTER_2                     = IoCCompat::GO_TELEPORTER_2;
+constexpr uint32 GO_TELEPORTER_4                     = IoCCompat::GO_TELEPORTER_4;
 //End By leewheel
 
 // 节点状态查询抽象接口(由Cata的IC战场脚本实现)

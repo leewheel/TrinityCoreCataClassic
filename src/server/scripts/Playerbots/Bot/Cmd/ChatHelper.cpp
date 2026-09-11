@@ -18,6 +18,29 @@
 #include <regex>
 #include <charconv>
 
+//By leewheel 2026-09-09: 移植到TrinityCore-Cata，天赋系统兼容定义
+//(注: 理想情况下应放在Playerbots.h中，但该文件被IDE锁定，暂在此处用#ifndef保护)
+#ifndef MAX_TALENT_TABS
+#define MAX_TALENT_TABS 3
+#endif
+// 获取职业的三个天赋页ID（TC-Cata DB2Manager无GetTalentTabPages方法）
+inline uint32 const* GetTalentTabPages_ChatHelper(uint32 classId)
+{
+    static uint32 tabIds[MAX_TALENT_TABS] = {0};
+    // 只初始化一次
+    if (tabIds[0] == 0)
+    {
+        for (int i = 0; i < MAX_TALENT_TABS; ++i)
+        {
+            TalentTabEntry const* tab = sDB2Manager.GetTalentTabByIndex(classId, i);
+            if (tab)
+                tabIds[i] = tab->ID;
+        }
+    }
+    return tabIds;
+}
+//End By leewheel
+
 std::map<std::string, uint32> ChatHelper::consumableSubClasses;
 std::map<std::string, uint32> ChatHelper::tradeSubClasses;
 std::map<std::string, uint32> ChatHelper::itemQualities;
@@ -695,20 +718,26 @@ std::string const ChatHelper::FormatClass(Player* player, int8 spec)
         tabs[i] = 0;
     }
 
-    //By leewheel 2026-07-23: 修复天赋页计数，TabID是TalentTabEntry ID不能直接当索引，
-    //需与职业天赋页ID比较确定索引；Rank是0-based需+1
-    uint32 const* talentTabIds = sDB2Manager.GetTalentTabPages(cls);
-    PlayerTalentMap const& talentMap = player->GetPlayerTalentMap(player->GetActiveTalentGroup());
+    //By leewheel 2026-09-09: 移植到TrinityCore-Cata，天赋系统API兼容：
+    //- MAX_TALENT_TABS = 3 (三系天赋树)
+    //- 用sDB2Manager.GetTalentTabByIndex逐个获取三系天赋页ID
+    //- GetPlayerTalentMap → 返回unordered_map<uint32, uint8>(talentId→rank)，无State字段
+    //- Rank直接是uint8值(0-based)，需+1
+    uint32 talentTabIds[MAX_TALENT_TABS] = {0};
+    for (int i = 0; i < MAX_TALENT_TABS; ++i)
+    {
+        TalentTabEntry const* tab = sDB2Manager.GetTalentTabByIndex(cls, i);
+        if (tab)
+            talentTabIds[i] = tab->ID;
+    }
+    auto const& talentMap = player->GetPlayerTalentMap(player->GetActiveTalentGroup());
     for (auto const& itr : talentMap)
     {
-        if (itr.second.State == PLAYERSPELL_REMOVED)
-            continue;
-
         TalentEntry const* talentInfo = sTalentStore.LookupEntry(itr.first);
         if (!talentInfo)
             continue;
 
-        uint32 rank = itr.second.Rank + 1;
+        uint32 rank = itr.second + 1;
         if (talentInfo->TabID == talentTabIds[0])
             tabs[0] += rank;
         else if (talentInfo->TabID == talentTabIds[1])

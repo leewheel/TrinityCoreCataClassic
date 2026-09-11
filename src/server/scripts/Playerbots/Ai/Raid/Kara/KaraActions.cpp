@@ -1,4 +1,4 @@
-/* 卡拉赞 机器人策略 */
+﻿/* 卡拉赞 机器人策略 */
 #include "KaraActions.h"
 #include "EncounterHelpers.h"
 #include "KaraHelpers.h"

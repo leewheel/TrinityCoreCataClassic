@@ -62,9 +62,11 @@ bool IsThunderBluffWalkway(Player* bot)
 // 找到靠近的敌对玩家(部落)
 Player* FindNearbyEnemyOnWalkway(Player* bot, float maxDist = 40.0f)
 {
+    //By leewheel 2026-09-09: TC用AnyPlayerInPositionRangeCheck替代AnyPlayerInObjectRangeCheck
     std::list<Player*> nearby;
-    Trinity::AnyPlayerInObjectRangeCheck check(bot, maxDist);
-    Trinity::PlayerListSearcher<Trinity::AnyPlayerInObjectRangeCheck> searcher(bot, nearby, check);
+    Trinity::AnyPlayerInPositionRangeCheck check(bot, maxDist);
+    Trinity::PlayerListSearcher<Trinity::AnyPlayerInPositionRangeCheck> searcher(bot, nearby, check);
+    //End By leewheel
     Cell::VisitAllObjects(bot, searcher, maxDist);
 
     for (Player* player : nearby)

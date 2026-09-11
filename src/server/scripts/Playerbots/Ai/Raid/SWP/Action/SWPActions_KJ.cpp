@@ -1,4 +1,4 @@
-/* 太阳之井高地 机器人策略 */
+﻿/* 太阳之井高地 机器人策略 */
 #include "SWPActions.h"
 #include "EncounterHelpers.h"
 #include "Playerbots.h"
@@ -143,7 +143,7 @@ bool KiljaedenControlHandsOfTheDeceiverAction::CastStunOnHand(Unit* hand)
         case CLASS_DRUID:
             return (botAI->HasStrategy("bear", BOT_STATE_COMBAT) && castSpell("bash")) ||
                 (botAI->HasStrategy("cat", BOT_STATE_COMBAT) &&
-                 bot->GetComboPoints() >= 4 && castSpell("maim"));
+                 Player_GetComboPoints(bot) >= 4 && castSpell("maim"));
 
         case CLASS_MAGE:
             return castSpell("deep freeze");
@@ -152,7 +152,7 @@ bool KiljaedenControlHandsOfTheDeceiverAction::CastStunOnHand(Unit* hand)
             return castSpell("hammer of justice");
 
         case CLASS_ROGUE:
-            return bot->GetComboPoints() >= 4 && castSpell("kidney shot");
+            return Player_GetComboPoints(bot) >= 4 && castSpell("kidney shot");
 
         case CLASS_WARLOCK:
             return castSpell("shadowfury");
