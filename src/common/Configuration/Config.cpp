@@ -247,37 +247,44 @@ bool ConfigMgr::Reload(std::vector<std::string>& errors)
 template<class T>
 T ConfigMgr::GetValueDefault(std::string const& name, T def, bool quiet) const
 {
-    try
+    //By leewheel 2026-09-11: 先预检键存在性(get_child_optional 非抛), 缺失键直接走 环境变量/默认 分支,
+    //不再依赖抛出 ptree_bad_path。Playerbots 的上万个缺失配置键(如 PremadeSpecLink.X.Y.Z)嵌套循环读取时,
+    //旧实现每次缺失都构造/抛出/捕获一个 C++ 异常, 单次启动制造上万次异常, 堆分配释放压力巨大,
+    //是 world ready 后 0xc0000374 堆损坏的异常洪流源头之一。
+    if (auto node = _config.get_child_optional(bpt::ptree::path_type(name, '/')))
     {
-        return _config.get<T>(bpt::ptree::path_type(name, '/'));
-    }
-    catch (bpt::ptree_bad_path const&)
-    {
-        Optional<std::string> envVar = EnvVarForIniKey(name);
-        if (envVar)
+        try
         {
-            Optional<T> castedVar = Trinity::StringTo<T>(*envVar);
-            if (!castedVar)
-            {
-                TC_LOG_ERROR("server.loading", "Bad value defined for name {} in environment variables, going to use default instead", name);
-                return def;
-            }
-
-            if (!quiet)
-                TC_LOG_WARN("server.loading", "Missing name {} in config file {}, recovered with environment '{}' value.", name, _filename, *envVar);
-
-            return *castedVar;
+            return node->get_value<T>();
         }
-        else if (!quiet)
+        catch (bpt::ptree_bad_data const&)
         {
-            TC_LOG_WARN("server.loading", "Missing name {} in config file {}, add \"{} = {}\" to this file",
-                name, _filename, name, def);
+            TC_LOG_ERROR("server.loading", "Bad value defined for name {} in config file {}, going to use {} instead",
+                name, _filename, def);
         }
+
+        return def;
     }
-    catch (bpt::ptree_bad_data const&)
+
+    Optional<std::string> envVar = EnvVarForIniKey(name);
+    if (envVar)
     {
-        TC_LOG_ERROR("server.loading", "Bad value defined for name {} in config file {}, going to use {} instead",
-            name, _filename, def);
+        Optional<T> castedVar = Trinity::StringTo<T>(*envVar);
+        if (!castedVar)
+        {
+            TC_LOG_ERROR("server.loading", "Bad value defined for name {} in environment variables, going to use default instead", name);
+            return def;
+        }
+
+        if (!quiet)
+            TC_LOG_WARN("server.loading", "Missing name {} in config file {}, recovered with environment '{}' value.", name, _filename, *envVar);
+
+        return *castedVar;
+    }
+    else if (!quiet)
+    {
+        TC_LOG_WARN("server.loading", "Missing name {} in config file {}, add \"{} = {}\" to this file",
+            name, _filename, name, def);
     }
 
     return def;
@@ -286,30 +293,35 @@ T ConfigMgr::GetValueDefault(std::string const& name, T def, bool quiet) const
 template<>
 std::string ConfigMgr::GetValueDefault<std::string>(std::string const& name, std::string def, bool quiet) const
 {
-    try
+    //By leewheel 2026-09-11: 与 generic 版本同理, 预检键存在性避免对缺失键抛 ptree_bad_path,
+    //消除 Playerbots 上万缺失配置键在启动时制造的海量 C++ 异常。缺失键直接走 环境变量/默认 分支。
+    if (auto node = _config.get_child_optional(bpt::ptree::path_type(name, '/')))
     {
-        return _config.get<std::string>(bpt::ptree::path_type(name, '/'));
-    }
-    catch (bpt::ptree_bad_path const&)
-    {
-        Optional<std::string> envVar = EnvVarForIniKey(name);
-        if (envVar)
+        try
         {
-            if (!quiet)
-                TC_LOG_WARN("server.loading", "Missing name {} in config file {}, recovered with environment '{}' value.", name, _filename, *envVar);
+            return node->get_value<std::string>();
+        }
+        catch (bpt::ptree_bad_data const&)
+        {
+            TC_LOG_ERROR("server.loading", "Bad value defined for name {} in config file {}, going to use {} instead",
+                name, _filename, def);
+        }
 
-            return *envVar;
-        }
-        else if (!quiet)
-        {
-            TC_LOG_WARN("server.loading", "Missing name {} in config file {}, add \"{} = {}\" to this file",
-                name, _filename, name, def);
-        }
+        return def;
     }
-    catch (bpt::ptree_bad_data const&)
+
+    Optional<std::string> envVar = EnvVarForIniKey(name);
+    if (envVar)
     {
-        TC_LOG_ERROR("server.loading", "Bad value defined for name {} in config file {}, going to use {} instead",
-            name, _filename, def);
+        if (!quiet)
+            TC_LOG_WARN("server.loading", "Missing name {} in config file {}, recovered with environment '{}' value.", name, _filename, *envVar);
+
+        return *envVar;
+    }
+    else if (!quiet)
+    {
+        TC_LOG_WARN("server.loading", "Missing name {} in config file {}, add \"{} = {}\" to this file",
+            name, _filename, name, def);
     }
 
     return def;

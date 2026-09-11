@@ -29,6 +29,10 @@
 //End By leewheel 2026-09-04
 #include <sstream>
 //End By leewheel
+//By leewheel 2026-09-11: ParseTempTalentsOrder 缓存所需
+#include <mutex>
+#include <map>
+//End By leewheel
 
 bool PlayerbotAIConfig::Initialize()
 {
@@ -1245,44 +1249,62 @@ std::vector<std::vector<uint32>> PlayerbotAIConfig::ParseTempTalentsOrder(uint32
     uint32 classMask = 1 << (cls - 1);
     std::vector<std::vector<uint32>> res;
     std::vector<std::string> tab_links = split(tab_link, '-');
-    std::map<uint32, std::vector<TalentEntry const*>> spells;
     std::vector<std::vector<std::vector<uint32>>> orders(3);
 
-    for (TalentEntry const* talentInfo : sTalentStore)
+    //By leewheel 2026-09-11: 缓存每职业排序后的天赋表，避免TalentSpecs加载时按(spec,level)重复全量遍历sTalentStore，导致worldserver启动卡死数分钟
+    using TabSpells = std::vector<TalentEntry const*>;
+    static std::mutex cacheLock;
+    static std::map<uint32, std::map<uint32, TabSpells>> cachedSpellsByClass;
+    std::lock_guard<std::mutex> lg(cacheLock);
+
+    auto classSpellsIt = cachedSpellsByClass.find(cls);
+    if (classSpellsIt == cachedSpellsByClass.end())
     {
-        if (!talentInfo)
-            continue;
+        std::map<uint32, TabSpells> spells;
+        for (TalentEntry const* talentInfo : sTalentStore)
+        {
+            if (!talentInfo)
+                continue;
 
-        TalentTabEntry const* talentTabInfo = sTalentTabStore.LookupEntry(talentInfo->TabID);
-        if (!talentTabInfo)
-            continue;
+            TalentTabEntry const* talentTabInfo = sTalentTabStore.LookupEntry(talentInfo->TabID);
+            if (!talentTabInfo)
+                continue;
 
-        //By leewheel 2026-09-09: 修复变量名拼写错误 talentTabinfo -> talentTabInfo
-        if ((classMask & talentTabInfo->ClassMask) == 0)
-            continue;
+            //By leewheel 2026-09-09: 修复变量名拼写错误 talentTabinfo -> talentTabInfo
+            if ((classMask & talentTabInfo->ClassMask) == 0)
+                continue;
 
-        spells[talentTabInfo->OrderIndex].push_back(talentInfo);
+            spells[talentTabInfo->OrderIndex].push_back(talentInfo);
+        }
+        // 与原先每次调用相同的排序，缓存一次
+        for (auto& kv : spells)
+            std::sort(kv.second.begin(), kv.second.end(),
+                      [&](TalentEntry const* lhs, TalentEntry const* rhs)
+                      { return lhs->TierID != rhs->TierID ? lhs->TierID < rhs->TierID : lhs->ColumnIndex < rhs->ColumnIndex; });
+        classSpellsIt = cachedSpellsByClass.emplace(cls, std::move(spells)).first;
     }
+    std::map<uint32, TabSpells> const& spells = classSpellsIt->second;
 
     for (int tab = 0; tab < 3; tab++)
     {
         if (tab_links.size() <= (size_t)tab)
             break;
 
-        std::sort(spells[tab].begin(), spells[tab].end(),
-                  [&](TalentEntry const* lhs, TalentEntry const* rhs)
-                  { return lhs->TierID != rhs->TierID ? lhs->TierID < rhs->TierID : lhs->ColumnIndex < rhs->ColumnIndex; });
+        auto spellsIt = spells.find(tab);
+        if (spellsIt == spells.end())
+            break;
 
+        TabSpells const& tabSpells = spellsIt->second;
         for (uint32 i = 0; i < tab_links[tab].size(); i++)
         {
-            if (i >= spells[tab].size())
+            if (i >= tabSpells.size())
                 break;
 
             int lvl = tab_links[tab][i] - '0';
             if (lvl == 0)
                 continue;
 
-            orders[tab].push_back({(uint32)tab, spells[tab][i]->TierID, spells[tab][i]->ColumnIndex, (uint32)lvl});
+            orders[tab].push_back({(uint32)tab, tabSpells[i]->TierID, tabSpells[i]->ColumnIndex, (uint32)lvl});
         }
     }
 
