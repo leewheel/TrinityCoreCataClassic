@@ -1884,6 +1884,11 @@ bool SpellInfo::IsNextMeleeSwingSpell() const
     return HasAttribute(SpellAttr0(SPELL_ATTR0_ON_NEXT_SWING_NO_DAMAGE | SPELL_ATTR0_ON_NEXT_SWING));
 }
 
+bool SpellInfo::IsAutoShot() const
+{
+    return IsAffected(SPELLFAMILY_HUNTER, { 0x1 }) && IsAutoRepeatRangedSpell();
+}
+
 bool SpellInfo::IsRangedWeaponSpell() const
 {
     return (EquippedItemSubClassMask & ITEM_SUBCLASS_MASK_WEAPON_RANGED) || (HasAttribute(SPELL_ATTR0_USES_RANGED_SLOT));
@@ -4007,9 +4012,6 @@ uint32 SpellInfo::CalcCastTime(Spell* spell /*= nullptr*/) const
 
     if (spell)
         spell->GetCaster()->ModSpellCastTime(this, castTime, spell);
-
-    if (HasAttribute(SPELL_ATTR0_USES_RANGED_SLOT) && !IsAutoRepeatRangedSpell() && !HasAttribute(SPELL_ATTR9_COOLDOWN_IGNORES_RANGED_WEAPON))
-        castTime += 500;
 
     return (castTime > 0) ? uint32(castTime) : 0;
 }
