@@ -65,6 +65,8 @@ class TC_GAME_API AuraEffect
         int32 GetPeriodicTimer() const { return _periodicTimer; }
         void SetPeriodicTimer(int32 periodicTimer) { _periodicTimer = periodicTimer; }
 
+        uint32 GetRemainingTimeUntilPeriodicTick() const { return _period - _periodicTimer; }
+
         SpellEffectValue CalculateAmount(Unit* caster);
         static Optional<SpellEffectValue> CalculateEstimatedAmount(Unit const* caster, Unit* target, SpellInfo const* spellInfo, SpellEffectInfo const& spellEffectInfo, SpellEffectValue amount, uint8 stack, AuraEffect const* aurEff);
         Optional<SpellEffectValue> CalculateEstimatedAmount(Unit const* caster, SpellEffectValue amount) const;
@@ -278,11 +280,19 @@ class TC_GAME_API AuraEffect
         void HandleModSpellCritChanceSchool(AuraApplication const* aurApp, uint8 mode, bool apply) const;
         //   attack speed
         void HandleModCastingSpeed(AuraApplication const* aurApp, uint8 mode, bool apply) const;
-        void HandleModMeleeRangedSpeedPct(AuraApplication const* aurApp, uint8 mode, bool apply) const;
-        void HandleModCombatSpeedPct(AuraApplication const* aurApp, uint8 mode, bool apply) const;
+        void HandleModMeleeHaste(AuraApplication const* aurApp, uint8 mode, bool apply) const;
+        void HandleModRangedHaste(AuraApplication const* aurApp, uint8 mode, bool apply) const;
+        void HandleModMeleeRangedHaste(AuraApplication const* aurApp, uint8 mode, bool apply) const;
+        void HandleModMeleeRangedCastingHaste(AuraApplication const* aurApp, uint8 mode, bool apply) const;
+        void HandleModMeleeSlowNoStack(AuraApplication const* aurApp, uint8 mode, bool apply) const;
+        void HandleModRangedSlowNoStack(AuraApplication const* aurApp, uint8 mode, bool apply) const;
+        void HandleModSpellSlowNoStack(AuraApplication const* aurApp, uint8 mode, bool apply) const;
+        void HandleModCastingSlowNoStack(AuraApplication const* aurApp, uint8 mode, bool apply) const;
+        void HandleModMeleeRangedCastingSlowNoStack(AuraApplication const* aurApp, uint8 mode, bool apply) const;
+        void HandleModMeleeHasteNoRegen(AuraApplication const* aurApp, uint8 mode, bool apply) const;
+        void HandleModRangedHasteNoRegen(AuraApplication const* aurApp, uint8 mode, bool apply) const;
+        void HandleModMeleeRangedHasteNoRegen(AuraApplication const* aurApp, uint8 mode, bool apply) const;
         void HandleModAttackSpeed(AuraApplication const* aurApp, uint8 mode, bool apply) const;
-        void HandleModMeleeSpeedPct(AuraApplication const* aurApp, uint8 mode, bool apply) const;
-        void HandleAuraModRangedHaste(AuraApplication const* aurApp, uint8 mode, bool apply) const;
         //   combat rating
         void HandleModRating(AuraApplication const* aurApp, uint8 mode, bool apply) const;
         void HandleModRatingPct(AuraApplication const* aurApp, uint8 mode, bool apply) const;

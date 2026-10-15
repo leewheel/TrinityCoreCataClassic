@@ -448,7 +448,6 @@ bool Player::Create(ObjectGuid::LowType guidlow, WorldPackets::Character::Charac
     SetClass(createInfo->Class);
     SetGender(Gender(createInfo->Sex));
     SetPowerType(Powers(powertype), false);
-    RegisterPowerTypes();
     InitDisplayIds();
     if (sWorld->getIntConfig(CONFIG_GAME_TYPE) == REALM_TYPE_PVP || sWorld->getIntConfig(CONFIG_GAME_TYPE) == REALM_TYPE_RPPVP)
     {
@@ -499,9 +498,9 @@ bool Player::Create(ObjectGuid::LowType guidlow, WorldPackets::Character::Charac
     UpdateMaxHealth();                                      // Update max Health (for add bonus from stamina)
     SetFullHealth();
 
-    for (PowerTypeEntry const* powerType : sPowerTypeStore)
-        if (powerType->GetFlags().HasFlag(PowerTypeFlags::SetToMaxOnInitialLogIn))
-            SetFullPower(Powers(powerType->PowerTypeEnum));
+    for (Powers power : GetPowerTypes())
+        if (sDB2Manager.GetPowerTypeEntry(power)->GetFlags().HasFlag(PowerTypeFlags::SetToMaxOnInitialLogIn))
+            SetFullPower(power);
 
     // original spells
     LearnDefaultSkills();
@@ -1534,6 +1533,7 @@ void Player::RegenerateRunes(uint32 diff)
         return;
 
     // Runes act as cooldowns, and they don't need to send any data
+    PowerTypeEntry const* powerTypeEntry = sDB2Manager.GetPowerTypeEntry(POWER_RUNES);
     for (uint8 i = 0; i < MAX_RUNES; i += 2)
     {
         uint8 runeToRegen = i;
@@ -1541,19 +1541,18 @@ void Player::RegenerateRunes(uint32 diff)
         float secondRuneCd = GetRuneCooldown(i + 1);
 
         // Regenerate second rune of the same type only after first rune is off the cooldown
-        if (G3D::fuzzyNe(secondRuneCd, 0.0f) && (runeCooldown > secondRuneCd || G3D::fuzzyEq(runeCooldown, 0.0f)))
+        // So if the 2nd rune is not fully recharged and the the first rune is either fully recharged or has a lower cooldown, prioritize it
+        if (G3D::fuzzyNe(secondRuneCd, 1.0f) && (runeCooldown < secondRuneCd || G3D::fuzzyEq(runeCooldown, 1.0f)))
         {
             runeToRegen = i + 1;
             runeCooldown = secondRuneCd;
         }
 
-        PowerTypeEntry const* powerTypeEntry = sDB2Manager.GetPowerTypeEntry(POWER_RUNES);
-
         float cdDiff = (powerTypeEntry->RegenPeace + m_unitData->PowerRegenFlatModifier[GetPowerIndex(GetPowerTypeForBaseRune(runeToRegen))]) * 0.001f * diff;
-        if (runeCooldown > cdDiff)
-            SetRuneCooldown(runeToRegen, runeCooldown - cdDiff);
+        if (G3D::fuzzyLt(runeCooldown + cdDiff, 1.0f))
+            SetRuneCooldown(runeToRegen, runeCooldown + cdDiff);
         else
-            SetRuneCooldown(runeToRegen, 0.0f);
+            SetRuneCooldown(runeToRegen, 1.0f);
     }
 }
 
@@ -2062,9 +2061,9 @@ void Player::GiveLevel(uint8 level)
 
     // Only health and mana are set to maximum.
     SetFullHealth();
-    for (PowerTypeEntry const* powerType : sPowerTypeStore)
-        if (powerType->GetFlags().HasFlag(PowerTypeFlags::SetToMaxOnLevelUp))
-            SetFullPower(Powers(powerType->PowerTypeEnum));
+    for (Powers power : GetPowerTypes())
+        if (sDB2Manager.GetPowerTypeEntry(power)->GetFlags().HasFlag(PowerTypeFlags::SetToMaxOnLevelUp))
+            SetFullPower(power);
 
     // update level to hunter/summon pet
     if (Pet* pet = GetPet())
@@ -2220,8 +2219,8 @@ void Player::InitStatsForLevel(bool reapplyMods)
     InitDataForForm(reapplyMods);
 
     // save new stats
-    for (uint8 i = POWER_MANA; i < MAX_POWERS; ++i)
-        SetMaxPower(Powers(i), uint32(GetCreatePowerValue(Powers(i))));
+    for (Powers power : GetPowerTypes())
+        SetMaxPower(power, GetCreatePowerValue(power));
 
     SetMaxHealth(0);                          // stamina bonus will applied later
 
@@ -2316,18 +2315,12 @@ void Player::AddMail(Mail* mail)
 void Player::SendMailResult(uint64 mailId, MailResponseType mailAction, MailResponseResult mailError, uint32 equipError, ObjectGuid::LowType itemGuid, uint32 itemCount) const
 {
     WorldPackets::Mail::MailCommandResult result;
-
     result.MailID = mailId;
     result.Command = mailAction;
     result.ErrorCode = mailError;
-
-    if (mailError == MAIL_ERR_EQUIP_ERROR)
-        result.BagResult = equipError;
-    else if (mailAction == MAIL_ITEM_TAKEN)
-    {
-        result.AttachID = itemGuid;
-        result.QtyInInventory = itemCount;
-    }
+    result.BagResult = equipError;
+    result.AttachID = itemGuid;
+    result.QtyInInventory = itemCount;
     SendDirectMessage(result.Write());
 }
 
@@ -2336,7 +2329,6 @@ void Player::SendNewMail() const
     // deliver undelivered mail
     WorldPackets::Mail::NotifyReceivedMail notify;
     notify.Delay = 0.0f;
-
     SendDirectMessage(notify.Write());
 }
 
@@ -3933,10 +3925,15 @@ void Player::ResurrectPlayer(float restore_percent, bool applySickness)
     {
         SetHealth(GetMaxHealth() * restore_percent);
         SetPower(POWER_MANA, GetMaxPower(POWER_MANA) * restore_percent);
-        SetPower(POWER_RAGE, 0);
-        SetPower(POWER_ENERGY, GetMaxPower(POWER_ENERGY) * restore_percent);
-        SetPower(POWER_FOCUS, GetMaxPower(POWER_FOCUS) * restore_percent);
-        SetPower(POWER_LUNAR_POWER, 0);
+    }
+
+    for (Powers power : GetPowerTypes())
+    {
+        PowerTypeEntry const* powerType = sDB2Manager.GetPowerTypeEntry(power);
+        if (powerType->GetFlags().HasFlag(PowerTypeFlags::SetToMaxOnResurrect))
+            SetPower(power, GetMaxPower(power));
+        else if (!powerType->GetFlags().HasFlag(PowerTypeFlags::NotSetToDefaultOnResurrect))
+            SetPower(power, powerType->DefaultPower);
     }
 
     // trigger update zone for alive state zone updates
@@ -4036,7 +4033,7 @@ Corpse* Player::CreateCorpse()
 
     _corpseLocation.WorldRelocate(*this);
 
-    uint32 flags = 0;
+    CorpseFlags flags = CORPSE_FLAG_NONE;
     if (*m_unitData->PvpFlags & UNIT_BYTE2_FLAG_PVP)
         flags |= CORPSE_FLAG_PVP;
     if (InBattleground() && !InArena())
@@ -4047,10 +4044,16 @@ Corpse* Player::CreateCorpse()
     corpse->SetRace(GetRace());
     corpse->SetSex(GetNativeGender());
     corpse->SetClass(GetClass());
-    corpse->SetCustomizations(Trinity::Containers::MakeIteratorPair(m_playerData->Customizations.begin(), m_playerData->Customizations.end()));
-    corpse->ReplaceAllFlags(flags);
+    corpse->SetCustomizations({ m_playerData->Customizations.begin(), m_playerData->Customizations.end() });
+    corpse->ReplaceAllCorpseFlags(flags);
     corpse->SetDisplayId(GetNativeDisplayId());
     corpse->SetFactionTemplate(sChrRacesStore.AssertEntry(GetRace())->FactionID);
+
+    if (Group const* group = GetGroup())
+        corpse->SetPartyGUID(group->GetGUID());
+
+    if (Guild const* guild = GetGuild())
+        corpse->SetGuildGUID(guild->GetGUID());
 
     for (uint8 i = EQUIPMENT_SLOT_START; i < EQUIPMENT_SLOT_END; i++)
     {
@@ -4862,6 +4865,7 @@ void Player::UpdateRating(CombatRating cr)
             float const multiplier = GetRatingMultiplier(cr);
             float const oldVal = oldRating * multiplier;
             float const newVal = amount * multiplier;
+            int32 highestOtherRating = 0;
             switch (cr)
             {
                 case CR_HASTE_MELEE:
@@ -4870,21 +4874,32 @@ void Player::UpdateRating(CombatRating cr)
                     ApplyAttackTimePercentMod(BASE_ATTACK, newVal, true);
                     ApplyAttackTimePercentMod(OFF_ATTACK, newVal, true);
 
-                    // Item and aura mods increase the haste of all three combat ratings so we only have to pick one
-                    ApplyHasteRegenMod(oldVal, false);
-                    ApplyHasteRegenMod(newVal, true);
+                    highestOtherRating = std::max({ m_activePlayerData->CombatRatings[CR_HASTE_RANGED], m_activePlayerData->CombatRatings[CR_HASTE_SPELL] });
                     break;
                 case CR_HASTE_RANGED:
                     ApplyAttackTimePercentMod(RANGED_ATTACK, oldVal, false);
                     ApplyAttackTimePercentMod(RANGED_ATTACK, newVal, true);
+                    highestOtherRating = std::max(m_activePlayerData->CombatRatings[CR_HASTE_MELEE], m_activePlayerData->CombatRatings[CR_HASTE_SPELL]);
                     break;
                 case CR_HASTE_SPELL:
                     ApplyCastTimePercentMod(oldVal, false);
+                    ApplySpellHastePercentMod(oldVal, false);
                     ApplyCastTimePercentMod(newVal, true);
+                    ApplySpellHastePercentMod(newVal, true);
+                    highestOtherRating = std::max(m_activePlayerData->CombatRatings[CR_HASTE_MELEE], m_activePlayerData->CombatRatings[CR_HASTE_RANGED]);
                     break;
                 default:
                     break;
             }
+
+            float oldHasteRegenVal = std::max(oldRating, highestOtherRating) * multiplier;
+            float newHasteRegenVal = std::max(amount, highestOtherRating) * multiplier;
+            if (oldHasteRegenVal != newHasteRegenVal)
+            {
+                ApplyHasteRegenPercentMod(oldHasteRegenVal, false);
+                ApplyHasteRegenPercentMod(newHasteRegenVal, true);
+            }
+
             break;
         }
         case CR_AVOIDANCE:
@@ -12338,7 +12353,7 @@ void Player::SendEquipError(InventoryResult msg, Item const* item1 /*= nullptr*/
     SendDirectMessage(failure.Write());
 }
 
-void Player::SendBuyError(BuyResult msg, Creature* creature, uint32 item, uint32 /*param*/) const
+void Player::SendBuyError(BuyResult msg, Creature const* creature, uint32 item) const
 {
     WorldPackets::Item::BuyFailed packet;
     packet.VendorGUID = creature ? creature->GetGUID() : ObjectGuid::Empty;
@@ -12347,7 +12362,7 @@ void Player::SendBuyError(BuyResult msg, Creature* creature, uint32 item, uint32
     SendDirectMessage(packet.Write());
 }
 
-void Player::SendSellError(SellResult msg, Creature* creature, ObjectGuid guid) const
+void Player::SendSellError(SellResult msg, Creature const* creature, ObjectGuid guid) const
 {
     WorldPackets::Item::SellResponse sellResponse;
     sellResponse.VendorGUID = creature ? creature->GetGUID() : ObjectGuid::Empty;
@@ -13260,7 +13275,7 @@ void Player::OnGossipSelect(WorldObject* source, int32 gossipOptionId, uint32 me
     int64 cost = int64(item->BoxMoney);
     if (!HasEnoughMoney(cost))
     {
-        SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, nullptr, 0, 0);
+        SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, nullptr, 0);
         PlayerTalkClass->SendCloseGossip();
         return;
     }
@@ -17371,7 +17386,6 @@ bool Player::LoadFromDB(ObjectGuid guid, CharacterDatabaseQueryHolder const& hol
 
     //uint32 lootSpecId = fields.lootSpecId;
 
-    RegisterPowerTypes();
     UpdateDisplayPower();
     _LoadTalents(holder.GetPreparedResult(PLAYER_LOGIN_QUERY_LOAD_TALENT_GROUPS), holder.GetPreparedResult(PLAYER_LOGIN_QUERY_LOAD_TALENTS));
     _LoadGlyphs(holder.GetPreparedResult(PLAYER_LOGIN_QUERY_LOAD_GLYPHS));
@@ -17458,21 +17472,13 @@ bool Player::LoadFromDB(ObjectGuid guid, CharacterDatabaseQueryHolder const& hol
 
     // restore remembered power/health values (but not more max values)
     SetHealth(savedHealth > GetMaxHealth() ? GetMaxHealth() : savedHealth);
-    uint32 loadedPowers = 0;
-    for (uint32 i = 0; i < MAX_POWERS; ++i)
+    ClassPowerTypes powerTypes = GetPowerTypes();
+    for (uint32 i = 0; i < powerTypes.PowerTypeCount; ++i)
     {
-        if (GetPowerIndex(Powers(i)) != MAX_POWERS)
-        {
-            uint32 savedPower = fields.powers[loadedPowers];
-            uint32 maxPower = m_unitData->MaxPower[loadedPowers];
-            SetPower(Powers(i), (savedPower > maxPower) ? maxPower : savedPower);
-            if (++loadedPowers >= MAX_POWERS_PER_CLASS)
-                break;
-        }
+        int32 savedPower = fields.powers[i];
+        int32 maxPower = m_unitData->MaxPower[i];
+        SetPower(powerTypes.PowerType[i], std::min(savedPower, maxPower));
     }
-
-    for (; loadedPowers < MAX_POWERS_PER_CLASS; ++loadedPowers)
-        SetUpdateFieldValue(m_values.ModifyValue(&Unit::m_unitData).ModifyValue(&UF::UnitData::Power, loadedPowers), 0);
 
     SetPower(POWER_LUNAR_POWER, 0);
 
@@ -17882,7 +17888,7 @@ void Player::_LoadInventory(PreparedQueryResult result, uint32 timeDiff)
     //                39           40           41                42          43           44           45                46          47           48           49                50
     //        gemItemId1, gemBonuses1, gemContext1, gemScalingLevel1, gemItemId2, gemBonuses2, gemContext2, gemScalingLevel2, gemItemId3, gemBonuses3, gemContext3, gemScalingLevel3
     //                       51                      52             53
-    //        fixedScalingLevel, artifactKnowledgeLevel, itemReforgeId FROM item_instance
+    //        fixedScalingLevel, artifactKnowledgeLevel, itemReforgeId
     //         54    55
     //        bag, slot
     // FROM character_inventory ci
@@ -21965,7 +21971,7 @@ bool Player::BuyCurrencyFromVendorSlot(ObjectGuid vendorGuid, uint32 vendorSlot,
     CurrencyTypesEntry const* proto = sCurrencyTypesStore.LookupEntry(currency);
     if (!proto)
     {
-        SendBuyError(BUY_ERR_CANT_FIND_ITEM, nullptr, currency, 0);
+        SendBuyError(BUY_ERR_CANT_FIND_ITEM, nullptr, currency);
         return false;
     }
 
@@ -21974,20 +21980,20 @@ bool Player::BuyCurrencyFromVendorSlot(ObjectGuid vendorGuid, uint32 vendorSlot,
     {
         TC_LOG_DEBUG("network", "Player::BuyCurrencyFromVendorSlot: Vendor ({}) not found or player '{}' ({}) can't interact with him.",
             vendorGuid.ToString(), GetName(), GetGUID().ToString());
-        SendBuyError(BUY_ERR_DISTANCE_TOO_FAR, nullptr, currency, 0);
+        SendBuyError(BUY_ERR_DISTANCE_TOO_FAR, nullptr, currency);
         return false;
     }
 
     VendorItemData const* vItems = creature->GetVendorItems();
     if (!vItems || vItems->Empty())
     {
-        SendBuyError(BUY_ERR_CANT_FIND_ITEM, creature, currency, 0);
+        SendBuyError(BUY_ERR_CANT_FIND_ITEM, creature, currency);
         return false;
     }
 
     if (vendorSlot >= vItems->GetItemCount())
     {
-        SendBuyError(BUY_ERR_CANT_FIND_ITEM, creature, currency, 0);
+        SendBuyError(BUY_ERR_CANT_FIND_ITEM, creature, currency);
         return false;
     }
 
@@ -21995,7 +22001,7 @@ bool Player::BuyCurrencyFromVendorSlot(ObjectGuid vendorGuid, uint32 vendorSlot,
     // store diff item (cheating)
     if (!crItem || crItem->item != currency || crItem->Type != ITEM_VENDOR_TYPE_CURRENCY)
     {
-        SendBuyError(BUY_ERR_CANT_FIND_ITEM, creature, currency, 0);
+        SendBuyError(BUY_ERR_CANT_FIND_ITEM, creature, currency);
         return false;
     }
 
@@ -22033,7 +22039,7 @@ bool Player::BuyCurrencyFromVendorSlot(ObjectGuid vendorGuid, uint32 vendorSlot,
             CurrencyTypesEntry const* entry = sCurrencyTypesStore.LookupEntry(iece->CurrencyID[i]);
             if (!entry)
             {
-                SendBuyError(BUY_ERR_CANT_FIND_ITEM, creature, currency, 0); // Find correct error
+                SendBuyError(BUY_ERR_CANT_FIND_ITEM, creature, currency); // Find correct error
                 return false;
             }
 
@@ -22060,7 +22066,7 @@ bool Player::BuyCurrencyFromVendorSlot(ObjectGuid vendorGuid, uint32 vendorSlot,
 
         if (iece->MinFactionID && uint32(GetReputationRank(iece->MinFactionID)) < iece->RequiredAchievement)
         {
-            SendBuyError(BUY_ERR_REPUTATION_REQUIRE, creature, currency, 0);
+            SendBuyError(BUY_ERR_REPUTATION_REQUIRE, creature, currency);
             return false;
         }
 
@@ -22078,7 +22084,7 @@ bool Player::BuyCurrencyFromVendorSlot(ObjectGuid vendorGuid, uint32 vendorSlot,
     }
     else // currencies have no price defined, can only be bought with ExtendedCost
     {
-        SendBuyError(BUY_ERR_CANT_FIND_ITEM, nullptr, currency, 0);
+        SendBuyError(BUY_ERR_CANT_FIND_ITEM, nullptr, currency);
         return false;
     }
 
@@ -22125,13 +22131,13 @@ bool Player::BuyItemFromVendorSlot(ObjectGuid vendorguid, uint32 vendorslot, uin
     ItemTemplate const* pProto = sObjectMgr->GetItemTemplate(item);
     if (!pProto)
     {
-        SendBuyError(BUY_ERR_CANT_FIND_ITEM, nullptr, item, 0);
+        SendBuyError(BUY_ERR_CANT_FIND_ITEM, nullptr, item);
         return false;
     }
 
     if (!(pProto->GetAllowableClass() & GetClassMask()) && pProto->GetBonding() == BIND_ON_ACQUIRE && !IsGameMaster())
     {
-        SendBuyError(BUY_ERR_CANT_FIND_ITEM, nullptr, item, 0);
+        SendBuyError(BUY_ERR_CANT_FIND_ITEM, nullptr, item);
         return false;
     }
 
@@ -22143,7 +22149,7 @@ bool Player::BuyItemFromVendorSlot(ObjectGuid vendorguid, uint32 vendorslot, uin
     {
         TC_LOG_DEBUG("network", "Player::BuyItemFromVendorSlot: Vendor ({}) not found or player '{}' ({}) can't interact with him.",
             vendorguid.ToString(), GetName(), GetGUID().ToString());
-        SendBuyError(BUY_ERR_DISTANCE_TOO_FAR, nullptr, item, 0);
+        SendBuyError(BUY_ERR_DISTANCE_TOO_FAR, nullptr, item);
         return false;
     }
 
@@ -22151,20 +22157,20 @@ bool Player::BuyItemFromVendorSlot(ObjectGuid vendorguid, uint32 vendorslot, uin
     {
         TC_LOG_DEBUG("condition", "Player::BuyItemFromVendorSlot: Player '{}' ({}) doesn't meed conditions for creature (Entry: {}, Item: {})",
             GetName(), GetGUID().ToString(), creature->GetEntry(), item);
-        SendBuyError(BUY_ERR_CANT_FIND_ITEM, creature, item, 0);
+        SendBuyError(BUY_ERR_CANT_FIND_ITEM, creature, item);
         return false;
     }
 
     VendorItemData const* vItems = creature->GetVendorItems();
     if (!vItems || vItems->Empty())
     {
-        SendBuyError(BUY_ERR_CANT_FIND_ITEM, creature, item, 0);
+        SendBuyError(BUY_ERR_CANT_FIND_ITEM, creature, item);
         return false;
     }
 
     if (vendorslot >= vItems->GetItemCount())
     {
-        SendBuyError(BUY_ERR_CANT_FIND_ITEM, creature, item, 0);
+        SendBuyError(BUY_ERR_CANT_FIND_ITEM, creature, item);
         return false;
     }
 
@@ -22172,7 +22178,7 @@ bool Player::BuyItemFromVendorSlot(ObjectGuid vendorguid, uint32 vendorslot, uin
     // store diff item (cheating)
     if (!crItem || crItem->item != item)
     {
-        SendBuyError(BUY_ERR_CANT_FIND_ITEM, creature, item, 0);
+        SendBuyError(BUY_ERR_CANT_FIND_ITEM, creature, item);
         return false;
     }
 
@@ -22187,14 +22193,14 @@ bool Player::BuyItemFromVendorSlot(ObjectGuid vendorguid, uint32 vendorslot, uin
     {
         if (creature->GetVendorItemCurrentCount(crItem) < count)
         {
-            SendBuyError(BUY_ERR_ITEM_ALREADY_SOLD, creature, item, 0);
+            SendBuyError(BUY_ERR_ITEM_ALREADY_SOLD, creature, item);
             return false;
         }
     }
 
     if (pProto->GetRequiredReputationFaction() && (uint32(GetReputationRank(pProto->GetRequiredReputationFaction())) < pProto->GetRequiredReputationRank()))
     {
-        SendBuyError(BUY_ERR_REPUTATION_REQUIRE, creature, item, 0);
+        SendBuyError(BUY_ERR_REPUTATION_REQUIRE, creature, item);
         return false;
     }
 
@@ -22232,7 +22238,7 @@ bool Player::BuyItemFromVendorSlot(ObjectGuid vendorguid, uint32 vendorslot, uin
             CurrencyTypesEntry const* entry = sCurrencyTypesStore.LookupEntry(iece->CurrencyID[i]);
             if (!entry)
             {
-                SendBuyError(BUY_ERR_CANT_FIND_ITEM, creature, item, 0);
+                SendBuyError(BUY_ERR_CANT_FIND_ITEM, creature, item);
                 return false;
             }
 
@@ -22258,7 +22264,7 @@ bool Player::BuyItemFromVendorSlot(ObjectGuid vendorguid, uint32 vendorslot, uin
 
         if (iece->MinFactionID && int32(GetReputationRank(iece->MinFactionID)) < iece->MinReputation)
         {
-            SendBuyError(BUY_ERR_REPUTATION_REQUIRE, creature, item, 0);
+            SendBuyError(BUY_ERR_REPUTATION_REQUIRE, creature, item);
             return false;
         }
 
@@ -22296,7 +22302,7 @@ bool Player::BuyItemFromVendorSlot(ObjectGuid vendorguid, uint32 vendorslot, uin
 
         if (!HasEnoughMoney(price))
         {
-            SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, creature, item, 0);
+            SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, creature, item);
             return false;
         }
     }
@@ -25420,7 +25426,7 @@ void Player::ResyncRunes() const
 
     data.Runes.Cooldowns.reserve(MAX_RUNES);
     for (uint8 i = 0; i < MAX_RUNES; ++i)
-        data.Runes.Cooldowns.push_back((1.0f - GetRuneCooldown(i)) * uint32(255));
+        data.Runes.Cooldowns.push_back(GetRuneCooldown(i) * 255.0f);
 
     SendDirectMessage(data.Write());
 }
@@ -25456,7 +25462,7 @@ void Player::InitRunes()
     {
         SetBaseRune(i, runeSlotTypes[i]);                              // init base types
         SetCurrentRune(i, runeSlotTypes[i]);                           // init current types
-        SetRuneCooldown(i, 0.0f);                                      // reset cooldowns
+        SetRuneCooldown(i, 1.0f);                                      // reset cooldowns
         SetRuneConvertAura(i, nullptr, SPELL_AURA_NONE, nullptr);
         m_runes->SetRuneState(i);
     }
@@ -25464,7 +25470,7 @@ void Player::InitRunes()
     for (Powers rune : { POWER_RUNE_BLOOD, POWER_RUNE_FROST, POWER_RUNE_UNHOLY })
     {
         int32 powerIndex = GetPowerIndex(rune);
-        if (powerIndex == MAX_POWERS)
+        if (powerIndex >= MAX_POWERS_PER_CLASS)
             continue;
 
         SetUpdateFieldValue(m_values.ModifyValue(&Unit::m_unitData).ModifyValue(&UF::UnitData::PowerRegenFlatModifier, powerIndex), 0.0f);
@@ -25486,7 +25492,7 @@ Powers Player::GetPowerTypeForBaseRune(uint8 index) const
 
 bool Player::IsRuneFullyDepleted(uint8 index) const
 {
-    return G3D::fuzzyEq(GetRuneCooldown(index), RUNE_BASE_COOLDOWN);
+    return G3D::fuzzyEq(GetRuneCooldown(index), 0.0f);
 }
 
 bool Player::HasFullyDepletedRune(RuneType runeType) const
@@ -25522,7 +25528,7 @@ void Player::AddRuneByAuraEffect(uint8 index, RuneType newType, AuraEffect const
 void Player::SetRuneCooldown(uint8 index, float cooldown)
 {
     m_runes->_Runes[index].Cooldown = cooldown;
-    m_runes->SetRuneState(index, (cooldown == 0) ? true : false);
+    m_runes->SetRuneState(index, G3D::fuzzyEq(cooldown, 1.0f));
 }
 
 void Player::RemoveRunesByAuraEffect(AuraEffect const* aura)

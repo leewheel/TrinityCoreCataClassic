@@ -423,8 +423,6 @@ struct Areas
 
 constexpr uint8 MAX_RUNES = 6;
 
-constexpr float RUNE_BASE_COOLDOWN = 1.0f;
-
 enum class RuneType : uint8
 {
     Blood   = 0,
@@ -1507,8 +1505,8 @@ class TC_GAME_API Player final : public Unit, public GridObject<Player>
         Item* GetItemFromBuyBackSlot(uint32 slot);
         void RemoveItemFromBuyBackSlot(uint32 slot, bool del);
         void SendEquipError(InventoryResult msg, Item const* item1 = nullptr, Item const* item2 = nullptr, uint32 itemId = 0) const;
-        void SendBuyError(BuyResult msg, Creature* creature, uint32 item, uint32 param) const;
-        void SendSellError(SellResult msg, Creature* creature, ObjectGuid guid) const;
+        void SendBuyError(BuyResult msg, Creature const* creature, uint32 item) const;
+        void SendSellError(SellResult msg, Creature const* creature, ObjectGuid guid) const;
         void AddWeaponProficiency(uint32 newflag) { m_WeaponProficiency |= newflag; }
         void AddArmorProficiency(uint32 newflag) { m_ArmorProficiency |= newflag; }
         uint32 GetWeaponProficiency() const { return m_WeaponProficiency; }
@@ -2034,6 +2032,7 @@ class TC_GAME_API Player final : public Unit, public GridObject<Player>
         void UpdateMaxHealth() override;
         void UpdateMaxPower(Powers power) override;
         uint32 GetPowerIndex(Powers power) const override;
+        ClassPowerTypes GetPowerTypes() const override;
         void UpdateAttackPowerAndDamage(bool ranged = false) override;
         void ApplySpellPowerBonus(int32 amount, bool apply);
         void UpdateSpellDamageAndHealingBonus();

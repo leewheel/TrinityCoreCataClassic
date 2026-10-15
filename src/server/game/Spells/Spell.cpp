@@ -3225,7 +3225,7 @@ void Spell::DoSpellEffectHit(Unit* unit, SpellEffectInfo const& spellEffectInfo,
 
             if (!hitInfo.HitAura)
             {
-                bool const resetPeriodicTimer = (m_spellInfo->StackAmount < 2) && !(_triggeredCastFlags & TRIGGERED_DONT_RESET_PERIODIC_TIMER);
+                bool const resetPeriodicTimer = false; //(m_spellInfo->StackAmount < 2) && !(_triggeredCastFlags & TRIGGERED_DONT_RESET_PERIODIC_TIMER);
                 uint32 const allAuraEffectMask = Aura::BuildEffectMaskForOwner(m_spellInfo, MAX_EFFECT_MASK, unit);
 
                 AuraCreateInfo createInfo(m_castId, m_spellInfo, GetCastDifficulty(), allAuraEffectMask, unit);
@@ -3269,10 +3269,20 @@ void Spell::DoSpellEffectHit(Unit* unit, SpellEffectInfo const& spellEffectInfo,
                                     hitInfo.AuraDuration = int32(origDuration * m_originalCaster->m_unitData->ModCastingSpeed);
                             }
 
-                            if (refresh && m_spellInfo->HasAttribute(SPELL_ATTR13_PERIODIC_REFRESH_EXTENDS_DURATION))
+                            if (refresh && hitInfo.HitAura->HasPeriodicEffect())
                             {
-                                int32 newDuration = hitInfo.AuraDuration + hitInfo.HitAura->GetDuration();
-                                hitInfo.AuraDuration = std::min(newDuration, CalculatePct(hitInfo.AuraDuration, 130));
+                                if (m_spellInfo->HasAttribute(SPELL_ATTR13_PERIODIC_REFRESH_EXTENDS_DURATION))
+                                {
+                                    // Add up to 30% additional duration on a refreshed periodic aura
+                                    int32 newDuration = hitInfo.AuraDuration + hitInfo.HitAura->GetDuration();
+                                    hitInfo.AuraDuration = std::min(newDuration, CalculatePct(hitInfo.AuraDuration, 130));
+                                }
+                                else
+                                {
+                                    // Add the remaining time until periodic tick to the duration
+                                    int32 newDuration = hitInfo.AuraDuration + hitInfo.HitAura->GetRemainingTimeUntilPeriodicTick();
+                                    hitInfo.AuraDuration = newDuration;
+                                }
                             }
                         }
                     }
@@ -4750,7 +4760,7 @@ void Spell::SendSpellGo()
         castData.RemainingRunes->Start = m_runesState; // runes state before
         castData.RemainingRunes->Count = player->GetRunesState(); // runes state after
         for (uint8 i = 0; i < MAX_RUNES; ++i)
-            castData.RemainingRunes->Cooldowns.push_back((1.0f - player->GetRuneCooldown(i)) * uint32(255)); // rune cooldown passed
+            castData.RemainingRunes->Cooldowns.push_back(player->GetRuneCooldown(i) * 255.0f); // rune cooldown passed
     }
 
     if (castFlags & CAST_FLAG_ADJUST_MISSILE)
@@ -5391,7 +5401,7 @@ SpellCastResult Spell::CheckRuneCost() const
     for (uint32 i = 0; i < MAX_RUNES; ++i)
     {
         RuneType rune = player->GetCurrentRune(i);
-        if (G3D::fuzzyEq(player->GetRuneCooldown(i), 0.0f) && (runeCost[AsUnderlyingType(rune)] > 0))
+        if (G3D::fuzzyEq(player->GetRuneCooldown(i), 1.0f) && (runeCost[AsUnderlyingType(rune)] > 0))
             runeCost[AsUnderlyingType(rune)]--;
     }
 
@@ -5447,9 +5457,9 @@ void Spell::TakeRunePower(bool didHit)
     for (uint32 i = 0; i < MAX_RUNES; ++i)
     {
         RuneType rune = player->GetCurrentRune(i);
-        if (!player->GetRuneCooldown(i) && runeCost[AsUnderlyingType(rune)] > 0)
+        if (G3D::fuzzyEq(player->GetRuneCooldown(i), 1.0f) && runeCost[AsUnderlyingType(rune)] > 0)
         {
-            player->SetRuneCooldown(i, RUNE_BASE_COOLDOWN);
+            player->SetRuneCooldown(i, 0.0f);
             player->SetLastUsedRune(rune);
             player->SetLastUsedRuneIndex(i);
             --runeCost[AsUnderlyingType(rune)];
@@ -5464,9 +5474,9 @@ void Spell::TakeRunePower(bool didHit)
         for (uint8 i = 0; i < MAX_RUNES; ++i)
         {
             RuneType rune = player->GetCurrentRune(i);
-            if (G3D::fuzzyEq(player->GetRuneCooldown(i), 0.0f) && rune == RuneType::Death)
+            if (G3D::fuzzyEq(player->GetRuneCooldown(i), 1.0f) && rune == RuneType::Death)
             {
-                player->SetRuneCooldown(i, RUNE_BASE_COOLDOWN);
+                player->SetRuneCooldown(i, 0.0f);
                 player->SetLastUsedRune(rune);
                 player->SetLastUsedRuneIndex(i);
                 runeCost[AsUnderlyingType(rune)]--;
@@ -7929,7 +7939,7 @@ bool Spell::CheckEffectTarget(Unit const* target, SpellEffectInfo const& spellEf
             if (target->GetGUID() != corpse->GetOwnerGUID())
                 return false;
 
-            if (!corpse->HasDynamicFlag(CORPSE_DYNFLAG_LOOTABLE))
+            if (!corpse->HasCorpseFlag(CORPSE_FLAG_SKINNABLE))
                 return false;
 
             if (!IsWithinLOS(m_caster, corpse, true, VMAP::ModelIgnoreFlags::M2))
